@@ -1,0 +1,6 @@
+[style]
+based_on_style = pep8
+column_limit = 120
+spaces_before_comment = 4
+blank_line_before_module_docstring = True
+dedent_closing_brackets = True

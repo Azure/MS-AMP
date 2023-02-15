@@ -1,6 +1,7 @@
 [flake8]
 max-complexity = 10
 max-line-length = 120
+# flake8-docstrings extension
 inline-quotes = single
 multiline-quotes = double
 docstring-quotes = double
