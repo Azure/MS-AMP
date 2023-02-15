@@ -8,6 +8,8 @@ from msamp.common.dtype import Dtypes
 
 class Floating:
     """Computes and provides the maximum floating point value."""
+    fp_maxs: dict = {}
+    qfp_max: dict = {}
 
     @staticmethod
     def _get_fp_max(exp, man, inf_existed=True):
