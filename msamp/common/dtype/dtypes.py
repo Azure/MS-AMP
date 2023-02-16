@@ -2,7 +2,9 @@
 
 from dataclasses import dataclass
 import torch
-from superbench.common.utils import logger
+
+setattr(torch, 'fp8e4m3', torch.uint8)
+setattr(torch, 'fp8e5m2', torch.int8)
 
 
 @dataclass
@@ -34,8 +36,8 @@ class Dtypes:
         torch.float32: kfloat32,
     }
     qtype_to_dtype = dict((v, k) for k, v in dtype_to_qtype.items())
-    qtype_to_dtype[kfloat8_e4m3] = torch.uint8
-    qtype_to_dtype[kfloat8_e5m2] = torch.uint8
+    qtype_to_dtype[kfloat8_e4m3] = torch.fp8e4m3    # type: ignore
+    qtype_to_dtype[kfloat8_e5m2] = torch.fp8e5m2    # type: ignore
 
     dtype_to_size = {
         torch.float32: 4,
@@ -47,35 +49,6 @@ class Dtypes:
         torch.int64: 8,
         torch.int32: 4
     }
-
-    dtype_to_names = {
-        torch.uint8: ['e4m3'],
-        torch.int8: ['e5m2'],
-        torch.float16: ['float16', 'fp16', 'half'],    # E5M10
-        torch.bfloat16: ['bfloat16', 'bf16'],    # E8M7
-        torch.float32: ['float32', 'fp32'],    # E8M23
-        torch.float64: ['float64', 'fp64'],    # E11M52
-    }
-
-    name_to_dtype = dict()
-    for dt, names in dtype_to_names.items():
-        for name in names:
-            if name in name_to_dtype:
-                logger.warning(f'{name} already exists in name_to_dtype')
-                continue
-            name_to_dtype[name] = dt
-
-    @classmethod
-    def get_fp_dtype(cls, name):
-        """Get floating point dtype by name.
-
-        Args:
-            name (str): dtype name such e4m3, e5m2.
-
-        Return:
-            dtype (torch.dtype): The data type in pytorch.
-        """
-        return cls.name_to_dtype[name]
 
     @classmethod
     def is_fp8_qtype(cls, qtype):

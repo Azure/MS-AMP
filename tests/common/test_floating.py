@@ -5,7 +5,7 @@ from msamp.common.dtype.dtypes import Dtypes
 
 def test_fp_max():
     """Test fp_max in Floating class."""
-    expect_fp_maxs = {torch.uint8: 448, torch.int8: 57344, torch.float16: 65504}
+    expect_fp_maxs = {torch.fp8e4m3: 448, torch.fp8e5m2: 57344, torch.float16: 65504}
 
     for k, v in expect_fp_maxs.items():
         assert Floating.fp_maxs[k] == v

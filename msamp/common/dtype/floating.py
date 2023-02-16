@@ -33,8 +33,8 @@ class Floating:
 
 
 Floating.fp_maxs = {
-    torch.uint8: Floating._get_fp_max(exp=4, man=3, inf_existed=False),
-    torch.int8: Floating._get_fp_max(exp=5, man=2),
+    torch.fp8e4m3: Floating._get_fp_max(exp=4, man=3, inf_existed=False),    # type: ignore
+    torch.fp8e5m2: Floating._get_fp_max(exp=5, man=2),    # type: ignore
     torch.float16: Floating._get_fp_max(exp=5, man=10),
     torch.bfloat16: Floating._get_fp_max(exp=8, man=7),
     torch.float32: Floating._get_fp_max(exp=8, man=23),
