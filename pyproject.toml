@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "MS-AMP"
+description = "Microsoft automatic mixed precision library"
+readme = "README.md"
+requires-python = ">=3.7"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Microsoft", email = "TODO@microsoft.com"},
+]
+keywords = ["AMP", "FP8"]
+classifiers=[
+    "Development Status :: 2 - Pre-Alpha",
+    "Environment :: GPU",
+    "Environment :: GPU :: NVIDIA CUDA",
+    "Environment :: GPU :: NVIDIA CUDA :: 11",
+    "Environment :: GPU :: NVIDIA CUDA :: 12",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "python-hostlist",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+test = [
+    "flake8-docstrings",
+    "flake8-quotes",
+    "flake8",
+    "pydocstyle",
+    "pytest-cov",
+    "pytest",
+    "yapf",
+]
+
+[project.urls]
+homepage = "https://github.com/Azure/MS-AMP"
+documentation = "https://github.com/Azure/MS-AMP/blob/main/README.md"
+repository = "https://github.com/Azure/MS-AMP.git"
+
+[tool.setuptools]
+packages = ["msamp"]
+
+[tool.setuptools.dynamic]
+version = {attr = "msamp.__version__"}
+
+[tool.yapf]
+based_on_style = "pep8"
+column_limit = 120
+spaces_before_comment = 4
+blank_line_before_module_docstring = "true"
+dedent_closing_brackets = "true"

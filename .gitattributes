@@ -1,0 +1,5 @@
+*           text=auto eol=lf
+
+# Source files
+bin/*       text
+*.py        text diff=python

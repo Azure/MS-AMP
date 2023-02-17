@@ -1,0 +1,21 @@
+root = true
+
+[*]
+indent_style = space
+indent_size = 4
+charset = utf-8
+end_of_line = lf
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.py]
+max_line_length = 120
+
+[*.{js,jsx,ts,tsx,md,mdx,css}]
+indent_size = 2
+
+[*.{yml,yaml,json}]
+indent_size = 2
+
+[{*.mk,Makefile}]
+indent_style = tab
