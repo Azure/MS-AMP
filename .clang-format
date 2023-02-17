@@ -1,0 +1,5 @@
+# Reference: https://clang.llvm.org/docs/ClangFormat.html
+
+BasedOnStyle: LLVM
+ColumnLimit: 120
+IndentWidth: 4

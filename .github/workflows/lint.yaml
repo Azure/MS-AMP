@@ -1,0 +1,33 @@
+name: Lint
+
+on:
+  pull_request:
+    branches:
+    - main
+    - release/*
+
+jobs:
+  spelling:
+    name: Spelling check
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Install dependencies
+      run: |
+        curl -L https://git.io/misspell | sudo bash -s -- -b /bin
+    - name: Check spelling
+      run: |
+        misspell -error .
+  cpp:
+    name: CPP code lint
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Echo clang-format version
+      run: |
+        clang-format --version
+    - name: Lint
+      run: |
+        make cpplint

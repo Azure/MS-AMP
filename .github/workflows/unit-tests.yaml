@@ -1,0 +1,31 @@
+name: Unit Tests
+
+on:
+  pull_request:
+    branches:
+    - main
+    - release/*
+
+jobs:
+  unit-tests:
+    name: Build and run unit tests
+    runs-on: [self-hosted, linux, x64, gpu]
+    container:
+      image: nvcr.io/nvidia/pytorch:22.12-py3
+      options: --privileged --ipc=host --gpus=all
+    steps:
+    - name: Checkout msamp
+      uses: actions/checkout@v2
+    - name: Install dependencies
+      run: |
+        python3 -m pip install --upgrade pip
+        python3 -m pip install .[test]
+    - name: Run code lint
+      run: |
+        python3 setup.py lint
+    - name: Run unit tests
+      run: |
+        python3 setup.py test
+    # - name: Report coverage results
+    #   run: |
+    #     bash <(curl -s https://codecov.io/bash)
