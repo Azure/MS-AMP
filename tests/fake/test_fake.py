@@ -3,7 +3,10 @@
 
 """Fake test."""
 
+import os
 import unittest
+
+from tests.helper import decorator
 
 
 class FakeTestCase(unittest.TestCase):
@@ -23,3 +26,10 @@ class FakeTestCase(unittest.TestCase):
     def test_add(self):
         """Test add."""
         self.assertEqual(1 + 2, 3)
+
+    @decorator.cuda_test
+    def test_nvidia_smi(self):
+        """Test nvidia-smi."""
+        smi = os.popen('nvidia-smi').read().strip()
+        self.assertIn('NVIDIA-SMI', smi)
+        self.assertIn('H100', smi)
