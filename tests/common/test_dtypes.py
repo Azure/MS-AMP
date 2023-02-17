@@ -25,7 +25,6 @@ def test_is_fp8_qtype():
 
 def test_qtype_to_dtype():
     """Test qtype_to_dtype in Dtypes."""
-
     qtype_to_dtype = {
         Dtypes.kfloat16: torch.float16,
         Dtypes.kbfloat16: torch.bfloat16,

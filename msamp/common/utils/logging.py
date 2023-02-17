@@ -19,7 +19,6 @@ except Exception:
 
 class LoggerAdapter(logging.LoggerAdapter):
     """LoggerAdapter class which add customized function for log error and raise exception."""
-
     def log_and_raise(self, exception, msg, *args):
         """Log error and raise exception.
 
@@ -34,7 +33,6 @@ class LoggerAdapter(logging.LoggerAdapter):
 
 class MsAmpLogger:
     """MsAMP Logger class."""
-
     @staticmethod
     def add_handler(logger, stream=sys.stdout, filename=None, color=False):
         """Add handler for logger.

@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-"""MS-AMP dtypes module"""
+"""MS-AMP dtypes module."""
 
 from dataclasses import dataclass
 import torch
@@ -17,9 +17,11 @@ class QType:
     value: int
 
     def __int__(self):
+        """Built-in int function."""
         return self.value
 
     def __hash__(self):
+        """Built-in hash function."""
         return self.value
 
 
@@ -37,8 +39,8 @@ class Dtypes:
         torch.float16: kfloat16,
         torch.bfloat16: kbfloat16,
         torch.float32: kfloat32,
-        torch.fp8e4m3: kfloat8_e4m3,  # type: ignore
-        torch.fp8e5m2: kfloat8_e5m2  # type: ignore
+        torch.fp8e4m3: kfloat8_e4m3,    # type: ignore
+        torch.fp8e5m2: kfloat8_e5m2    # type: ignore
     }
     qtype_to_dtype = dict((v, k) for k, v in dtype_to_qtype.items())
 
@@ -55,7 +57,7 @@ class Dtypes:
 
     @classmethod
     def is_fp8_qtype(cls, qtype):
-        """Check whether the qtype is fp8
+        """Check whether the qtype is fp8.
 
         Args:
             qtype (Qtype): qtype to check.
