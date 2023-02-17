@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
 """MS-AMP dtypes module"""
 
 from dataclasses import dataclass
@@ -34,10 +37,10 @@ class Dtypes:
         torch.float16: kfloat16,
         torch.bfloat16: kbfloat16,
         torch.float32: kfloat32,
+        torch.fp8e4m3: kfloat8_e4m3,  # type: ignore
+        torch.fp8e5m2: kfloat8_e5m2  # type: ignore
     }
     qtype_to_dtype = dict((v, k) for k, v in dtype_to_qtype.items())
-    qtype_to_dtype[kfloat8_e4m3] = torch.fp8e4m3    # type: ignore
-    qtype_to_dtype[kfloat8_e5m2] = torch.fp8e5m2    # type: ignore
 
     dtype_to_size = {
         torch.float32: 4,
@@ -60,4 +63,4 @@ class Dtypes:
         Return:
             flag (bool): whether qtype is fp8.
         """
-        return qtype in {cls.kfloat8_e4m3, cls.kfloat8_e5m2}
+        return qtype in [cls.kfloat8_e4m3, cls.kfloat8_e5m2]

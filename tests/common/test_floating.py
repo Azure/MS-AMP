@@ -1,3 +1,8 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+"""Tests for floating module."""
+
 import torch
 from msamp.common.dtype.floating import Floating
 from msamp.common.dtype.dtypes import Dtypes

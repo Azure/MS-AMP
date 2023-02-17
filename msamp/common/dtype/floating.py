@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
 """MS-AMP floating module."""
 
 import torch
@@ -18,7 +21,7 @@ class Floating:
         Args:
             exp (int): Number of exponent bits.
             man (int): Number of mantissa bits.
-            inf_existed(bool): Whether represens infinite when exponent bits are all one.
+            inf_existed(bool): Whether represent infinite when exponent bits are all one.
         Return:
             value (float): The float point value.
         """
