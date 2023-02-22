@@ -7,11 +7,12 @@ import os
 import unittest
 
 import torch
+import transformer_engine as te
 import transformer_engine_extensions as tex
 
 from tests.helper import decorator
 from msamp.common.dtype.dtypes import Dtypes
-import msamp.common.utils.TransformerEngineWrapper as tew
+from msamp.common.utils import TransformerEngineWrapper as tew
 
 
 class TransformerEngineWrapperTestCase(unittest.TestCase):
@@ -20,31 +21,28 @@ class TransformerEngineWrapperTestCase(unittest.TestCase):
     Args:
         unittest.TestCase (unittest.TestCase): TestCase class.
     """
-    def test_to_compatible_args():
+    def test_to_compatible_args(self):
         types = ''
         test_cases = [
             {
-                input: [1, [2], Dtypes.kbyte],
-                exptected : [1, [2], tex.Dtypes.kByte]
-            },
-            {
-                input:[Dtypes.kint32, Dtypes.kfloat32, Dtypes.kfloat16], 
-                expected:[tex.Dtypes.kInt32, tex.Dtypes.kFloat32, tex.Dtypes.kFloat16]
-            },
-            {
-                input: [Dtypes.kbfloat16, Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2, '3'],
-                expected:[tex.Dtypes.kBFloat16,tex.Dtypes.kFloat8E4M3,tex.Dtypes.kFloat8E5M2, '3']
+                'input': [1, [2], Dtypes.kbyte],
+                'expected': [1, [2], tex.DType.kByte]
+            }, {
+                'input': [Dtypes.kint32, Dtypes.kfloat32, Dtypes.kfloat16],
+                'expected': [tex.DType.kInt32, tex.DType.kFloat32, tex.DType.kFloat16]
+            }, {
+                'input': [Dtypes.kbfloat16, Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2, '3'],
+                'expected': [tex.DType.kBFloat16, tex.DType.kFloat8E4M3, tex.DType.kFloat8E5M2, '3']
             }
         ]
 
         for case in test_cases:
             assert (tew._to_compatible_args(case['input']) == case['expected'])
 
-
     @decorator.cuda_test
-    def test_cast_fp8():
+    def test_cast_fp8(self):
         torch.manual_seed(100)
-        input = torch.randn((4,4), device='cuda')
+        input = torch.randn((4, 4), device='cuda')
         amax = input.abs().max()
         scale = torch.ones((), device='cuda')
         fp8_tensor = tew.cast_to_fp8(input, scale, amax, 1.0 / scale, Dtypes.kfloat8_e4m3)
@@ -53,6 +51,6 @@ class TransformerEngineWrapperTestCase(unittest.TestCase):
         assert (output.dtype == torch.float32)
         torch.allclose(input, output, 0, 0.2)
 
-    def test_te_gemm():
+    def test_te_gemm(self):
         # TODO - will make up the tests after FP8Tensor module and gemm operator are added.
         pass

@@ -3,9 +3,11 @@
 
 """Transformer engine wrapper module."""
 
+import transformer_engine as te
 import transformer_engine_extensions as tex
 
 from msamp.common.dtype import QType
+
 
 class TransformerEngineWrapper:
     """Wrapper class for transformer engine."""
@@ -21,7 +23,6 @@ class TransformerEngineWrapper:
         """
         return getattr(tex.DType, qtype.name)
 
-
     @staticmethod
     def _to_compatible_args(args):
         """Convert all qtype to te dtype in the args list.
@@ -36,9 +37,9 @@ class TransformerEngineWrapper:
             if isinstance(a, QType):
                 return TransformerEngineWrapper._to_te_dtype(a)
             return a
+
         new_args = [fn(a) for a in args]
         return new_args
-
 
     @staticmethod
     def te_gemm(*args):
@@ -49,7 +50,6 @@ class TransformerEngineWrapper:
         """
         new_args = TransformerEngineWrapper._to_compatible_args(args)
         tex.te_gemm(*new_args)
-
 
     @staticmethod
     def cast_to_fp8(input, scale, amax, scale_inv, otype):
@@ -67,7 +67,6 @@ class TransformerEngineWrapper:
         """
         otype = TransformerEngineWrapper._to_te_dtype(otype)
         return tex.cast_to_fp8(input, scale, amax, scale_inv, otype)
-
 
     @staticmethod
     def cast_from_fp8(input, scale_inv, itype, otype):
