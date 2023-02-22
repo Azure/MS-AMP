@@ -43,7 +43,7 @@ class TransformerEngineWrapper:
 
     @staticmethod
     def te_gemm(*args):
-        """gemm operator by calling te_gemm.
+        """GEMM operator by calling te_gemm.
 
         Args:
             args (List): args of the te_gemm operator.

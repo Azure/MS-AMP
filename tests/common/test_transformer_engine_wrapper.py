@@ -21,7 +21,7 @@ class TransformerEngineWrapperTestCase(unittest.TestCase):
         unittest.TestCase (unittest.TestCase): TestCase class.
     """
     def test_to_compatible_args(self):
-        types = ''
+        """Test the function TransformerEngineWrapper._to_compatible_args()."""
         test_cases = [
             {
                 'input': [1, [2], Dtypes.kbyte],
@@ -40,6 +40,7 @@ class TransformerEngineWrapperTestCase(unittest.TestCase):
 
     @decorator.cuda_test
     def test_cast_fp8(self):
+        """Test the function TransformerEngineWrapper.cast_to_fp8() and cast_from_fp8()."""
         torch.manual_seed(100)
         input = torch.randn((4, 4), device='cuda')
         amax = input.abs().max()
@@ -51,5 +52,6 @@ class TransformerEngineWrapperTestCase(unittest.TestCase):
         torch.allclose(input, output, 0, 0.2)
 
     def test_te_gemm(self):
+        """Test the function TransformerEngineWrapper.te_gemm()."""
         # TODO - will make up the tests after FP8Tensor module and gemm operator are added.
         pass
