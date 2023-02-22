@@ -3,11 +3,10 @@
 
 """Tests for TransformerEngineWrapper module."""
 
-import os
 import unittest
 
 import torch
-import transformer_engine as te
+import transformer_engine as te  # noqa: F401 # pylint:disable=unused-import
 import transformer_engine_extensions as tex
 
 from tests.helper import decorator

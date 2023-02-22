@@ -3,7 +3,7 @@
 
 """Transformer engine wrapper module."""
 
-import transformer_engine as te
+import transformer_engine as te  # noqa: F401 # pylint:disable=unused-import
 import transformer_engine_extensions as tex
 
 from msamp.common.dtype import QType
