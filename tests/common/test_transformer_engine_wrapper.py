@@ -7,6 +7,7 @@ import os
 import unittest
 
 import torch
+import transformer_engine_extensions as tex
 
 from tests.helper import decorator
 from msamp.common.dtype.dtypes import Dtypes
@@ -19,6 +20,27 @@ class TransformerEngineWrapperTestCase(unittest.TestCase):
     Args:
         unittest.TestCase (unittest.TestCase): TestCase class.
     """
+    def test_to_compatible_args():
+        types = ''
+        test_cases = [
+            {
+                input: [1, [2], Dtypes.kbyte],
+                exptected : [1, [2], tex.Dtypes.kByte]
+            },
+            {
+                input:[Dtypes.kint32, Dtypes.kfloat32, Dtypes.kfloat16], 
+                expected:[tex.Dtypes.kInt32, tex.Dtypes.kFloat32, tex.Dtypes.kFloat16]
+            },
+            {
+                input: [Dtypes.kbfloat16, Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2, '3'],
+                expected:[tex.Dtypes.kBFloat16,tex.Dtypes.kFloat8E4M3,tex.Dtypes.kFloat8E5M2, '3']
+            }
+        ]
+
+        for case in test_cases:
+            assert (tew._to_compatible_args(case['input']) == case['expected'])
+
+
     @decorator.cuda_test
     def test_cast_fp8():
         torch.manual_seed(100)
