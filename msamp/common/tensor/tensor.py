@@ -189,7 +189,7 @@ class ScalingTensor:
         """Divides tensor by other value.
 
         Args:
-            other (torch.Tensor or float): The value to devide, could be single-element tensor or float.
+            other (torch.Tensor or float): The value to divide, could be single-element tensor or float.
 
         Return:
             ScalingTensor: current object.
@@ -206,7 +206,7 @@ class ScalingTensor:
         """Get cast_from function.
 
         Return:
-            func: a function with a singature cast_from_xx(input, meta, otype) => torch.Tensor.
+            func: a function with a signature cast_from_xx(input, meta, otype) => torch.Tensor.
         """
         if Dtypes.is_fp8_qtype(self.meta.qtype):
             return TypeCast.cast_from_fp8
@@ -320,7 +320,7 @@ class ScalingTensor:
         """Get the minimum value.
 
         Return:
-            torch.Tensor: the minumum single-element tensor.
+            torch.Tensor: the minimum single-element tensor.
         """
         return self.float().min()
 

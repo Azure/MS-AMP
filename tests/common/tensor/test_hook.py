@@ -12,7 +12,7 @@ outputs = []
 
 
 def record_input_output(_, input, output):
-    """Put input and ouput tensor to global inputs and outpus.
+    """Put input and output tensor to global inputs and outpus.
 
     Args:
         _  (torch.nn.Module): Module to hook.
