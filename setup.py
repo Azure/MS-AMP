@@ -10,7 +10,7 @@ Reference:
 import os
 import sys
 
-from setuptools import setup, Command
+from setuptools import setup, find_packages, Command
 
 
 class Formatter(Command):
@@ -93,8 +93,37 @@ class Tester(Command):
         sys.exit(0 if errno == 0 else 1)
 
 
-setup(cmdclass={
-    'format': Formatter,
-    'lint': Linter,
-    'test': Tester,
-})
+setup(
+    name='msamp',
+    url='https://github.com/Azure/MS-AMP',
+    license='MIT',
+    packages=find_packages(exclude=['tests']),
+    install_requires=[
+        'colorlog>=6.7.0',
+    ],
+    extras_require={
+        'dev': ['pre-commit>=2.10.0'],
+        'test': [
+            'flake8-docstrings>=1.5.0',
+            'flake8-quotes>=3.2.0',
+            'flake8>=3.8.4',
+            'mypy>=0.800',
+            'pydocstyle>=5.1.1',
+            'pytest-cov>=2.11.1',
+            'pytest-subtests>=0.4.0',
+            'pytest>=6.2.2',
+            'types-pyyaml',
+            'vcrpy>=4.1.1',
+            'yapf>=0.30.0',
+        ],
+    },
+    cmdclass={
+        'format': Formatter,
+        'lint': Linter,
+        'test': Tester,
+    },
+    project_urls={
+        'Source': 'https://github.com/Azure/MS-AMP',
+        'Tracker': 'https://github.com/Azure/MS-AMP/issues',
+    },
+)
