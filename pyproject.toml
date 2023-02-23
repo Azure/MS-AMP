@@ -38,6 +38,7 @@ classifiers=[
 ]
 dependencies = [
     "torch",
+    "colorlog>=6.7.0",
 ]
 dynamic = ["version"]
 
