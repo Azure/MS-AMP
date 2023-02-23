@@ -4,8 +4,8 @@
 """Tests for floating module."""
 
 import torch
-from msamp.common.dtype.floating import Floating
-from msamp.common.dtype.dtypes import Dtypes
+from msamp.common.dtype import Floating
+from msamp.common.dtype import Dtypes
 
 
 def test_fp_max():

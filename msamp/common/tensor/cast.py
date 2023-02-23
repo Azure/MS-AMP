@@ -6,8 +6,8 @@
 import torch
 import torch.distributed as dist
 
-from msamp.common.dtype.dtypes import Dtypes
-from msamp.common.utils.dist import DistUtil
+from msamp.common.dtype import Dtypes
+from msamp.common.utils import DistUtil
 from msamp.fp8.te import TeFp8
 
 

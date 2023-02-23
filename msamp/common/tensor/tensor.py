@@ -5,10 +5,10 @@
 
 import torch
 import torch.nn.functional as F
-from msamp.common.tensor.meta import ScalingMeta
-from msamp.common.tensor.hook import HookManager
-from msamp.common.dtype.dtypes import Dtypes
-from msamp.common.tensor.cast import TypeCast
+from msamp.common.tensor import ScalingMeta
+from msamp.common.tensor import HookManager
+from msamp.common.dtype import Dtypes
+from msamp.common.tensor import TypeCast
 
 
 class ScalingTensor:

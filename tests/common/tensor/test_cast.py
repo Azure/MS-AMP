@@ -5,9 +5,9 @@
 
 import torch
 
-from msamp.common.dtype.dtypes import Dtypes
-from msamp.common.tensor.meta import ScalingMeta
-from msamp.common.tensor.cast import TypeCast
+from msamp.common.dtype import Dtypes
+from msamp.common.tensor import ScalingMeta
+from msamp.common.tensor import TypeCast
 from tests.helper import decorator
 
 

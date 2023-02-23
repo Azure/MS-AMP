@@ -6,9 +6,9 @@
 import torch
 import unittest
 
-from msamp.common.dtype.dtypes import Dtypes
-from msamp.common.dtype.floating import Floating
-from msamp.common.tensor.meta import ScalingMeta
+from msamp.common.dtype import Dtypes
+from msamp.common.dtype import Floating
+from msamp.common.tensor import ScalingMeta
 from tests.helper import decorator
 
 

@@ -5,7 +5,7 @@
 
 import torch
 
-from msamp.common.tensor.hook import HookManager
+from msamp.common.tensor import HookManager
 
 inputs = []
 outputs = []

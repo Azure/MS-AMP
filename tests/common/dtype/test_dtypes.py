@@ -4,7 +4,7 @@
 """Tests for dtypes module."""
 
 import torch
-from msamp.common.dtype.dtypes import Dtypes
+from msamp.common.dtype import Dtypes
 
 
 def test_is_fp8_qtype():
