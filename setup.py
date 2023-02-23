@@ -10,7 +10,7 @@ Reference:
 import os
 import sys
 
-from setuptools import setup, find_packages, Command
+from setuptools import setup, Command
 
 
 class Formatter(Command):
