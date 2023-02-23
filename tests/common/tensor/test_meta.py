@@ -1,0 +1,53 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+"""Tests for ScalingMeta."""
+
+import torch
+import unittest
+
+from msamp.common.dtype.dtypes import Dtypes
+from msamp.common.dtype.floating import Floating
+from msamp.common.tensor.meta import ScalingMeta
+from tests.helper import decorator
+
+
+class ScalingMetaTestCase(unittest.TestCase):
+    """Test ScalingMeta."""
+    @decorator.cuda_test
+    def test_compute_scaling_factor(self):
+        """Test compute_scaling_factor in ScalingMeta."""
+        amax = torch.zeros([], device='cuda')
+        scale = torch.ones((), device='cuda')
+        fp_max = Floating.qfp_max[Dtypes.kfloat8_e4m3]
+        margin = 0
+        scale.copy_(ScalingMeta.compute_scaling_factor(amax, scale, fp_max, margin))
+
+        assert scale.item() == 1.0
+
+        # 2^(floor(log2(448.0/10)))=32
+        amax = torch.tensor(10, device='cuda')
+        scale = torch.ones((), device='cuda')
+        scale.copy_(ScalingMeta.compute_scaling_factor(amax, scale, fp_max, margin))
+        assert scale.item() == 32
+
+        # 1/(2^abs(floor(log2(448.0/10000))))
+        amax = torch.tensor(10000, device='cuda')
+        scale = torch.ones((), device='cuda')
+        scale.copy_(ScalingMeta.compute_scaling_factor(amax, scale, fp_max, margin))
+        assert scale.item() == 1.0 / 32
+
+    def test_iswarmup_intime(self):
+        """Test is_warmup and is_in_time_scaling i ScalingMeta."""
+        meta = ScalingMeta(Dtypes.kfloat8_e4m3)
+        assert meta.is_warmup()
+        assert meta.is_in_time_scaling()
+        meta.amax_counter += 1
+        assert not meta.is_warmup()
+        assert meta.is_in_time_scaling()
+
+        meta = ScalingMeta(Dtypes.kfloat8_e4m3, window_size=2)
+        meta.amax_counter += 1
+        meta.amax_counter += 1
+        assert not meta.is_warmup()
+        assert not meta.is_in_time_scaling()
