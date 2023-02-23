@@ -8,7 +8,7 @@ import torch.distributed as dist
 
 from msamp.common.dtype import Dtypes
 from msamp.common.utils import DistUtil
-from msamp.fp8.te import TeFp8
+from msamp.common.utils import TransformerEngineWrapper
 
 
 class TypeCast:
@@ -37,7 +37,7 @@ class TypeCast:
             world_size = DistUtil.get_world_size()
             if world_size > 1:
                 dist.all_reduce(meta.scale, op=dist.ReduceOp.MIN)
-        input_fp8 = TeFp8.cast_to_fp8(
+        input_fp8 = TransformerEngineWrapper.cast_to_fp8(
             input.view(1, -1),
             meta.scale,
             meta.amax[0],
@@ -91,7 +91,7 @@ class TypeCast:
             raise ValueError('The dtype of input tensor is not torch.uint8.')
 
         shape = input.shape
-        return TeFp8.cast_from_fp8(
+        return TransformerEngineWrapper.cast_from_fp8(
             input.view(1, -1),
             1.0 / meta.scale,
             meta.qtype,
