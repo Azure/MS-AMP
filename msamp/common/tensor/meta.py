@@ -21,15 +21,16 @@ class ScalingMeta:
             window_size (int, optional): Window size, defaults to 1.
         """
         self.qtype = qtype
-        self.scale = scale or torch.ones((), device='cuda')
-        self.amax = amax or torch.zeros((window_size, ), device='cuda')
+        self.scale = scale if scale is not None else torch.ones((), device='cuda')
+        self.amax = amax if amax is not None else torch.zeros((window_size, ), device='cuda')
         self.amax_counter = torch.zeros((), dtype=torch.int32)
         self.window_size = window_size
         # lock flag to avoid the reference of the meta changed.
         self.locked = False
 
     @staticmethod
-    def compute_scaling_factor(amax, scale, fp_max, margin):
+    @torch.jit.script
+    def compute_scaling_factor(amax, scale, fp_max: float, margin: int):
         """A function to compute scaling factor.
 
         Args:
