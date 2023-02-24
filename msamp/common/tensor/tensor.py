@@ -621,10 +621,10 @@ class TorchOverider:
     @classmethod
     def override(cls):
         """Override torch attributes and functions."""
-        torch.Tensor.cast = cls._scaling_cast
+        torch.Tensor.cast = cls._cast_to_scalingtensor
         torch.Tensor.qtype = property(lambda self: Dtypes.dtype_to_qtype[self.dtype])
         cls._override_unary_func()
-        torch.is_floating_point = cls._wrapper_for_scalingtensor(
+        torch.is_floating_point = cls._get_wrapper_for_scalingtensor(
             torch.is_floating_point, lambda x: x.is_floating_point()
         )
 
@@ -633,10 +633,10 @@ class TorchOverider:
         """Override unary functions of torch."""
         for func_name in cls.torch_unary_funcs:
             base, name = cls._get_func_base_and_name(func_name)
-            setattr(base, name, cls._torch_unary_wrapper(getattr(base, name)))
+            setattr(base, name, cls._get_wrapper_for_torch_unary(getattr(base, name)))
 
     @staticmethod
-    def _scaling_cast(self, qtype, meta=None, sync=False):
+    def _cast_to_scalingtensor(self, qtype, meta=None, sync=False):
         """Cast pytorch native tensor to ScalingTensor.
 
         Support below casts:
@@ -684,8 +684,8 @@ class TorchOverider:
         return base, sp[-1]
 
     @staticmethod
-    def _wrapper_for_scalingtensor(old_fn, scaling_fn):
-        """Wrapper for functions that can process torch.Tensor and ScalingTensor.
+    def _get_wrapper_for_scalingtensor(old_fn, scaling_fn):
+        """Get wrapper for functions that can process torch.Tensor and ScalingTensor.
 
         Args:
             old_fn (function): original function.
@@ -695,16 +695,16 @@ class TorchOverider:
             function: new function that can process torch.Tensor and ScalingTensor.
         """
         @torch.jit.ignore
-        def new_fn(input, *args, **kwargs):
+        def fn(input, *args, **kwargs):
             if isinstance(input, ScalingTensor):
                 return scaling_fn(input, *args, **kwargs)
             return old_fn(input, *args, **kwargs)
 
-        return new_fn
+        return fn
 
     @classmethod
-    def _torch_unary_wrapper(cls, old_fn):
-        """Wrapper for torch unary functions.
+    def _get_wrapper_for_torch_unary(cls, old_fn):
+        """Get wrapper for torch unary function.
 
         Args:
             old_fn (function): original function.
@@ -715,7 +715,7 @@ class TorchOverider:
         def scaling_fn(input, *args, **kwargs):
             return old_fn(input.value, *args, **kwargs)
 
-        return cls._wrapper_for_scalingtensor(old_fn, scaling_fn)
+        return cls._get_wrapper_for_scalingtensor(old_fn, scaling_fn)
 
 
 TorchOverider.override()
