@@ -15,11 +15,7 @@ class DistUtil:
         Return:
             bool: True if distributed package is available and initialized, otherwide False.
         """
-        if not dist.is_available():
-            return False
-        if not dist.is_initialized():
-            return False
-        return True
+        return dist.is_available() and dist.is_initialized()
 
     @classmethod
     def get_world_size(cls):
@@ -29,9 +25,7 @@ class DistUtil:
             int: return 1 if distributed package is not available or initialized,
                  otherwise the number of processes in current process group.
         """
-        if cls._is_dist_avail_and_initialized():
-            return dist.get_world_size()
-        return 1
+        return dist.get_world_size() if cls._is_dist_avail_and_initialized() else 1
 
     @classmethod
     def get_rank(cls):
@@ -41,9 +35,7 @@ class DistUtil:
             int: return 0 if distributed package is not available or initialized,
                  otherwise the rank of current processe in current process group.
         """
-        if not cls._is_dist_avail_and_initialized():
-            return 0
-        return dist.get_rank()
+        return dist.get_rank() if cls._is_dist_avail_and_initialized() else 0
 
     @classmethod
     def is_main_process(cls):
