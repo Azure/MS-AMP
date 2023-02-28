@@ -42,11 +42,10 @@ class GemmTestCase(unittest.TestCase):
     @decorator.cuda_test
     def test_fp8_gemm(self):
         """Test the function Gemm.fp8_gemm()."""
-        out_qtype = Dtypes.kfloat8_e4m3
         tensorA = torch.ones((4, 2), dtype=torch.float32, device='cuda')
         tensorB = torch.ones((3, 2), dtype=torch.float32, device='cuda')
-        scaling_tensorA = tensorA.cast(out_qtype)
-        scaling_tensorB = tensorB.cast(out_qtype)
+        scaling_tensorA = tensorA.cast(Dtypes.kfloat8_e4m3)
+        scaling_tensorB = tensorB.cast(Dtypes.kfloat8_e4m3)
         out = Gemm.fp8_gemm(scaling_tensorA, scaling_tensorB, Dtypes.kfloat32)
 
         expected = torch.matmul(tensorB, tensorA.t())
