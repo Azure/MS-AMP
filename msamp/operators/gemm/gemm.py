@@ -57,8 +57,8 @@ class Gemm:
     @torch.no_grad()
     def fp8_gemm(
         cls,
-        A: ScalingTensor,
-        B: ScalingTensor,
+        mat_a: ScalingTensor,
+        mat_b: ScalingTensor,
         out_qtype,
         bias=None,
         accumulate=False,
@@ -68,8 +68,8 @@ class Gemm:
         """FP8 GEMM operator.
 
         Args:
-            A (ScalingTensor): the left operand of gemm.
-            B (ScalingTensor): the right operand of gemm.
+            mat_a (ScalingTensor): the left operand of gemm.
+            mat_b (ScalingTensor): the right operand of gemm.
             out_qtype (msamp.QType): the output type.
             bias (torch.Tensor): the bias of gemm.
             accumulate (boolean): Whether accumulate the result to out tensor or not.
@@ -79,36 +79,34 @@ class Gemm:
         Return:
             torch.Tensor: the result of gemm in out_qtype.
         """
-        assert isinstance(A, ScalingTensor)
-        assert isinstance(B, ScalingTensor)
-        assert A.is_cuda and A.is_contiguous()
-        assert B.is_cuda and B.is_contiguous()
+        assert isinstance(mat_a, ScalingTensor)
+        assert isinstance(mat_b, ScalingTensor)
+        assert mat_a.is_cuda and mat_a.is_contiguous()
+        assert mat_b.is_cuda and mat_b.is_contiguous()
         workspace = cls._get_workspace()
 
         # TN for pytorch shape: (M, K) @ (N, K) = (N, M)
-        M, K = A.shape
-        N = len(B)
+        M, K = mat_a.shape
+        N = len(mat_b)
         aM = cls._round2times(M, cls._te_base)
         aK = cls._round2times(K, cls._te_base)
         aN = cls._round2times(N, cls._te_base)
         pM, pK, pN = aM - M, aK - K, aN - N
 
-        A_meta = A.meta
-        B_meta = B.meta
-        print(A_meta)
-        print(B_meta)
+        a_meta = mat_a.meta
+        b_meta = mat_b.meta
 
         if pM > 0 or pK > 0:
-            A = A.pad((0, pK, 0, pM))
+            mat_a = mat_a.pad((0, pK, 0, pM))
         if pN > 0 or pK > 0:
-            B = B.pad((0, pK, 0, pN))
+            mat_b = mat_b.pad((0, pK, 0, pN))
 
         src_out = out
         out_dtype = Dtypes.qtype_to_dtype[out_qtype]
         if out is None:
             out = torch.empty(
-                B.shape[0],
-                A.shape[0],
+                mat_b.shape[0],
+                mat_a.shape[0],
                 dtype=out_dtype,
                 device='cuda',
             )
@@ -120,13 +118,13 @@ class Gemm:
         # here out is padded, and src_out is the original one.
         if Device.is_fp8_supported():
             tew.te_gemm(
-                A.value,
-                1.0 / A_meta.scale,
-                A_meta.qtype,
+                mat_a.value,
+                1.0 / a_meta.scale,
+                a_meta.qtype,
                 True,    # transa
-                B.value,
-                1.0 / B_meta.scale,
-                B_meta.qtype,
+                mat_b.value,
+                1.0 / b_meta.scale,
+                b_meta.qtype,
                 False,    # transb
                 out,
                 out_qtype,
@@ -140,13 +138,13 @@ class Gemm:
             )
         else:
             # do gemm on device that doesn't supported fp8.
-            A, B = A.to(out_dtype), B.to(out_dtype)
+            mat_a, mat_b = mat_a.to(out_dtype), mat_b.to(out_dtype)
             tew.te_gemm(
-                A,
+                mat_a,
                 cls._empty_tensor,
                 out_qtype,
                 True,
-                B,
+                mat_b,
                 cls._empty_tensor,
                 out_qtype,
                 False,
