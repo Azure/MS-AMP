@@ -7,5 +7,6 @@ from msamp.common.tensor.cast import TypeCast
 from msamp.common.tensor.hook import HookManager
 from msamp.common.tensor.meta import ScalingMeta
 from msamp.common.tensor.tensor import ScalingTensor
+from msamp.common.tensor.tensor_dist import TensorDist
 
-__all__ = ['TypeCast', 'HookManager', 'ScalingMeta', 'ScalingTensor']
+__all__ = ['TypeCast', 'HookManager', 'ScalingMeta', 'ScalingTensor', 'TensorDist']
