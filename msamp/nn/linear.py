@@ -96,15 +96,10 @@ class _FP8GemmFunction(torch.autograd.Function):
             dtype_holder (torch.Tensor): A tensor to hold the output dtype. The required_grad of this tensor
                 should be if input.required_grad is False.
         """
-        # weight: Tensor or FP8Tensor
         ctx.metas = metas
         model_state.check_metas_in_flat(metas)
         input_meta = metas['input']
-
-        # input: torch.Tensor
         input_fp8 = input.cast(Dtypes.kfloat8_e4m3, meta=input_meta)
-        # weight: FP8Tensor has own scaling factor
-        # [NOTE] its scale will be updated in optimizer
         weight_fp8 = weight.cast(Dtypes.kfloat8_e4m3)
 
         ctx.input_fp8 = input_fp8
@@ -144,17 +139,15 @@ class _FP8GemmFunction(torch.autograd.Function):
 
         if ctx.input_fp8.requires_grad:
             weight_fp8_t = ctx.weight_fp8.t().contiguous()
-            # in gradient
             input_grad = Gemm.fp8_gemm(weight_fp8_t, ograd_fp8, ctx.output_qtype, use_split_accumulator=True)
         else:
             input_grad = None
 
-        # [TO FIX A BUG WHEN USING CUDA STREAM] with torch.cuda.stream(torch.cuda.Stream()):
         if ctx.weight.requires_grad:
             ograd_fp8_t = ograd_fp8.t().contiguous()
             input_fp8_t = ctx.input_fp8.t().contiguous()
             wgrad_qtype = ctx.output_qtype
-            # weight gradient
+            # compute weight gradient
             if ctx.weight.grad is None:
                 wgrad = Gemm.fp8_gemm(
                     input_fp8_t,
@@ -212,16 +205,12 @@ class LinearReplacer:
             fp8_linear.bias.data.copy_(linear.bias)
 
         weight = linear.weight
-
-        # initilize master weight
         weight = weight.cast(weight_qtype)
-
         if fp8_linear.weight.dtype != weight.dtype:
             raise ValueError(
                 f'weight dtype is not same, dtype ins fp8 linear is {fp8_linear.weight.dtype},'
                 f'dtype in weight is {weight.dtype}'
             )
-
         fp8_linear.weight.copy_(weight)
 
         return fp8_linear

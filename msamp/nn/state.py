@@ -14,8 +14,12 @@ class ModelState:
     def __init__(self):
         """Constructor."""
         self._ready_to_scale_tensor = False
-        # dict[str, dict[str, tensor]], store the flateened scaling metas in all FP8Linear modules.
+        # dict[str, dict[str, tensor]], store the flattened scaling metas in all FP8Linear modules.
+        # key in input/wgrad/output, value is a dict whose key is scales/amaxs/amax_counters
+        # and value is flattened tensors.
         self._flattened_scaling_metas = None
+        # OrderedDict[str, dict[str, ScalingMeta]], store the local scaling metas in all FP8Linear modules.
+        # key is module name, value is scaling_metas in FP8Linear module.
         self._local_scaling_metas = OrderedDict()
 
     @property

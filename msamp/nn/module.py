@@ -32,6 +32,8 @@ class ScalingModule(nn.Module):
     def _apply(self, fn):    # noqa: C901
         """Apply a function to all parameters(including ScalingParameter) and buffers.
 
+        We copied this function from torch.nn.Module._apply() and modified it to support ScalingParameter.
+
         Args:
             fn (Callable): Function to apply.
 
