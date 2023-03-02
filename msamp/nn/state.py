@@ -25,7 +25,7 @@ class ModelState:
     @property
     def ready_to_scale_tensor(self):
         """Decoration function to access _ready_to_tensor_scale variable."""
-        return self.ready_to_tensor_scale
+        return self._ready_to_scale_tensor
 
     @ready_to_scale_tensor.setter
     def ready_to_scale_tensor(self, value):
@@ -43,6 +43,11 @@ class ModelState:
 
     @flattened_scaling_metas.setter
     def flattened_scaling_metas(self, value):
+        """Set the value of _flattened_scaling_metas variable.
+
+        Args:
+            value (dict): Value to set.
+        """
         self._flattened_scaling_metas = value
 
     @staticmethod
@@ -63,10 +68,12 @@ class ModelState:
 
     @staticmethod
     def _flat_tensors(tensors):
-        """Flatten tensors into a single tensor.
+        """Flatten tensors into a single tensor and copy data from flattened tensor to original tensors.
+
+        The reason of copying data back is that updating flattened tensor will also update original tensors.
 
         Args:
-            tensors (Iterable[torch.Tensor]): dense tensors to flatten..
+            tensors (Iterable[torch.Tensor]): dense tensors to flatten.
 
         Returns:
             torch.Tensor: flattened tensor.

@@ -102,7 +102,7 @@ class Gemm:
             mat_b = mat_b.pad((0, pK, 0, pN))
 
         src_out = out
-        out_dtype = Dtypes.qtype_to_dtype[out_qtype]
+        out_dtype = Dtypes.get_dtype_from_qtype(out_qtype)
         if out is None:
             out = torch.empty(
                 mat_b.shape[0],

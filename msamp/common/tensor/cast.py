@@ -110,7 +110,7 @@ class TypeCast:
         Return:
             torch.Tensor: tensor whose type is otype.
         """
-        dtype = Dtypes.qtype_to_dtype[otype]
+        dtype = Dtypes.get_dtype_from_qtype(otype)
         if input.dtype == dtype:
             # return a copy
             input = input.clone()

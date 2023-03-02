@@ -6,11 +6,8 @@
 import torch
 
 from msamp.common.dtype import Dtypes
-from msamp.common.tensor import ScalingTensor, ScalingMeta
-from msamp.common.tensor import TensorDist
-from msamp.nn import ScalingParameter
-from msamp.nn import ScalingModule
-from msamp.nn import model_state
+from msamp.common.tensor import ScalingTensor, ScalingMeta, TensorDist
+from msamp.nn import ScalingParameter, ScalingModule, model_state
 from msamp.operators.gemm import Gemm
 
 
@@ -32,7 +29,7 @@ class FP8Linear(ScalingModule):
         self.in_features = in_features
         self.out_features = out_features
         self.weight_qtye = weight_qtype
-        weight_dtype = Dtypes.qtype_to_dtype[weight_qtype]
+        weight_dtype = Dtypes.get_dtype_from_qtype(weight_qtype)
 
         tensor = torch.empty((out_features, in_features), dtype=weight_dtype)
         self.weight = ScalingParameter(ScalingTensor(tensor, meta=ScalingMeta(weight_qtype, window_size=1)))
