@@ -70,7 +70,8 @@ class ModelState:
     def _flat_tensors(tensors):
         """Flatten tensors into a single tensor and copy data from flattened tensor to original tensors.
 
-        The reason of copying data back is that updating flattened tensor will also update original tensors.
+        The reason of copying data back is that we don't want to update original tensors after updating
+        flattened tensor.
 
         Args:
             tensors (Iterable[torch.Tensor]): dense tensors to flatten.
