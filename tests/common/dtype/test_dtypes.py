@@ -33,3 +33,16 @@ def test_qtype_to_dtype():
         Dtypes.kfloat8_e5m2: torch.fp8e5m2
     }
     assert qtype_to_dtype == Dtypes.qtype_to_dtype
+
+
+def test_get_dtype_from_qtype():
+    """Test get_dtype_from_qtype function in Dtypes."""
+    qtype_to_dtype = {
+        Dtypes.kfloat16: torch.float16,
+        Dtypes.kbfloat16: torch.bfloat16,
+        Dtypes.kfloat32: torch.float32,
+        Dtypes.kfloat8_e4m3: torch.fp8e4m3,
+        Dtypes.kfloat8_e5m2: torch.fp8e4m3
+    }
+    for qtype, dtype in qtype_to_dtype.items():
+        assert Dtypes.get_dtype_from_qtype(qtype) == dtype

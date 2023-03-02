@@ -81,9 +81,8 @@ class ScalingTensor:
         self._backward_post_hooks = HookManager()
         self.meta = meta
 
-        if value.dtype != Dtypes.qtype_to_dtype[meta.qtype]:
-            if not (Dtypes.is_fp8_qtype(meta.qtype) and value.dtype == torch.uint8):
-                raise TypeError(f'Type mismatch, value.type is {value.type}, meta.type is {meta.type}')
+        if Dtypes.get_dtype_from_qtype(meta.qtype) != value.dtype:
+            raise TypeError(f'Type mismatch, value.type is {value.type}, meta.type is {meta.type}')
         self._requires_grad = False
 
     @property

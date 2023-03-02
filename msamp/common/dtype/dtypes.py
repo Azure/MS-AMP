@@ -66,3 +66,15 @@ class Dtypes:
             flag (bool): whether qtype is fp8.
         """
         return qtype in [cls.kfloat8_e4m3, cls.kfloat8_e5m2]
+
+    @classmethod
+    def get_dtype_from_qtype(cls, qtype):
+        """Get dtype from qtype.
+
+        Args:
+            qtype (Qtype): qtype to get dtype.
+
+        Return:
+            dtype (torch.dtype): dtype of the qtype.
+        """
+        return torch.uint8 if cls.is_fp8_qtype(qtype) else cls.qtype_to_dtype[qtype]
