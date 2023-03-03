@@ -1,5 +1,4 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Reference: https://github.com/pytorch/pytorch/blob/master/torch/csrc/cuda/nccl.cpp
 
 #include <ATen/ATen.h>
 #include <c10/cuda/CUDAGuard.h>

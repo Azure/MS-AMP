@@ -20,6 +20,7 @@ jobs:
       run: |
         python3 -m pip install --upgrade pip
         python3 -m pip install .[test]
+        make postinstall
     - name: Run code lint
       run: |
         python3 setup.py lint

@@ -20,7 +20,7 @@ class DistOp:
     }
 
     @classmethod
-    def get_global_comm(cls):
+    def _get_global_comm(cls):
         """Get the communicator.
 
         Return:
@@ -46,7 +46,7 @@ class DistOp:
             qtype (Dtypes.QType): the data type.
             op (int): one of the values from torch.distributed.ReduceOp enum.
         """
-        msamp_dist_op.reduce(tensor, tensor, dst, op, cls.get_global_comm(), cls._qtype_to_nccltype[qtype])
+        msamp_dist_op.reduce(tensor, tensor, dst, op, cls._get_global_comm(), cls._qtype_to_nccltype[qtype])
 
     @classmethod
     def all_reduce(cls, tensor, qtype, op):
@@ -57,4 +57,4 @@ class DistOp:
             qtype (Dtypes.QType): the data type.
             op (int): one of the values from torch.distributed.ReduceOp enum.
         """
-        msamp_dist_op.all_reduce([tensor], [tensor], op, [cls.get_global_comm()], cls._qtype_to_nccltype[qtype])
+        msamp_dist_op.all_reduce([tensor], [tensor], op, [cls._get_global_comm()], cls._qtype_to_nccltype[qtype])
