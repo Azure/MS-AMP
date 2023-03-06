@@ -6,6 +6,7 @@
 import torch.distributed as dist
 from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 
+from msamp.common.dtype import Dtypes
 from msamp.common.utils import DistUtil
 from msamp.common.tensor import ScalingTensor
 
@@ -13,6 +14,7 @@ from msamp.common.tensor import ScalingTensor
 class TensorDist:
     """Distribute tensors(including ScalingTensor) across processes."""
     BROADCAST_BUCKET_SIZE = 512 * (1024**2)
+    ALL_REDUCE_BUCKET_SIZE = 512 * (1024**2)
 
     @staticmethod
     def _dist_tensors_after_flatten(tensors, dist_fn):
@@ -82,3 +84,45 @@ class TensorDist:
             cls._dist_tensors_by_bucket(scales, dist_fn, bucket_size)
         else:
             cls._dist_tensors_by_bucket(tensors, dist_fn, bucket_size)
+
+    @classmethod
+    def all_reduce(cls, tensors, op, bucket_size=ALL_REDUCE_BUCKET_SIZE):
+        """All-reduce tensors across processes in one process group.
+
+        Args:
+            tensors (list of torch.Tensor or ScalingTensor): Tensors to be all-reduced.
+            op (dist.ReduceOp): Reduction operation.
+            bucket_size (int): Bucket size in bytes.
+        """
+        if len(tensors) == 0:
+            return
+        qtype = tensors[0].qtype
+        if not all(qtype == t.qtype for t in tensors):
+            raise TypeError('all_reduce only supports tensors with same qtype')
+
+        # TODO: replace dist with dist_op
+        def dist_fn(x):
+            return dist.all_reduce(x, qtype, op)
+
+        cls._dist_tensors_by_bucket(tensors, dist_fn, bucket_size)
+
+    @classmethod
+    def all_reduce_avg(cls, tensors, bucket_size=ALL_REDUCE_BUCKET_SIZE):
+        """All-reduce tensors with average value across processes in one process group.
+
+        Args:
+            tensors (list of torch.Tensor or ScalingTensor): Tensors to be all-reduced.
+            bucket_size (int): Bucket size in bytes.
+        """
+        world_size = DistUtil.get_world_size()
+        if world_size == 1:
+            return
+        if len(tensors) == 0:
+            return
+        qtype = tensors[0].qtype
+        if Dtypes.is_fp8_qtype(qtype):
+            cls.all_reduce(tensors, dist.ReduceOp.SUM, bucket_size)
+            for t in tensors:
+                t.meta.scale *= world_size
+        else:
+            cls.all_reduce(tensors, dist.ReduceOp.AVG, bucket_size)
