@@ -45,3 +45,16 @@ class DistUtil:
             bool: return True if the rank of current process in process group is zero, otherwise return False.
         """
         return cls.get_rank() == 0
+
+    @staticmethod
+    def broadcast_object_list(object_list, src=0, group=None, device=None):
+        """Broadcasts picklable objects in object_list to the whole group.
+
+        Args:
+            object_list (List[Any]): list of input objects to broadcast.
+            src (int): source rank from which to broadcast object_list.
+            group (ProcessGroup): the process group to work on.
+            device (torch.device): If not None, the objects are serialized and converted to
+                tensors which are moved to the device before broadcasting.
+        """
+        dist.broadcast_object_list(object_list, src, group, device)

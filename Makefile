@@ -3,7 +3,7 @@
 
 CPPSOURCES := $(shell find $(CURDIR) -regextype posix-extended -regex '.*\.(c|cpp|h|hpp|cc|cxx|cu)')
 
-.PHONY: format lint
+.PHONY: format lint postinstall
 
 cppformat:
 	if [ "$(CPPSOURCES)" != "" ]; then clang-format --verbose -i $(CPPSOURCES); fi
@@ -16,3 +16,7 @@ format: cppformat
 
 lint: cpplint
 	python3 setup.py lint
+
+postinstall:
+	cd msamp/operators/dist_op && pip install -v -e . && cd -
+
