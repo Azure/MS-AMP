@@ -9,6 +9,7 @@ from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 from msamp.common.dtype import Dtypes
 from msamp.common.utils import DistUtil
 from msamp.common.tensor import ScalingTensor
+from msamp.operators.dist_op import DistOp
 
 
 class TensorDist:
@@ -100,9 +101,8 @@ class TensorDist:
         if not all(qtype == t.qtype for t in tensors):
             raise TypeError('all_reduce only supports tensors with same qtype')
 
-        # TODO: replace dist with dist_op
         def dist_fn(x):
-            return dist.all_reduce(x, qtype, op)
+            return DistOp.all_reduce(x, qtype, op)
 
         cls._dist_tensors_by_bucket(tensors, dist_fn, bucket_size)
 

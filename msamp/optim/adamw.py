@@ -16,7 +16,7 @@ import msamp_adamw
 
 
 class LBAdamW(LBAdamWBase):
-    r"""Implements AdamW algorithm.
+    r"""Implements AdamW algorithm with cuda.
 
     .. math::
        \begin{aligned}
@@ -106,7 +106,17 @@ class LBAdamW(LBAdamWBase):
         )
 
     def _get_state_tensor(self, state, dtype):
-        # We convert state to dtype since the caller in LBAdamWBase always pass state as a float32 tensor.
+        """Get state dict from tensor and dtype.
+
+        Convert state to dtype since the caller in LBAdamWBase always pass state as a float32 tensor.
+
+        Args:
+            state (Tensor): state tensor.
+            dtype (torch.dtype): dtype of the state tensor.
+
+        Return:
+            dict: state dict contains state tensor and other scaling meta data if not float32.
+        """
         state = state.to(dtype=dtype)
 
         if dtype != torch.float32:
@@ -119,7 +129,24 @@ class LBAdamW(LBAdamWBase):
         max_exp_avg_sqs: List[Union[Tensor, ScalingTensor]], state_steps: List[int], *, amsgrad: bool, beta1: float,
         beta2: float, lr: float, weight_decay: float, eps: float, maximize: bool
     ):
-        """Functional API that performs AdamW algorithm computation."""
+        """Functional API that performs AdamW algorithm computation.
+
+        Args:
+            params (List[Union[Tensor, ScalingTensor]]): list of parameters.
+            grads (List[Union[Tensor, ScalingTensor]]): list of gradients.
+            exp_avgs (List[Union[Tensor, ScalingTensor]]): list of exponential moving average of gradient.
+            exp_avg_sqs (List[Union[Tensor, ScalingTensor]]): list of exponential moving average of squared gradient.
+            max_exp_avg_sqs (List[Union[Tensor, ScalingTensor]]): list of maximum exponential moving average of
+                squared gradient.
+            state_steps (List[int]): list of steps, currently not supported.
+            amsgrad (bool): whether to use the AMSGrad variant of this algorithm, currently only support True.
+            beta1 (float): coefficient used for computing running averages of gradient.
+            beta2 (float): coefficient used for computing running averages of squared gradient.
+            lr (float): learning rate.
+            weight_decay (float): weight decay coefficient.
+            eps (float): term added to the denominator to improve numerical stability.
+            maximize (bool): maximize the params based on the objective, instead of minimizing.
+        """
         if amsgrad:
             raise ValueError('Only amsgrad=False is supported for now.')
 

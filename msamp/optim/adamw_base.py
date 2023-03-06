@@ -15,7 +15,7 @@ from msamp.optim import LBOptimizer
 
 
 class LBAdamWBase(LBOptimizer):
-    r"""Implements AdamW algorithm.
+    r"""Implements AdamW algorithm using pure python functions.
 
     .. math::
        \begin{aligned}
@@ -244,7 +244,24 @@ class LBAdamWBase(LBOptimizer):
         max_exp_avg_sqs: List[Union[Tensor, ScalingTensor]], state_steps: List[int], *, amsgrad: bool, beta1: float,
         beta2: float, lr: float, weight_decay: float, eps: float, maximize: bool
     ):
-        """Functional API that performs AdamW algorithm computation."""
+        """Functional API that performs AdamW algorithm computation.
+
+        Args:
+            params (List[Union[Tensor, ScalingTensor]]): list of parameters.
+            grads (List[Union[Tensor, ScalingTensor]]): list of gradients.
+            exp_avgs (List[Union[Tensor, ScalingTensor]]): list of exponential moving average of gradient.
+            exp_avg_sqs (List[Union[Tensor, ScalingTensor]]): list of exponential moving average of squared gradient.
+            max_exp_avg_sqs (List[Union[Tensor, ScalingTensor]]): list of maximum exponential moving average of
+                squared gradient.
+            state_steps (List[int]): list of steps, currently not supported.
+            amsgrad (bool): whether to use the AMSGrad variant of this algorithm, currently only support True.
+            beta1 (float): coefficient used for computing running averages of gradient.
+            beta2 (float): coefficient used for computing running averages of squared gradient.
+            lr (float): learning rate.
+            weight_decay (float): weight decay coefficient.
+            eps (float): term added to the denominator to improve numerical stability.
+            maximize (bool): maximize the params based on the objective, instead of minimizing.
+        """
         if amsgrad:
             raise ValueError('Only amsgrad=False is supported for now.')
 
