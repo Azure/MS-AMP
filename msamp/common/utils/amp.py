@@ -5,7 +5,6 @@
 
 import torch
 
-
 torch_amp_foreach_non_finite_check_and_unscale_ = torch._amp_foreach_non_finite_check_and_unscale_
 
 
@@ -38,8 +37,7 @@ def _amp_foreach_non_finite_check_and_unscale_(grads, found_inf, inv_scale):
 
     # torch.Tensor on GPU
     if len(cuda_torch_grads) > 0:
-        torch_amp_foreach_non_finite_check_and_unscale_(
-            cuda_torch_grads, found_inf, inv_scale)
+        torch_amp_foreach_non_finite_check_and_unscale_(cuda_torch_grads, found_inf, inv_scale)
 
     # torch.Tensor on CPU
     if len(cpu_torch_grads) > 0:

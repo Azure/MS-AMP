@@ -19,9 +19,9 @@ class AMPTestCase(unittest.TestCase):
         self.size = (4, 4)
 
     def _helper_test_grad_scaling_unscale(self, device, dtype, qtype=None):
-		# Adapted from https://github.com/pytorch/pytorch/blob/master/test/test_cuda.py
-        inv_scale = torch.full((1,), 0.25, dtype=torch.float, device=device)
-        found_inf = torch.full((1,), 0.0, dtype=torch.float, device=device)
+        # Adapted from https://github.com/pytorch/pytorch/blob/master/test/test_cuda.py
+        inv_scale = torch.full((1, ), 0.25, dtype=torch.float, device=device)
+        found_inf = torch.full((1, ), 0.0, dtype=torch.float, device=device)
 
         size = 10
         g = torch.randn((size, size), dtype=dtype, device=device)
@@ -59,12 +59,13 @@ class AMPTestCase(unittest.TestCase):
             torch._amp_foreach_non_finite_check_and_unscale_(grads, found_inf, inv_scale)
             assert found_inf.item() == has_inf
             for grad, old_grad in zip(grads, old_grads):
-                np.testing.assert_almost_equal(grad.float().data.cpu().numpy(),
-                    (old_grad.float() * inv_scale).data.cpu().numpy())
+                np.testing.assert_almost_equal(
+                    grad.float().data.cpu().numpy(), (old_grad.float() * inv_scale).data.cpu().numpy()
+                )
 
     def test_grad_scaling_unscale_cpu(self):
         dtypes = [torch.float16, torch.float32]
-        for dtype in dtypes: 
+        for dtype in dtypes:
             self._helper_test_grad_scaling_unscale("cpu", dtype=dtype)
 
     @decorator.cuda_test
