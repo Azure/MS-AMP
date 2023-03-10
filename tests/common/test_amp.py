@@ -20,6 +20,7 @@ class AMPTestCase(unittest.TestCase):
 
     def _helper_test_grad_check_unscale(self, device, dtype, qtype=None):
         """Helper function for testing grad scaling and unscale.
+
         Adapted from https://github.com/pytorch/pytorch/blob/master/test/test_cuda.py
         """
         inv_scale = torch.full((1, ), 0.25, dtype=torch.float, device=device)

@@ -12,7 +12,9 @@ torch_amp_foreach_non_finite_check_and_unscale_ = torch._amp_foreach_non_finite_
 
 @torch.no_grad()
 def _amp_foreach_non_finite_check_and_unscale_(grads, found_inf, inv_scale):
-    """This function is a wrapper around torch._foreach_non_finite_check_and_unscale_ that
+    """A wrapper of torch._amp_foreach_non_finite_check_and_unscale_ for ScalingTensor.
+
+    This function is a wrapper around torch._foreach_non_finite_check_and_unscale_ that
     checks if a non-finite value exists in the grads.
     Meanwhile, all gradients are multiplied by inv_scale (grad *= inv_scale).
 
