@@ -5,6 +5,7 @@
 
 import unittest
 import torch
+import numpy as np
 
 from msamp.common.dtype import Dtypes
 from tests.helper import decorator
@@ -23,9 +24,7 @@ class AMPTestCase(unittest.TestCase):
         found_inf = torch.full((1,), 0.0, dtype=torch.float, device=device)
 
         size = 10
-        g = torch.full((size, size), 4.0, dtype=dtype, device=device)
-        if qtype is not None:
-            g = g.cast(qtype)
+        g = torch.randn((size, size), dtype=dtype, device=device)
 
         ginf = g.clone()
         ginf[2, 2] = float('inf')
@@ -53,11 +52,15 @@ class AMPTestCase(unittest.TestCase):
 
         for grads, has_inf in cases:
             found_inf.zero_()
+            if qtype is not None:
+                # convert to ScalingTensor
+                grads = [grad.cast(qtype) for grad in grads]
             old_grads = [grad.clone() for grad in grads]
-            torch._amp_unscale_inf_check_(grads, found_inf, inv_scale)
+            torch._amp_foreach_non_finite_check_and_unscale_(grads, found_inf, inv_scale)
             assert found_inf.item() == has_inf
             for grad, old_grad in zip(grads, old_grads):
-                assert torch.allclose(grad, old_grad * inv_scale)
+                np.testing.assert_almost_equal(grad.float().data.cpu().numpy(),
+                    (old_grad.float() * inv_scale).data.cpu().numpy())
 
     def test_grad_scaling_unscale_cpu(self):
         dtypes = [torch.float16, torch.float32]

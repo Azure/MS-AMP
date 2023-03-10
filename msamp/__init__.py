@@ -5,3 +5,6 @@
 
 __version__ = '0.1.0'
 __author__ = 'Microsoft'
+
+
+import msamp.common.utils.amp
