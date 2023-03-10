@@ -12,14 +12,16 @@ from tests.helper import decorator
 
 
 class AMPTestCase(unittest.TestCase):
-    """ A class for testing AMP module. """
+    """A class for testing AMP module."""
     def setUp(self):
-        """Hook method for setting up the test fixture before exercising it."""
+        """Set up for testing."""
         torch.manual_seed(100)
         self.size = (4, 4)
 
-    def _helper_test_grad_scaling_unscale(self, device, dtype, qtype=None):
-        # Adapted from https://github.com/pytorch/pytorch/blob/master/test/test_cuda.py
+    def _helper_test_grad_check_unscale(self, device, dtype, qtype=None):
+        """Helper function for testing grad scaling and unscale.
+        Adapted from https://github.com/pytorch/pytorch/blob/master/test/test_cuda.py
+        """
         inv_scale = torch.full((1, ), 0.25, dtype=torch.float, device=device)
         found_inf = torch.full((1, ), 0.0, dtype=torch.float, device=device)
 
@@ -63,18 +65,20 @@ class AMPTestCase(unittest.TestCase):
                     grad.float().data.cpu().numpy(), (old_grad.float() * inv_scale).data.cpu().numpy()
                 )
 
-    def test_grad_scaling_unscale_cpu(self):
+    def test_grad_check_unscale_cpu(self):
+        """Test grad scaling and unscale on CPU."""
         dtypes = [torch.float16, torch.float32]
         for dtype in dtypes:
-            self._helper_test_grad_scaling_unscale("cpu", dtype=dtype)
+            self._helper_test_grad_check_unscale('cpu', dtype=dtype)
 
     @decorator.cuda_test
-    def test_grad_scaling_unscale_cuda(self):
+    def test_grad_check_unscale_cuda(self):
+        """Test grad scaling and unscale on CUDA."""
         dtypes = [torch.float16, torch.float32]
         qtypes = [Dtypes.kfloat16, Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2]
         for dtype in dtypes:
-            self._helper_test_grad_scaling_unscale("cuda", dtype=dtype)
+            self._helper_test_grad_check_unscale('cuda', dtype=dtype)
 
         for dtype in dtypes:
             for qtype in qtypes:
-                self._helper_test_grad_scaling_unscale("cuda", dtype=dtype, qtype=qtype)
+                self._helper_test_grad_check_unscale('cuda', dtype=dtype, qtype=qtype)

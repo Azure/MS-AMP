@@ -4,36 +4,37 @@
 """Automatic Mixed Precision (AMP) module."""
 
 import torch
+from msamp.common.tensor import ScalingTensor
 
+
+# pylint: disable=protected-access
 torch_amp_foreach_non_finite_check_and_unscale_ = torch._amp_foreach_non_finite_check_and_unscale_
 
 
 @torch.no_grad()
 def _amp_foreach_non_finite_check_and_unscale_(grads, found_inf, inv_scale):
-    '''
-    This function is a wrapper around torch._foreach_non_finite_check_and_unscale_ that
-    checks if a non-finite value exists in the grads. Meanwhile, all gradients are multiplied by inv_scale.
-    (grad *= inv_scale).
+    """This function is a wrapper around torch._foreach_non_finite_check_and_unscale_ that
+    checks if a non-finite value exists in the grads.
+    Meanwhile, all gradients are multiplied by inv_scale (grad *= inv_scale).
 
     Args:
         grads (list): list of grads
-        found_inf (Tensor): Tensor that contains a single element that is set to 1 if a non-finite is found
-        inv_scale (Tensor): Tensor that contains a single element that is set to 1 / scale
+        found_inf (Tensor): a single element that is set to 1 if a non-finite is found
+        inv_scale (Tensor): a single element that is set to 1 / scale
 
     Returns:
         None
-    '''
-    from msamp.common.tensor import ScalingTensor
+    """
     cpu_torch_grads = []
     cuda_torch_grads = []
     scaling_grads = []
-    for g in grads:
-        if isinstance(g, ScalingTensor):
-            scaling_grads.append(g)
-        elif g.is_cuda:
-            cuda_torch_grads.append(g)
+    for grad in grads:
+        if isinstance(grad, ScalingTensor):
+            scaling_grads.append(grad)
+        elif grad.is_cuda:
+            cuda_torch_grads.append(grad)
         else:
-            cpu_torch_grads.append(g)
+            cpu_torch_grads.append(grad)
 
     # torch.Tensor on GPU
     if len(cuda_torch_grads) > 0:
