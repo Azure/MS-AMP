@@ -36,22 +36,20 @@ def _amp_foreach_non_finite_check_and_unscale_(grads, found_inf, inv_scale):
             cpu_torch_grads.append(grad)
 
     # torch.Tensor on GPU
-    if len(cuda_torch_grads) > 0:
+    if cuda_torch_grads:
         torch_amp_foreach_non_finite_check_and_unscale_(cuda_torch_grads, found_inf, inv_scale)
 
     # torch.Tensor on CPU
-    if len(cpu_torch_grads) > 0:
-        for grad in cpu_torch_grads:
-            grad *= inv_scale
-            if not torch.isfinite(grad).all():
-                found_inf.fill_(True)
+    for grad in cpu_torch_grads:
+        grad *= inv_scale
+        if not torch.isfinite(grad).all():
+            found_inf.fill_(True)
 
     # ScalingTensor
-    if len(scaling_grads) > 0:
-        for grad in scaling_grads:
-            grad.mul_(inv_scale)
-            if not torch.isfinite(grad.meta.amax[0]):
-                found_inf.fill_(True)
+    for grad in scaling_grads:
+        grad.mul_(inv_scale)
+        if not torch.isfinite(grad.meta.amax[0]):
+            found_inf.fill_(True)
 
 
 # Monkey patch torch._foreach_non_finite_check_and_unscale_ with our own function
