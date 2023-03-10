@@ -6,7 +6,6 @@
 import torch
 from msamp.common.tensor import ScalingTensor
 
-
 # pylint: disable=protected-access
 torch_amp_foreach_non_finite_check_and_unscale_ = torch._amp_foreach_non_finite_check_and_unscale_
 
