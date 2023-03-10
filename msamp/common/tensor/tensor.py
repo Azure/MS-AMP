@@ -754,7 +754,7 @@ class TorchOverider:
 
             # torch.Tensor on CPU
             for grad in cpu_torch_grads:
-                grad *= inv_scale
+                grad.mul_(inv_scale)
                 if not torch.isfinite(grad).all():
                     found_inf.fill_(True)
 
