@@ -12,7 +12,7 @@ from tests.helper import decorator
 
 
 class AMPTestCase(unittest.TestCase):
-    """ A clas for testing AMP module. """
+    """ A class for testing AMP module. """
     def setUp(self):
         """Hook method for setting up the test fixture before exercising it."""
         torch.manual_seed(100)
