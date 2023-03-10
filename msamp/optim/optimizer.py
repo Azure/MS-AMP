@@ -18,7 +18,10 @@ from msamp.nn import model_state
 
 
 class LBOptimizer(Optimizer):
-    """Low-bit optimizer base class."""
+    """Low-bit optimizer base class.
+
+    This class is adapted from https://github.com/pytorch/pytorch/blob/master/torch/optim/optimizer.py.
+    """
     def __init__(self, params, defaults):
         """Constructor.
 

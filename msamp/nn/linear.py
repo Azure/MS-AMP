@@ -234,14 +234,14 @@ class LinearReplacer:
         return model
 
     @classmethod
-    def replace(cls, model, weight_qtype):
+    def replace(cls, model, weight_qtype=Dtypes.kfloat16):
         """Replace torch.nn.Linear with FP8Linear in a model.
 
         Besides replace linear modules, it also broadcasts weights and register scaling data to model state.
 
         Args:
             model (torch.nn.Module): Model to replace.
-            weight_qtype (Dtypes.QType): Qtype of weight.
+            weight_qtype (Dtypes.QType, optional): Qtype of weight. Defaults to kfloat16.
 
         Return:
             model (torch.nn.Module): Model in which all Linear modules are replaced with FP8Linear.

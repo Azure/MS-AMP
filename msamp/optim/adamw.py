@@ -160,6 +160,7 @@ class LBAdamW(LBAdamWBase):
             # FP32/16 Tensor * float
 
             grad = grad.float()
+            param_fp8 = param
             param = param.float()
 
             if weight_decay != 0:
@@ -228,6 +229,9 @@ class LBAdamW(LBAdamWBase):
                 # param = param - step_size * (exp_avg / denom)
                 # param.addcdiv_(exp_avg, denom, value=-step_size)
                 param.add_(exp_avg_value / denom, alpha=-step_size)
+
+            if isinstance(param_fp8, ScalingTensor):
+                param_fp8.copy_(param.cast(param_fp8.qtype, meta=param_fp8.meta))
 
 
 class LBAdam(LBAdamW):
