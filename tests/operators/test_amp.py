@@ -16,7 +16,6 @@ class AMPTestCase(unittest.TestCase):
     def setUp(self):
         """Set up for testing."""
         torch.manual_seed(100)
-        self.size = (4, 4)
 
     def _helper_test_grad_check_unscale(self, device, dtype, qtype=None):
         """Helper function for testing grad scaling and unscale.
