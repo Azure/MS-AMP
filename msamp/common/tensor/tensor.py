@@ -626,6 +626,9 @@ class TorchOverider:
         torch.is_floating_point = cls._get_wrapper_for_scalingtensor(
             torch.is_floating_point, lambda x: x.is_floating_point()
         )
+        torch._amp_foreach_non_finite_check_and_unscale_ = cls._get_wrapper_for_grad_check_and_unscale(
+            torch._amp_foreach_non_finite_check_and_unscale_
+        )
 
     @classmethod
     def _override_unary_func(cls):
@@ -715,6 +718,52 @@ class TorchOverider:
             return old_fn(input.value, *args, **kwargs)
 
         return cls._get_wrapper_for_scalingtensor(old_fn, scaling_fn)
+
+    @classmethod
+    def _get_wrapper_for_grad_check_and_unscale(cls, old_fn):
+        @torch.no_grad()
+        def new_fn(grads, found_inf, inv_scale):
+            """A wrapper of torch._amp_foreach_non_finite_check_and_unscale_ for ScalingTensor.
+
+            This function is a wrapper around torch._foreach_non_finite_check_and_unscale_ that
+            checks if a non-finite value exists in the grads.
+            Meanwhile, all gradients are multiplied by inv_scale (grad *= inv_scale).
+
+            Args:
+                grads (list): list of grads
+                found_inf (Tensor): a single element that is set to 1 if a non-finite is found
+                inv_scale (Tensor): a single element that is set to 1 / scale
+
+            Returns:
+                None
+            """
+            cpu_torch_grads = []
+            cuda_torch_grads = []
+            scaling_grads = []
+            for grad in grads:
+                if isinstance(grad, ScalingTensor):
+                    scaling_grads.append(grad)
+                elif grad.is_cuda:
+                    cuda_torch_grads.append(grad)
+                else:
+                    cpu_torch_grads.append(grad)
+
+            # torch.Tensor on GPU
+            if cuda_torch_grads:
+                old_fn(cuda_torch_grads, found_inf, inv_scale)
+
+            # torch.Tensor on CPU
+            for grad in cpu_torch_grads:
+                grad *= inv_scale
+                if not torch.isfinite(grad).all():
+                    found_inf.fill_(True)
+
+            # ScalingTensor
+            for grad in scaling_grads:
+                grad.mul_(inv_scale)
+                if not torch.isfinite(grad.meta.amax[0]):
+                    found_inf.fill_(True)
+        return new_fn
 
 
 TorchOverider.override()
