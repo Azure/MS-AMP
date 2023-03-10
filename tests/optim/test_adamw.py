@@ -36,7 +36,7 @@ class LBAdamwTestCase(unittest.TestCase):
         self.check_optimizer_state_dict(LBAdamW)
         self.check_optimizer_state_dict(LBAdam)
 
-    def check_optimizer_step(self, optimizer_class, diff=5e-3):
+    def check_optimizer_step(self, optimizer_class, diff=3e-4):
         """Check the difference between torch.optim.AdamW and optimizer_class optimizers.
 
         Args:
