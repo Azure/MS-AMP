@@ -11,7 +11,6 @@ from msamp.common.dtype import Floating
 
 class ScalingMeta:
     """The meta data for scaling tensor."""
-
     def __init__(self, qtype, scale=None, scale_inv=None, amax=None, window_size=1):
         """Constructor.
 

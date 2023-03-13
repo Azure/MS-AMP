@@ -70,7 +70,7 @@ class TypeCast:
             if world_size > 1:
                 dist.all_reduce(meta.scale, op=dist.ReduceOp.MIN)
 
-        meta.scale_inv = torch.reciprocal(meta.scale)  # scale_inv = 1 / scale
+        meta.scale_inv = torch.reciprocal(meta.scale)    # scale_inv = 1 / scale
         input_fp16 = (input * meta.scale).to(torch.float16)
         return input_fp16
 
