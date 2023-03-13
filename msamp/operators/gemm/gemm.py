@@ -119,11 +119,11 @@ class Gemm:
         if Device.is_fp8_supported():
             tew.te_gemm(
                 mat_a.value,
-                1.0 / a_meta.scale,
+                a_meta.scale_inv,
                 a_meta.qtype,
                 True,    # transa
                 mat_b.value,
-                1.0 / b_meta.scale,
+                b_meta.scale_inv,
                 b_meta.qtype,
                 False,    # transb
                 out,

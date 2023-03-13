@@ -78,7 +78,7 @@ class TensorDist:
         if isinstance(tensors[0], ScalingTensor):
             values = [p.value for p in tensors]
             cls._dist_tensors_by_bucket(values, dist_fn, bucket_size)
-            scales = [p.meta.scale for p in tensors]
-            cls._dist_tensors_by_bucket(scales, dist_fn, bucket_size)
+            scales_inv = [p.meta.scale_inv for p in tensors]
+            cls._dist_tensors_by_bucket(scales_inv, dist_fn, bucket_size)
         else:
             cls._dist_tensors_by_bucket(tensors, dist_fn, bucket_size)
