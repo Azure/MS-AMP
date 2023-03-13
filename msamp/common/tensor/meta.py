@@ -120,5 +120,5 @@ class ScalingMeta:
             string: Printable representation.
         """
         return f'ScalingMeta(qtype={self.qtype}, '\
-               f'scale={self.scale.data:g}, scale_inv={self.scale_inv.data:g}'\
+               f'scale={self.scale.data:g}, scale_inv={self.scale_inv.data:g}, '\
                f'amax={self.amax.max():g}, window_size={self.window_size})'
