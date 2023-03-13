@@ -117,7 +117,7 @@ class TypeCast:
             input = input.clone()
         else:
             input = input.to(dtype)
-        if meta.scale != 1:
+        if meta.scale_inv != 1:
             input.mul_(meta.scale_inv)
         return input
 
