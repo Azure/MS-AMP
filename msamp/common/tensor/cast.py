@@ -41,7 +41,7 @@ class TypeCast:
             input.view(1, -1),
             meta.scale,
             meta.amax[0],
-            1.0 / meta.scale,
+            meta.scale_inv,
             meta.qtype,
         )
 
@@ -70,6 +70,7 @@ class TypeCast:
             if world_size > 1:
                 dist.all_reduce(meta.scale, op=dist.ReduceOp.MIN)
 
+        meta.scale_inv = torch.reciprocal(meta.scale)  # scale_inv = 1 / scale
         input_fp16 = (input * meta.scale).to(torch.float16)
         return input_fp16
 
@@ -93,7 +94,7 @@ class TypeCast:
         shape = input.shape
         return TransformerEngineWrapper.cast_from_fp8(
             input.view(1, -1),
-            1.0 / meta.scale,
+            meta.scale_inv,
             meta.qtype,
             otype,
         ).view(shape)
@@ -117,7 +118,7 @@ class TypeCast:
         else:
             input = input.to(dtype)
         if meta.scale != 1:
-            input.mul_(1.0 / meta.scale)
+            input.mul_(meta.scale_inv)
         return input
 
     cast_from_fp32 = cast_from_fp16

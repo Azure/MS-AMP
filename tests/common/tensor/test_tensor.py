@@ -202,3 +202,14 @@ class ScalingTensorTestCase(unittest.TestCase):
         scaling_tensor = tensor.cast(Dtypes.kfloat8_e4m3)
         self.assertEqual(scaling_tensor.max().item(), scaling_tensor.float().max().item())
         self.assertEqual(scaling_tensor.min().item(), scaling_tensor.float().min().item())
+
+    @decorator.cuda_test
+    def test_tensor_cast_with_updating_factors(self):
+        """Test cast function with updating scaling factors."""
+        for dtype in [kfloat16, kfloat8_e4m3, kfloat8_e5m2]:
+            tensor = torch.randn(self.size, device=self.device)
+            scaling_tensor = tensor.cast(dtype)
+            # update scale but scale_inv is unchanged.
+            scaling_tensor.meta.scale *= 2
+            scaling_tensor2 = tensor.cast(dtype)
+            self.assertTrue(torch.equal(scaling_tensor.float(), scaling_tensor2.float()))
