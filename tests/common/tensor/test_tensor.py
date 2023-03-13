@@ -206,7 +206,7 @@ class ScalingTensorTestCase(unittest.TestCase):
     @decorator.cuda_test
     def test_tensor_cast_with_updating_factors(self):
         """Test cast function with updating scaling factors."""
-        for dtype in [kfloat16, kfloat8_e4m3, kfloat8_e5m2]:
+        for dtype in [Dtypes.kfloat16, Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2]:
             tensor = torch.randn(self.size, device=self.device)
             scaling_tensor = tensor.cast(dtype)
             # update scale but scale_inv is unchanged.
