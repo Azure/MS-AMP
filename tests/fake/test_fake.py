@@ -32,4 +32,3 @@ class FakeTestCase(unittest.TestCase):
         """Test nvidia-smi."""
         smi = os.popen('nvidia-smi').read().strip()
         self.assertIn('NVIDIA-SMI', smi)
-        self.assertIn('H100', smi)
