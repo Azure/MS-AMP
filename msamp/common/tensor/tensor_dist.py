@@ -123,6 +123,6 @@ class TensorDist:
         if Dtypes.is_fp8_qtype(qtype):
             cls.all_reduce(tensors, dist.ReduceOp.SUM, bucket_size)
             for t in tensors:
-                t.meta.scale *= world_size
+                t.div_(world_size)
         else:
             cls.all_reduce(tensors, dist.ReduceOp.AVG, bucket_size)
