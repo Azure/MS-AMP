@@ -19,4 +19,4 @@ lint: cpplint
 
 postinstall:
 	cd msamp/operators/dist_op && pip install -v -e . && cd -
-
+	cd msamp/optim && pip install -v -e . && cd -
