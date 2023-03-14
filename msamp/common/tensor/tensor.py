@@ -721,6 +721,14 @@ class TorchOverider:
 
     @classmethod
     def _get_wrapper_for_grad_check_and_unscale(cls, old_fn):
+        """Get wrapper for torch._amp_foreach_non_finite_check_and_unscale_.
+
+        Args:
+            old_fn (function): original function.
+
+        Return:
+            function: new function that can process torch.Tensor and ScalingTensor.
+        """
         @torch.no_grad()
         def new_fn(grads, found_inf, inv_scale):
             """A wrapper of torch._amp_foreach_non_finite_check_and_unscale_ for ScalingTensor.
