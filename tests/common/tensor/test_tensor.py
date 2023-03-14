@@ -280,4 +280,3 @@ class ScalingTensorTestCase(unittest.TestCase):
         for dtype in dtypes:
             for qtype in qtypes:
                 self._helper_test_grad_check_unscale('cuda', dtype=dtype, qtype=qtype)
-
