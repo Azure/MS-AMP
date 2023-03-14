@@ -8,7 +8,7 @@ import unittest
 import torch
 
 from msamp.common.dtype import Dtypes
-from msamp.optim import LBAdamW, LBAdam, LBAdamWBase, DsLBAdam
+from msamp.optim import LBAdamW, LBAdam, LBAdamWBase, DSAdam
 from msamp.nn import LinearReplacer
 from tests.helper import decorator
 
@@ -29,7 +29,7 @@ class LBAdamwTestCase(unittest.TestCase):
         self.check_optimizer_step(LBAdamWBase)
         self.check_optimizer_step(LBAdamW)
         self.check_optimizer_step(LBAdam)
-        self.check_optimizer_step(DsLBAdam)
+        self.check_optimizer_step(DSAdam)
 
     @decorator.cuda_test
     def test_state_dict(self):

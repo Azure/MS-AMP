@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 #include <c10/cuda/CUDAGuard.h>
 #include <cublasLt.h>
 #include <cublas_v2.h>

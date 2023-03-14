@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 #include <cublasLt.h>
 #include <cublas_v2.h>
 #include <cuda_bf16.h>
