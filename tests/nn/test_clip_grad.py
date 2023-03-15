@@ -5,7 +5,6 @@
 
 import unittest
 import copy
-
 import torch
 
 import msamp
