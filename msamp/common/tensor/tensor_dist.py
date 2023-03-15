@@ -126,3 +126,19 @@ class TensorDist:
                 t.meta.scale *= world_size
         else:
             cls.all_reduce(tensors, dist.ReduceOp.AVG, bucket_size)
+
+    @classmethod
+    def all_reduce_sum(cls, tensors, bucket_size=ALL_REDUCE_BUCKET_SIZE):
+        """All-reduce tensors with sum value across processes in one process group.
+
+        Args:
+            tensors (list of torch.Tensor or ScalingTensor): Tensors to be all-reduced.
+            bucket_size (int): Bucket size in bytes.
+        """
+        world_size = DistUtil.get_world_size()
+        if world_size == 1:
+            return
+        if len(tensors) == 0:
+            return
+
+        cls.all_reduce(tensors, dist.ReduceOp.SUM, bucket_size)
