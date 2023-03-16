@@ -81,8 +81,8 @@ class TensorDist:
         if isinstance(tensors[0], ScalingTensor):
             values = [p.value for p in tensors]
             cls._dist_tensors_by_bucket(values, dist_fn, bucket_size)
-            scales = [p.meta.scale for p in tensors]
-            cls._dist_tensors_by_bucket(scales, dist_fn, bucket_size)
+            scales_inv = [p.meta.scale_inv for p in tensors]
+            cls._dist_tensors_by_bucket(scales_inv, dist_fn, bucket_size)
         else:
             cls._dist_tensors_by_bucket(tensors, dist_fn, bucket_size)
 
@@ -123,6 +123,6 @@ class TensorDist:
         if Dtypes.is_fp8_qtype(qtype):
             cls.all_reduce(tensors, dist.ReduceOp.SUM, bucket_size)
             for t in tensors:
-                t.meta.scale *= world_size
+                t.div_(world_size)
         else:
             cls.all_reduce(tensors, dist.ReduceOp.AVG, bucket_size)
