@@ -31,7 +31,6 @@ class LBOptimizer(Optimizer):
         """
         super().__init__(params, defaults)
         self.set_grad_none = False
-        self.model = None
 
     def step(self, closure=None):
         """Performs a single optimization step.
@@ -41,29 +40,14 @@ class LBOptimizer(Optimizer):
         """
         rtn = self.lb_step(closure)
         self._update_scaling_factors()
-        self._all_reduce_grads()
         return rtn
 
-    def set_model(self, model):
-        """Set model to optimizer.
-
-        Args:
-            model: model to be set.
-        """
-        if model is None:
-            return
+    def all_reduce_grads(self, model):
+        """All-reduce gradients of parameters."""
         while hasattr(model, 'module'):
             model = model.module
-        self.model = model
-
-    def _all_reduce_grads(self):
-        """All-reduce gradients of parameters."""
-        if self.model is None:
-            return
-        get_fp8_wgrads_fn = getattr(self.model, 'get_fp8_wgrads', None)
-        if get_fp8_wgrads_fn is not None:
-            wgrads = get_fp8_wgrads_fn()
-            TensorDist.all_reduce_avg(wgrads)
+        wgrads = model.get_fp8_wgrads()
+        TensorDist.all_reduce_avg(wgrads)
 
     def lb_step(self, closure=None):
         """Performs a single optimization step. The subclass needs to implement this method.

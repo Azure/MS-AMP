@@ -62,11 +62,11 @@ class LBAdamwTestCase(unittest.TestCase):
         model2 = LinearReplacer.replace(model2, Dtypes.kfloat16)
 
         opt2 = optimizer_class(model2.parameters())
-        opt2.set_model(model2)
 
         for _ in range(4):
             output = model2(input)
             output.sum().backward()
+            opt2.all_reduce_grads(model2)
             opt2.step()
             opt2.zero_grad()
 
@@ -85,12 +85,12 @@ class LBAdamwTestCase(unittest.TestCase):
         model1 = copy.deepcopy(linear)
         model1 = LinearReplacer.replace(model1, Dtypes.kfloat16)
         opt1 = lbadam_class(model1.parameters())
-        opt1.set_model(model1)
 
         for _ in range(4):
             output = model1(input)
             opt1.zero_grad()
             output.sum().backward()
+            opt1.all_reduce_grads(model1)
             opt1.step()
 
         state_dict1 = opt1.state_dict()
@@ -128,12 +128,12 @@ class LBAdamwTestCase(unittest.TestCase):
         model2 = LinearReplacer.replace(model2, Dtypes.kfloat16)
 
         opt2 = lbadam_class(model2.parameters())
-        opt2.set_model(model2)
 
         for _ in range(4):
             output = model2(input)
             opt2.zero_grad()
             output.sum().backward()
+            opt2.all_reduce_grads(model2)
             opt2.step()
 
         # Load state dict to op2 and check if the weight is same as model1 after update weigth once.
