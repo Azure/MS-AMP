@@ -146,3 +146,23 @@ class LinearTestCase(unittest.TestCase):
         wgrads = model.get_fp8_wgrads()
         self.assertTrue(len(wgrads) == 1)
         self.assertEqual(wgrads[0], model.weight.grad)
+
+    @decorator.cuda_test
+    def test_historical_window_quantization(self):
+        """Test historical window quantization."""
+        from msamp.optim import LBAdamW
+        linear = torch.nn.Linear(4, 8).cuda()
+        model = LinearReplacer.replace(linear, Dtypes.kfloat16)
+        opt = LBAdamW(model.parameters())
+        window_size = 16
+        windows = []
+        for i in list(range(17)) * 6:
+            x = torch.full((1, 4), i, device='cuda', dtype=torch.float32)
+            windows.append(i)
+            while len(windows) > window_size:
+                windows.pop(0)
+            y = model(x)
+            self.assertTrue((model.scaling_metas['input'].amax.max() ==
+                            max(windows)).all())
+            y.sum().backward()
+            opt.step()
