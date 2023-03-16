@@ -161,7 +161,6 @@ class LBAdamwTestCase(unittest.TestCase):
             while len(windows) > window_size:
                 windows.pop(0)
             y = model(x)
-            self.assertTrue((model.scaling_metas['input'].amax.max() ==
-                            max(windows)).all())
+            self.assertTrue((model.scaling_metas['input'].amax.max() == max(windows)).all())
             y.sum().backward()
             opt.step()
