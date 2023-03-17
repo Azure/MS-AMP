@@ -3,15 +3,9 @@
 
 """MS-AMP Python module."""
 
-from msamp.nn import clip_grad_norm_
-
-__version__ = '0.1.0'
-__author__ = 'Microsoft'
-
-__all__ = ['clip_grad_norm_', 'initialize']
-
 import torch
 
+from msamp.nn import clip_grad_norm_
 from msamp.nn import LinearReplacer
 from msamp.optim import LBAdam, LBAdamW
 
@@ -75,3 +69,8 @@ def initialize(model, optimizer=None, opt_level='O1'):    # noqa: C901
     cast_optimizer.set_model(cast_model)
 
     return cast_model, cast_optimizer
+
+
+__version__ = '0.1.0'
+__author__ = 'Microsoft'
+__all__ = ['clip_grad_norm_', 'initialize']
