@@ -37,10 +37,34 @@ def initialize(model, optimizer=None, opt_level='O1'):    # noqa: C901
     if not isinstance(optimizer, (torch.optim.AdamW, torch.optim.Adam)):
         raise ValueError('Optimizer {} is not supported in optimization level {}'.format(optimizer, opt_level))
 
-    cast_model = LinearReplacer.replace(model)
     if not optimizer:
         # default optimizer.
-        optimizer = LBAdamW(cast_model.parameters())
+        optimizer = torch.optim.AdamW(model.parameters())
+
+    # We record the index of parameters in the original optimizer and fill new optimizer's parameter groups
+    # with parameters from cast model. The index should not change.
+    param_index_map = {}
+    index = 0
+    for p in model.parameters():
+        param_index_map[id(p)] = index
+        index += 1
+
+    index_list = []
+    for group in optimizer.param_groups:
+        for param in group['params']:
+            assert id(param) in param_index_map
+            index = param_index_map[id(param)]
+            index_list.append(index)
+
+    cast_model = LinearReplacer.replace(model)
+    parameters = list(cast_model.parameters())
+
+    index = 0
+    for group in optimizer.param_groups:
+        params = group['params']
+        for i in range(len(params)):
+            params[i] = parameters[index_list[index]]
+            index += 1
 
     default_args = optimizer.defaults
 
@@ -59,12 +83,11 @@ def initialize(model, optimizer=None, opt_level='O1'):    # noqa: C901
     if 'capturable' in default_args:
         del default_args['capturable']
 
-    parameters = cast_model.parameters()
     cast_optimizer = None
     if isinstance(optimizer, torch.optim.Adam):
-        cast_optimizer = LBAdam(parameters, **default_args)
+        cast_optimizer = LBAdam(optimizer.param_groups, **default_args)
     elif isinstance(optimizer, torch.optim.AdamW):
-        cast_optimizer = LBAdamW(parameters, **default_args)
+        cast_optimizer = LBAdamW(optimizer.param_groups, **default_args)
 
     cast_optimizer.set_model(cast_model)
 
