@@ -34,12 +34,12 @@ def initialize(model, optimizer=None, opt_level='O1'):    # noqa: C901
     if opt_level not in opt_levels:
         raise ValueError('Invalid optimization level. Please choose from {}'.format(opt_levels))
 
-    if not isinstance(optimizer, (torch.optim.AdamW, torch.optim.Adam)):
-        raise ValueError('Optimizer {} is not supported in optimization level {}'.format(optimizer, opt_level))
-
     if not optimizer:
         # default optimizer.
         optimizer = torch.optim.AdamW(model.parameters())
+
+    if not isinstance(optimizer, (torch.optim.AdamW, torch.optim.Adam)):
+        raise ValueError('Optimizer {} is not supported in optimization level {}'.format(optimizer, opt_level))
 
     # We record the index of parameters in the original optimizer and fill new optimizer's parameter groups
     # with parameters from cast model. The index should not change.
