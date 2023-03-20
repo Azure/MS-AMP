@@ -33,6 +33,12 @@ class InitializeTestCase(unittest.TestCase):
 
         for opt_level in ['O1', 'O2']:
             model = torch.nn.Linear(4, 4)
+            model, optimizer = msamp.initialize(model, None, opt_level)
+            assert isinstance(model, FP8Linear)
+            assert isinstance(optimizer, LBAdamW)
+
+        for opt_level in ['O1', 'O2']:
+            model = torch.nn.Linear(4, 4)
             optimizer = torch.optim.Adam(model.parameters())
             model, optimizer = msamp.initialize(model, optimizer, opt_level)
             assert isinstance(model, FP8Linear)
