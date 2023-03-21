@@ -31,6 +31,18 @@ class LBOptimizer(Optimizer):
         """
         super().__init__(params, defaults)
         self.set_grad_none = False
+        self.model = None
+
+    def set_model(self, model):
+        """Set model to optimizer.
+        Args:
+            model: model to be set.
+        """
+        if model is None:
+            return
+        while hasattr(model, 'module'):
+            model = model.module
+        self.model = model
 
     def step(self, closure=None):
         """Performs a single optimization step.
@@ -38,12 +50,19 @@ class LBOptimizer(Optimizer):
         Args:
             closure (callable, optional): A closure that reevaluates the model and returns the loss.
         """
+        if self.model is not None:
+            self.all_reduce_grads(self.model)
+        assert not model_state.ready_to_all_reduce_grads, \
+            'Please call optimizer.all_reduce_grads(model) before calling optimizer.step()'
         rtn = self.lb_step(closure)
         self._update_scaling_factors()
         return rtn
 
     def all_reduce_grads(self, model):
         """All-reduce gradients of parameters."""
+        if not model_state.ready_to_all_reduce_grads:
+            return
+        model_state.ready_to_all_reduce_grads = False
         while hasattr(model, 'module'):
             model = model.module
         get_fp8_wgrads_fn = getattr(model, 'get_fp8_wgrads', None)
