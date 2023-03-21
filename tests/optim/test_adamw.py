@@ -121,6 +121,7 @@ class LBAdamwTestCase(unittest.TestCase):
         state_dict2 = copy.deepcopy(state_dict1)
         opt1.zero_grad()
         model1(input).sum().backward()
+        opt1.all_reduce_grads(model1)
         opt1.step()
 
         # Build model2 and update 4 times.
@@ -142,6 +143,7 @@ class LBAdamwTestCase(unittest.TestCase):
 
         opt2.zero_grad()
         model2(input).sum().backward()
+        opt2.all_reduce_grads(model2)
         opt2.step()
 
         self.assertTrue(torch.equal(model1.weight.value, model2.weight.value))
@@ -153,6 +155,7 @@ class LBAdamwTestCase(unittest.TestCase):
         linear = torch.nn.Linear(4, 8).cuda()
         model = LinearReplacer.replace(linear, Dtypes.kfloat16)
         opt = LBAdamW(model.parameters())
+        opt.set_model(model)
         window_size = 16
         windows = []
         for i in list(range(17)) * 6:
