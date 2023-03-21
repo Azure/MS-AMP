@@ -11,7 +11,7 @@ jobs:
     name: Build and run unit tests
     runs-on: [self-hosted, linux, x64, gpu]
     container:
-      image: superbench/dev:cuda11.8
+      image: nvcr.io/nvidia/pytorch:22.12-py3
       options: --privileged --ipc=host --gpus=all
     steps:
     - name: Checkout msamp
