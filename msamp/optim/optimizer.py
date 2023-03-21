@@ -91,6 +91,7 @@ class LBOptimizer(Optimizer):
             mask_valid = torch.isfinite(amaxs[:, 0])
             mask_inf_nan = ~mask_valid
             amaxs.copy_(amaxs.roll(1, dims=1))
+            amaxs[:, 0] = 0
             amax_counters += 1
             amax_counters[mask_inf_nan] = 0
             scales[mask_valid] = sf[mask_valid]
