@@ -178,9 +178,9 @@ class ScalingTensor:
         if torch.is_tensor(other):
             if other.numel() != 1:
                 raise ValueError('The tensor must by single-element tensor.')
-            self.meta.scale /= other.view_as(self.meta.scale)
+            self.meta.scale_inv *= other.view_as(self.meta.scale_inv)
         else:
-            self.meta.scale /= other
+            self.meta.scale_inv *= other
         return self
 
     @torch.no_grad()
@@ -196,9 +196,9 @@ class ScalingTensor:
         if torch.is_tensor(other):
             if other.numel() != 1:
                 raise ValueError('The tensor must by single-element tensor.')
-            self.meta.scale *= other.view_as(self.meta.scale)
+            self.meta.scale_inv /= other.view_as(self.meta.scale_inv)
         else:
-            self.meta.scale *= other
+            self.meta.scale_inv /= other
         return self
 
     def _get_cast_from_fn(self):

@@ -106,6 +106,7 @@ class ModelState:
 
         # scale and amax
         scales = cls._flat_tensors([m.scale for m in metas])
+        scales_inv = cls._flat_tensors([m.scale_inv for m in metas])
         amaxs = cls._flat_tensors([m.amax for m in metas])
         amax_counters = cls._flat_tensors([m.amax_counter for m in metas])
         # scales: (n,)
@@ -115,6 +116,7 @@ class ModelState:
         return dict(
             qtype=qtype,
             scales=scales,
+            scales_inv=scales_inv,
             amaxs=amaxs.view(n, window_size),
             amax_counters=amax_counters,
         )
@@ -130,6 +132,7 @@ class ModelState:
         for k, v in scaling_metas.items():
             metas = self._flattened_scaling_metas[k]
             ModelState._check_in_mem(v.scale, metas['scales'])
+            ModelState._check_in_mem(v.scale_inv, metas['scales_inv'])
             ModelState._check_in_mem(v.amax, metas['amaxs'])
             ModelState._check_in_mem(v.amax_counter, metas['amax_counters'])
 

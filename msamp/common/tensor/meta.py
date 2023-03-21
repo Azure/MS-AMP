@@ -11,17 +11,19 @@ from msamp.common.dtype import Floating
 
 class ScalingMeta:
     """The meta data for scaling tensor."""
-    def __init__(self, qtype, scale=None, amax=None, window_size=1):
+    def __init__(self, qtype, scale=None, scale_inv=None, amax=None, window_size=1):
         """Constructor.
 
         Args:
             qtype (Dtypes.QType): Type of the scaling tensor.
             scale (torch.Tensor, optional): Scaling tensor, defaults to None.
+            scale_inv (torch.Tensor, optional): The reciprocal of scaling tensor, defaults to None.
             amax (torch.Tensor, optional): Absolute maximum tensor, defaults to None.
             window_size (int, optional): Window size, defaults to 1.
         """
         self.qtype = qtype
         self.scale = scale if scale is not None else torch.ones((), device='cuda')
+        self.scale_inv = scale_inv if scale_inv is not None else torch.ones((), device='cuda')
         self.amax = amax if amax is not None else torch.zeros((window_size, ), device='cuda')
         self.amax_counter = torch.zeros((), dtype=torch.int32)
         self.window_size = window_size
@@ -86,6 +88,7 @@ class ScalingMeta:
         """
         self.qtype = src.qtype
         self.scale.copy_(src.scale)
+        self.scale_inv.copy_(src.scale_inv)
         self.amax.copy_(src.amax)
         self.amax_counter.copy_(src.amax_counter)
         self.window_size = src.window_size
@@ -97,6 +100,7 @@ class ScalingMeta:
     def cuda(self):
         """Returns a copy of this object in CUDA memory."""
         self.scale = self.scale.cuda()
+        self.scale_inv = self.scale_inv.cuda()
         self.amax = self.amax.cuda()
         return self
 
@@ -115,5 +119,6 @@ class ScalingMeta:
         Return:
             string: Printable representation.
         """
-        return f'ScalingMeta(qtype={self.qtype}, scale={self.scale.data:g}, '\
+        return f'ScalingMeta(qtype={self.qtype}, '\
+               f'scale={self.scale.data:g}, scale_inv={self.scale_inv.data:g}, '\
                f'amax={self.amax.max():g}, window_size={self.window_size})'
