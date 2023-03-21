@@ -78,7 +78,11 @@ void comm_destroy(ncclComm_t comm) {
 
 struct AutoNcclGroup {
     AutoNcclGroup() {
+#if (TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 14)
         (c10::cuda::CUDACachingAllocator::getFreeMutex())->lock();
+#else
+        (c10::cuda::getFreeMutex())->lock();
+#endif
 #if defined(NCCL_MAJOR) && (NCCL_MAJOR >= 2)
         NCCL_CHECK(ncclGroupStart());
 #endif
@@ -87,7 +91,11 @@ struct AutoNcclGroup {
 #if defined(NCCL_MAJOR) && (NCCL_MAJOR >= 2)
         NCCL_CHECK(ncclGroupEnd());
 #endif
+#if (TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 14)
         (c10::cuda::CUDACachingAllocator::getFreeMutex())->unlock();
+#else
+        (c10::cuda::getFreeMutex())->unlock();
+#endif
     }
 };
 
