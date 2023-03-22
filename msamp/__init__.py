@@ -89,8 +89,6 @@ def initialize(model, optimizer=None, opt_level='O1'):    # noqa: C901
     elif isinstance(optimizer, torch.optim.AdamW):
         cast_optimizer = LBAdamW(optimizer.param_groups, **default_args)
 
-    cast_optimizer.set_model(cast_model)
-
     return cast_model, cast_optimizer
 
 

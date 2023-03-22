@@ -155,7 +155,6 @@ class LBAdamwTestCase(unittest.TestCase):
         linear = torch.nn.Linear(4, 8).cuda()
         model = LinearReplacer.replace(linear, Dtypes.kfloat16)
         opt = LBAdamW(model.parameters())
-        opt.set_model(model)
         window_size = 16
         windows = []
         for i in list(range(17)) * 6:
@@ -166,4 +165,5 @@ class LBAdamwTestCase(unittest.TestCase):
             y = model(x)
             self.assertTrue((model.scaling_metas['input'].amax.max() == max(windows)).all())
             y.sum().backward()
+            opt.all_reduce_grads(model)
             opt.step()
