@@ -35,6 +35,7 @@ class LBOptimizer(Optimizer):
 
     def set_model(self, model):
         """Set model to optimizer.
+
         Args:
             model: model to be set.
         """
