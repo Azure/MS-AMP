@@ -9,6 +9,7 @@ from msamp.common.dtype import Dtypes
 from msamp.common.tensor import ScalingTensor, ScalingMeta, TensorDist
 from msamp.nn import ScalingParameter, ScalingModule, model_state
 from msamp.operators.gemm import Gemm
+from msamp.common.utils import TransformerEngineWrapper
 
 
 class FP8Linear(ScalingModule):
@@ -132,17 +133,18 @@ class _FP8GemmFunction(torch.autograd.Function):
         metas = ctx.metas
         ograd_meta = metas['ograd']
         wgrad_meta = metas['wgrad']
-        ograd_fp8 = output_grad.cast(Dtypes.kfloat8_e5m2, meta=ograd_meta)
+        ograd_fp8, ograd_fp8_t = TransformerEngineWrapper.fp8_fused_cast_transpose(
+            output_grad, Dtypes.kfloat8_e5m2, ograd_meta
+        )
 
         if ctx.input_fp8.requires_grad:
-            weight_fp8_t = ctx.weight_fp8.t().contiguous()
+            weight_fp8_t = TransformerEngineWrapper.fp8_transpose(ctx.weight_fp8)
             input_grad = Gemm.fp8_gemm(weight_fp8_t, ograd_fp8, ctx.output_qtype, use_split_accumulator=True)
         else:
             input_grad = None
 
         if ctx.weight.requires_grad:
-            ograd_fp8_t = ograd_fp8.t().contiguous()
-            input_fp8_t = ctx.input_fp8.t().contiguous()
+            input_fp8_t = TransformerEngineWrapper.fp8_transpose(ctx.input_fp8)
             wgrad_qtype = ctx.output_qtype
             # compute weight gradient
             if ctx.weight.grad is None:

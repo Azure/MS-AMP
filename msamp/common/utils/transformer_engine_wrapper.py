@@ -3,10 +3,14 @@
 
 """Transformer engine wrapper module."""
 
+from typing import Tuple
+
+import torch
 import transformer_engine as te    # noqa: F401 # pylint:disable=unused-import
 import transformer_engine_extensions as tex
 
 from msamp.common.dtype import QType
+from msamp.common.tensor import ScalingTensor, ScalingMeta
 
 
 class TransformerEngineWrapper:
@@ -84,3 +88,38 @@ class TransformerEngineWrapper:
         itype = TransformerEngineWrapper._to_te_dtype(itype)
         otype = TransformerEngineWrapper._to_te_dtype(otype)
         return tex.cast_from_fp8(input, scale_inv, itype, otype)
+
+    @staticmethod
+    def fp8_fused_cast_transpose(input: torch.Tensor, qtype: QType,
+                                 meta: ScalingMeta) -> Tuple[ScalingTensor, ScalingTensor]:
+        """Fused cast and transpose for input tensor.
+
+        Args:
+            input (torch.Tensor): input tensor.
+            qtype (QType): qtype to cast.
+            meta (ScalingMeta): scaling meta.
+
+        Returns:
+            ScalingTensor, ScalingTensor: casted and transposed scaling tensor.
+        """
+        out_cast = torch.empty_like(input, dtype=torch.uint8)
+        out_t = torch.empty(input.shape[1], input.shape[0], device='cuda', dtype=torch.uint8)
+        tex.fused_cast_transpose(
+            input, meta.scale, meta.amax, 1.0 / meta.scale, out_cast, out_t,
+            TransformerEngineWrapper._to_te_dtype(qtype)
+        )
+        return ScalingTensor(out_cast, meta), ScalingTensor(out_t, meta)
+
+    @staticmethod
+    def fp8_transpose(input: ScalingTensor) -> ScalingTensor:
+        """Transpose the input tensor.
+
+        Args:
+            input (ScalingTensor): input scaling tensor.
+
+        Returns:
+            ScalingTensor: transposed scaling tensor.
+        """
+        return ScalingTensor(
+            tex.fp8_transpose(input.value, TransformerEngineWrapper._to_te_dtype(input.meta.qtype)), input.meta
+        )
