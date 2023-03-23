@@ -68,7 +68,8 @@ def train(args, model, device, train_loader, optimizer, epoch):
         output = model(data)
         loss = F.nll_loss(output, target)
         loss.backward()
-        optimizer.all_reduce_grads(model)
+        if hasattr(optimizer, 'all_reduce_grads'):
+            optimizer.all_reduce_grads(model)
         optimizer.step()
         if dist.get_rank() == 0:
             if batch_idx % args.log_interval == 0:
