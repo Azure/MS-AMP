@@ -267,13 +267,25 @@ class ScalingTensor:
             meta = meta.clone()
         return ScalingTensor(self.value.contiguous(), meta)
 
-    def has_inf_or_nan(self):
-        """Check if tensor is infinite or nan.
+    def isfinite_all(self):
+        """Check if elements in this tensor are all finite
 
         Return:
-            bool: return True if absolute maxmium value is not finite, otherwise False.
+            bool: return True if elements in this tensor are all finite.
+                  otherwise False.
         """
-        return not bool(torch.isfinite(self.meta.amax[0]))
+        if not torch.isfinite(self.meta.scale_inv) or not torch.isfinite(self.meta.amax[0]):
+            return False
+        if self.qtype == cls.kfloat8_e4m3:
+            # all elemenets are not NaN
+            # NaN: S.1111.111
+            return ((self.value & 0x7F) != 0x7F).all()
+        elif self.qtype == cls.kfloat8_e5m2:
+            # all elemenets are not NaN and not INF
+            # NaN: S.11111.{01,10,11}
+            # INF: S.11111.00
+            return ((self.value & 0x7C) != 0x7C).all()
+        return torch.isfinite(self.value).all()
 
     def float(self):
         """Cast value tensor to float.
@@ -382,8 +394,12 @@ class ScalingTensor:
         Return:
             bool: True if value tensor is nan, otherwise False.
         """
-        if Dtypes.is_fp8_qtype(self.qtype):
-            return self.value == 127
+        if self.qtype == cls.kfloat8_e4m3:
+            # NaN: S.1111.111
+            return (self.value & 0x7F) == 0x7F
+        elif self.qtype == cls.kfloat8_e5m2:
+            # NaN: S.11111.{01,10,11}
+            return (self.value & 0x7F) > 0x7C
         return torch.isnan(self.value)
 
     @property

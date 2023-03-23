@@ -174,19 +174,19 @@ class ScalingTensorTestCase(unittest.TestCase):
         self.assertTrue(torch.equal(float_tensor.t(), transpose_tensor_value))
 
     @decorator.cuda_test
-    def test_inf_and_nan(self):
-        """Test has_inf_or_nan function in ScalingTensor."""
+    def test_isfinite_all(self):
+        """Test isfinite_all function in ScalingTensor."""
         tensor = torch.tensor([1, 2, 3, 4, 5], dtype=torch.float32, device=self.device)
         scaling_tensor = tensor.cast(Dtypes.kfloat8_e4m3)
-        self.assertFalse(scaling_tensor.has_inf_or_nan())
+        self.assertTrue(scaling_tensor.isfinite_all())
 
         tensor = torch.tensor([1, 2, 3, 4, 5, torch.inf], dtype=torch.float32, device=self.device)
         scaling_tensor = tensor.cast(Dtypes.kfloat8_e4m3)
-        self.assertTrue(scaling_tensor.has_inf_or_nan())
+        self.assertFalse(scaling_tensor.isfinite_all())
 
         tensor = torch.tensor([1, 2, 3, 4, 5, torch.nan], dtype=torch.float32, device=self.device)
         scaling_tensor = tensor.cast(Dtypes.kfloat8_e4m3)
-        self.assertTrue(scaling_tensor.has_inf_or_nan())
+        self.assertFalse(scaling_tensor.isfinite_all())
 
     @decorator.cuda_test
     def test_tensor_zero(self):
