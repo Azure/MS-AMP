@@ -9,6 +9,7 @@ from msamp.common.dtype import Dtypes
 from msamp.common.tensor import ScalingTensor, ScalingMeta, TensorDist
 from msamp.nn import ScalingParameter, ScalingModule, model_state
 from msamp.operators.gemm import Gemm
+from msamp.common.utils import DistUtil
 
 
 class FP8Linear(ScalingModule):
@@ -167,6 +168,8 @@ class _FP8GemmFunction(torch.autograd.Function):
 
             # wgrad above this line is torch.Tensor w/o tensor scaling
             wgrad = wgrad.cast(Dtypes.kfloat8_e4m3, meta=wgrad_meta, sync=True)
+            if DistUtil.get_world_size() > 1:
+                model_state.ready_to_all_reduce_grads = True
 
             ctx.weight.backward_grad_update(wgrad)
 
