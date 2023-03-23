@@ -785,7 +785,7 @@ class TorchOverider:
             # ScalingTensor
             for grad in scaling_grads:
                 grad.mul_(inv_scale)
-                if not torch.isfinite(grad.meta.amax[0]):
+                if not grad.isfinite_all():
                     found_inf.fill_(True)
 
         return new_fn
