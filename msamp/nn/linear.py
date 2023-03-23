@@ -14,6 +14,7 @@ from msamp.operators.gemm import Gemm
 class FP8Linear(ScalingModule):
     """Linear layer with FP8 support."""
     DEFAULT_WINDOW_SIZE = 16
+    DEFAULT_WGRAD_WINDOW_SIZE = 1
     EMPTY_GRAD_TENSOR = torch.nn.Parameter(torch.tensor([]))
 
     def __init__(self, in_features, out_features, use_bias=True, weight_qtype=Dtypes.kfloat16):
@@ -41,7 +42,7 @@ class FP8Linear(ScalingModule):
 
         self.scaling_metas = dict(
             input=ScalingMeta(Dtypes.kfloat8_e4m3, window_size=FP8Linear.DEFAULT_WINDOW_SIZE),
-            wgrad=ScalingMeta(Dtypes.kfloat8_e4m3, window_size=1),
+            wgrad=ScalingMeta(Dtypes.kfloat8_e4m3, window_size=FP8Linear.DEFAULT_WGRAD_WINDOW_SIZE),
             ograd=ScalingMeta(Dtypes.kfloat8_e5m2, window_size=FP8Linear.DEFAULT_WINDOW_SIZE)
         )
 

@@ -90,6 +90,8 @@ class LBOptimizer(Optimizer):
         meta_names = ['input']
         if training:
             meta_names.append('ograd')
+            if not ScalingMeta.IN_TIME_SCALING:
+                meta_names.append('wgrad')
 
         margin = 0
 
