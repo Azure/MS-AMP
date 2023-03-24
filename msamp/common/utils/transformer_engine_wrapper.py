@@ -6,11 +6,58 @@
 from typing import Tuple
 
 import torch
+import torch.nn.functional as F
 import transformer_engine as te    # noqa: F401 # pylint:disable=unused-import
 import transformer_engine_extensions as tex
 
 from msamp.common.dtype import QType
 from msamp.common.tensor import ScalingTensor, ScalingMeta
+
+
+class PaddingTensor:
+    """Padding Tensor to 16-byte aligned for FP8 operators."""
+    def __init__(self, val: torch.Tensor, transpose: bool = False, pad_base: int = 16):
+        """Constructor, init tensor shape and padding shape.
+
+        Args:
+            val (torch.Tensor): input tensor.
+            transpose (bool, optional): Whether output transpose or not. Defaults to False.
+            pad_base (int, optional): Padding base in number of elements. Defaults to 16.
+        """
+        self.val = val
+        self.dim = val.shape
+        self.transpose = transpose
+        assert len(self.dim) == 2, 'Input must have 2 dimensions.'
+        self.pad = [-d % pad_base for d in self.dim]
+        self.require_pad = any(p > 0 for p in self.pad)
+
+    def __enter__(self):
+        """Pad input tensor if needed.
+
+        Returns:
+            PaddingTensor: return self.
+        """
+        if self.require_pad:
+            self.val = F.pad(self.val, (0, self.pad[1], 0, self.pad[0]))
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Unpad input tensor when exit the context manager.
+
+        Args:
+            exc_type (Type): exception's class.
+            exc_val (BaseException): exception instance.
+            exc_tb (TracebackType): exception traceback.
+
+        Returns:
+            bool: True to suppress an exception raised in the context.
+        """
+        if self.require_pad:
+            if self.transpose:
+                self.val = self.val[:self.dim[1], :self.dim[0]]
+            else:
+                self.val = self.val[:self.dim[0], :self.dim[1]]
+        return None
 
 
 class TransformerEngineWrapper:
@@ -102,13 +149,17 @@ class TransformerEngineWrapper:
         Returns:
             ScalingTensor, ScalingTensor: casted and transposed scaling tensor.
         """
-        out_cast = torch.empty_like(input, dtype=torch.uint8)
-        out_t = torch.empty(input.shape[1], input.shape[0], device='cuda', dtype=torch.uint8)
-        tex.fused_cast_transpose(
-            input, meta.scale, meta.amax, 1.0 / meta.scale, out_cast, out_t,
-            TransformerEngineWrapper._to_te_dtype(qtype)
-        )
-        return ScalingTensor(out_cast, meta), ScalingTensor(out_t, meta)
+        with PaddingTensor(input) as pad_input:
+            out_cast = torch.empty_like(pad_input.val, dtype=torch.uint8)
+            out_t = torch.empty(out_cast.shape[1], out_cast.shape[0], device='cuda', dtype=torch.uint8)
+            tex.fused_cast_transpose(
+                pad_input.val, meta.scale, meta.amax, 1.0 / meta.scale, out_cast, out_t,
+                TransformerEngineWrapper._to_te_dtype(qtype)
+            )
+            if pad_input.require_pad:
+                out_cast = out_cast[:input.shape[0], :input.shape[1]]
+                out_t = out_t[:input.shape[1], :input.shape[0]]
+        return ScalingTensor(out_cast, meta), ScalingTensor(out_t.contiguous(), meta)
 
     @staticmethod
     def fp8_transpose(input: ScalingTensor) -> ScalingTensor:
@@ -120,6 +171,6 @@ class TransformerEngineWrapper:
         Returns:
             ScalingTensor: transposed scaling tensor.
         """
-        return ScalingTensor(
-            tex.fp8_transpose(input.value, TransformerEngineWrapper._to_te_dtype(input.meta.qtype)), input.meta
-        )
+        with PaddingTensor(input.value, transpose=True) as pad_input:
+            pad_input.val = tex.fp8_transpose(pad_input.val, TransformerEngineWrapper._to_te_dtype(input.meta.qtype))
+        return ScalingTensor(pad_input.val.contiguous(), input.meta)
