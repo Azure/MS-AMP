@@ -31,7 +31,6 @@ class LBOptimizer(Optimizer):
         """
         super().__init__(params, defaults)
         self.set_grad_none = False
-        self.model = None
 
     def step(self, closure=None):
         """Performs a single optimization step.
@@ -39,31 +38,24 @@ class LBOptimizer(Optimizer):
         Args:
             closure (callable, optional): A closure that reevaluates the model and returns the loss.
         """
+        assert not model_state.ready_to_all_reduce_grads, \
+            'Please call optimizer.all_reduce_grads(model) before calling optimizer.step()'
         rtn = self.lb_step(closure)
         self._update_scaling_factors()
-        self._all_reduce_grads()
         return rtn
 
-    def set_model(self, model):
-        """Set model to optimizer.
-
-        Args:
-            model: model to be set.
-        """
-        if model is None:
+    def all_reduce_grads(self, model):
+        """All-reduce gradients of parameters."""
+        if not model_state.ready_to_all_reduce_grads:
             return
         while hasattr(model, 'module'):
             model = model.module
-        self.model = model
-
-    def _all_reduce_grads(self):
-        """All-reduce gradients of parameters."""
-        if self.model is None:
-            return
-        get_fp8_wgrads_fn = getattr(self.model, 'get_fp8_wgrads', None)
+        get_fp8_wgrads_fn = getattr(model, 'get_fp8_wgrads', None)
         if get_fp8_wgrads_fn is not None:
             wgrads = get_fp8_wgrads_fn()
             TensorDist.all_reduce_avg(wgrads)
+            # make sure that FP8 weight gradients have been reduced.
+            model_state.ready_to_all_reduce_grads = False
 
     def lb_step(self, closure=None):
         """Performs a single optimization step. The subclass needs to implement this method.

@@ -14,6 +14,7 @@ class ModelState:
     def __init__(self):
         """Constructor."""
         self._ready_to_scale_tensor = False
+        self._ready_to_all_reduce_grads = False
         # dict[str, dict[str, tensor]], store the flattened scaling metas in all FP8Linear modules.
         # key in input/wgrad/output, value is a dict whose key is scales/amaxs/amax_counters
         # and value is flattened tensors.
@@ -35,6 +36,20 @@ class ModelState:
             value (bool): Value to set.
         """
         self._ready_to_scale_tensor = value
+
+    @property
+    def ready_to_all_reduce_grads(self):
+        """Decoration function to access _ready_to_all_reduce_grads variable."""
+        return self._ready_to_all_reduce_grads
+
+    @ready_to_all_reduce_grads.setter
+    def ready_to_all_reduce_grads(self, value):
+        """Set the value of _ready_to_all_reduce_grads variable.
+
+        Args:
+            value (bool): Value to set.
+        """
+        self._ready_to_all_reduce_grads = value
 
     @property
     def flattened_scaling_metas(self):
