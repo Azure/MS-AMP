@@ -51,3 +51,11 @@ class ScalingMetaTestCase(unittest.TestCase):
         meta.amax_counter += 1
         assert not meta.is_warmup()
         assert not meta.is_in_time_scaling()
+
+    def test_disable_in_time_scaling(self):
+        """Test disable in time scaling in ScalingMeta."""
+        bak = ScalingMeta.IN_TIME_SCALING
+        ScalingMeta.IN_TIME_SCALING = False
+        meta = ScalingMeta(Dtypes.kfloat8_e4m3)
+        self.assertFalse(meta.is_in_time_scaling())
+        ScalingMeta.IN_TIME_SCALING = bak
