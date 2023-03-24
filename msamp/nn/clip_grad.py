@@ -73,7 +73,6 @@ def clip_grad_norm_(parameters, max_norm, norm_type=2.0, error_if_nonfinite=Fals
 
     grads = [p.grad for p in parameters if p.grad is not None]
     max_norm = float(max_norm)
-    torch.nn.utils.clip_grad_norm_
     if max_norm > 0:
         clip_coef = max_norm / (total_norm + 1e-6)
         clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
