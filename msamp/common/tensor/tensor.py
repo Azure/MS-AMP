@@ -268,7 +268,7 @@ class ScalingTensor:
         return ScalingTensor(self.value.contiguous(), meta)
 
     def isfinite_all(self):
-        """Check if elements in this tensor are all finite
+        """Check if elements in this tensor are all finite.
 
         Return:
             bool: return True if elements in this tensor are all finite.
@@ -276,11 +276,11 @@ class ScalingTensor:
         """
         if not torch.isfinite(self.meta.scale_inv) or not torch.isfinite(self.meta.amax[0]):
             return False
-        if self.qtype == cls.kfloat8_e4m3:
+        if self.qtype == Dtypes.kfloat8_e4m3:
             # all elemenets are not NaN
             # NaN: S.1111.111
             return ((self.value & 0x7F) != 0x7F).all()
-        elif self.qtype == cls.kfloat8_e5m2:
+        elif self.qtype == Dtypes.kfloat8_e5m2:
             # all elemenets are not NaN and not INF
             # NaN: S.11111.{01,10,11}
             # INF: S.11111.00
@@ -394,10 +394,10 @@ class ScalingTensor:
         Return:
             bool: True if value tensor is nan, otherwise False.
         """
-        if self.qtype == cls.kfloat8_e4m3:
+        if self.qtype == Dtypes.kfloat8_e4m3:
             # NaN: S.1111.111
             return (self.value & 0x7F) == 0x7F
-        elif self.qtype == cls.kfloat8_e5m2:
+        elif self.qtype == Dtypes.kfloat8_e5m2:
             # NaN: S.11111.{01,10,11}
             return (self.value & 0x7F) > 0x7C
         return torch.isnan(self.value)
