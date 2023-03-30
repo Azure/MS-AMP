@@ -1,14 +1,66 @@
-# Project
+# MS-AMP: Microsoft Automatic Mixed Precision
 
-> This repo has been populated by an initial template to help get you started. Please
-> make sure to update the content to build a great experience for community-building.
+MS-AMP is an automatic mixed precision package for deep learning developed by Microsoft. 
 
-As the maintainer of this project, please make a few updates:
+Features:
+- Support the new FP8 feature that is introduced by H100.  
+- Speeds up math-intensive operations, such as linear layers, by using Tensor Cores.
+- Speeds up memory-limited operations by accessing one byte compared to half or single-precision.  
+- Reduces memory requirements for training models, enabling larger models or larger minibatches. 
+- Speeds up communication for distributed model by transmitting lower precision gradients. 
 
-- Improving this README.MD file to provide a great experience
-- Updating SUPPORT.MD with content about this project's support experience
-- Understanding the security reporting process in SECURITY.MD
-- Remove this section from the README
+## Get started
+
+### Prerequisites
+- Latest version of Linux, you're highly encouraged to use Ubuntu 18.04 or later.
+- H100 accelerator and compatible GPU drivers should be installed correctly. Driver version can be checked by running nvidia-smi. 
+- Python version 3.7 or later (which can be checked by running python3 --version).
+- Pip version 18.0 or later (which can be checked by running python3 -m pip --version).
+- CUDA version 11 or later (which can be checked by running nvcc --version).
+- nccl with fp8 support.
+
+### Installation.
+You can clone the source code from github and build it.
+```bash
+git clone https://github.com/Azure/MS-AMP.git
+cd MS-AMP
+python -m pip install .
+make postinstall
+```
+
+After that, you can verify the installation by running:
+```bash
+python3 -c "import msamp; print(msamp.__version__)"
+```
+
+### Usage
+It is very convinient to enable MS-AMP in training script, just add one line of code "msamp.initialize(model, optimizer, opt_lvel)" after model and optimizer are defined.
+
+Example:
+```python
+import msamp
+
+# Declare model and optimizer as usual, with default (FP32) precision
+model = torch.nn.Linear(D_in, D_out).cuda()
+optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+
+# Allow MS-AMP to perform casts as required by the opt_level
+model, optimizer = msamp.initialize(model, optimizer, opt_level="O1")
+...
+```
+ A runnable, comprehensive Mnist example demonstrating good practices can be found [here](https://github.com/Azure/MS-AMP/tree/main/examples).  
+Recognized optimizers are torch.optim.Adam and torch.optim.AdamW.  
+Recognized opt_levels are "O1" and "O2". Try both, and see what gives the best speedup and accuracy for your model.
+- O1: We found that directly transitioning weight gradients from FP32 to FP8 in the Transformer Engine leads to a decrease in accuracy. However, this issue is resolved in O1 through the implementation of FP8 for weight gradients and AllReduce communication. This optimization also has the added benefits of saving GPU memory and reducing communication bandwidth.
+
+- O2: From O1 to O2, our main focus is on enabling the use of low-bit data formats for auxiliary tensors in the Adam/AdamW optimizer without any loss in accuracy. Specifically, we are able to maintain accuracy by representing the first-order optimizer state in FP8 and the second-order state in FP16. This optimization has the potential to save up to 62.5% of GPU memory for the optimizer when the model size is particularly large.  
+
+Here here details of different MS-AMP optimization levels:  
+| Optimization Levvel | Computation(GEMM) | Comm. | Weight | Weight Gradient | Optimizer States |
+| ------------------- | -----------       | ----- | ------ | --------------- | ---------------- |
+| Nvidia TE           | FP8               | FP32  | FP16   | FP8             | FP32+FP32 
+| MS-AMP O1           | FP8               | FP8   | FP16   | FP8             | FP32+FP32        |
+| MS-AMP O2           | FP8               | FP8   | FP16   | FP8             | FP8+FP16         | 
 
 ## Contributing
 
@@ -24,10 +76,3 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
-## Trademarks
-
-This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft 
-trademarks or logos is subject to and must follow 
-[Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general).
-Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship.
-Any use of third-party trademarks or logos are subject to those third-party's policies.
