@@ -19,7 +19,7 @@ Features:
 - CUDA version 11 or later (which can be checked by running nvcc --version).
 - nccl with fp8 support.
 
-### Installation.
+### Installation
 You can clone the source code from github and build it.
 ```bash
 git clone https://github.com/Azure/MS-AMP.git
