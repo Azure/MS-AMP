@@ -615,6 +615,7 @@ class ScalingTensor:
 
 class TorchOverider:
     """Class to override torch attributes and functions."""
+    one_scale = torch.tensor(1.0, device='cuda')
     torch_unary_funcs = ['torch.zeros_like', 'torch.ones_like', 'torch.overrides.is_tensor_like']
 
     @classmethod
@@ -747,10 +748,11 @@ class TorchOverider:
             """
             cpu_torch_grads = []
             cuda_torch_grads = []
-            scaling_grads = []
+            scaling_grads_scale_inv, scaling_grads_amax0 = [], []
             for grad in grads:
                 if isinstance(grad, ScalingTensor):
-                    scaling_grads.append(grad)
+                    scaling_grads_scale_inv.append(grad.meta.scale_inv)
+                    scaling_grads_amax0.append(grad.meta.amax[0])
                 elif grad.is_cuda:
                     cuda_torch_grads.append(grad)
                 else:
@@ -767,10 +769,10 @@ class TorchOverider:
                     found_inf.fill_(True)
 
             # ScalingTensor
-            for grad in scaling_grads:
-                grad.mul_(inv_scale)
-                if not torch.isfinite(grad.meta.amax[0]):
-                    found_inf.fill_(True)
+            if scaling_grads_scale_inv:
+                # torch._amp_foreach_non_finite_check_and_unscale_
+                old_fn(scaling_grads_scale_inv, found_inf, inv_scale)
+                old_fn(scaling_grads_amax0, found_inf, cls.one_scale)
 
         return new_fn
 

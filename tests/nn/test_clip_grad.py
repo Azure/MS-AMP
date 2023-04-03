@@ -10,6 +10,8 @@ import torch
 import msamp
 from msamp.nn import LinearReplacer
 
+from tests.helper import decorator
+
 
 class ClipGradTestCast(unittest.TestCase):
     """Test functions in clip_grad module."""
@@ -21,6 +23,7 @@ class ClipGradTestCast(unittest.TestCase):
         """Hook method for deconstructing the test fixture after testing it."""
         pass
 
+    @decorator.cuda_test
     def test_clip_grad_norm(self):
         """Test clip_grad_norm_ function."""
         model = torch.nn.Linear(4, 4, bias=False).to('cuda')
@@ -36,10 +39,8 @@ class ClipGradTestCast(unittest.TestCase):
             grads.append(param.grad.clone())
 
         msamp.clip_grad_norm_(model.parameters(), 1.0, norm_type=1.0)
-        i = 0
-        for param in model.parameters():
-            torch.allclose(param.grad, 1.0 / sum * grads[i], atol=1e-5)
-            i += 1
+        for param, grad in zip(model.parameters(), grads):
+            self.assertTrue(torch.allclose(param.grad, 1.0 / sum * grad, atol=1e-5))
 
         model2 = LinearReplacer.replace(model2)
         model2(input).sum().backward()
@@ -51,7 +52,5 @@ class ClipGradTestCast(unittest.TestCase):
             grads.append(param.grad.clone())
 
         msamp.clip_grad_norm_(model2.parameters(), 1.0, norm_type=1.0)
-        i = 0
-        for param in model2.parameters():
-            torch.allclose(param.grad.float(), 1.0 / sum * grads[i].float(), atol=1e-5)
-            i += 1
+        for param, grad in zip(model2.parameters(), grads):
+            self.assertTrue(torch.allclose(param.grad.float(), 1.0 / sum * grad.float(), atol=1e-5))
