@@ -11,6 +11,8 @@ from msamp.common.dtype import Floating
 
 class ScalingMeta:
     """The meta data for scaling tensor."""
+    in_time_scaling: bool = True
+
     def __init__(self, qtype, scale=None, scale_inv=None, amax=None, window_size=1):
         """Constructor.
 
@@ -65,7 +67,7 @@ class ScalingMeta:
         Returns:
             bool: if windows size equals 1 or in warm up stage return True, otherwise return False.
         """
-        return self.window_size == 1 or self.is_warmup()
+        return ScalingMeta.in_time_scaling and (self.window_size == 1 or self.is_warmup())
 
     def reset_scaling_factor(self, qtype=None):
         """Reset scaling factor.
