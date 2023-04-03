@@ -54,8 +54,8 @@ class ScalingMetaTestCase(unittest.TestCase):
 
     def test_disable_in_time_scaling(self):
         """Test disable in time scaling in ScalingMeta."""
-        bak = ScalingMeta.IN_TIME_SCALING
-        ScalingMeta.IN_TIME_SCALING = False
+        bak = ScalingMeta.in_time_scaling
+        ScalingMeta.in_time_scaling = False
         meta = ScalingMeta(Dtypes.kfloat8_e4m3)
         self.assertFalse(meta.is_in_time_scaling())
-        ScalingMeta.IN_TIME_SCALING = bak
+        ScalingMeta.in_time_scaling = bak
