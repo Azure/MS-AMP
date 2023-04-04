@@ -3,7 +3,7 @@
 MS-AMP is an automatic mixed precision package for deep learning developed by Microsoft. 
 
 Features:
-- Support the new FP8 feature that is introduced by H100.  
+- Support the new FP8 feature that is introduced by Nvidia H100.
 - Speeds up math-intensive operations, such as linear layers, by using Tensor Cores.
 - Speeds up memory-limited operations by accessing one byte compared to half or single-precision.  
 - Reduces memory requirements for training models, enabling larger models or larger minibatches. 
@@ -20,6 +20,7 @@ Features:
 - PyTorch version 1.13 or later (which can be checked by running `python -c "import torch; print(torch.__version__)"`).
 
 ### Install nccl to support fp8
+You need to install specific nccl to supports fp8. You can install it from source.
 ```bash
 git clone https://github.com/yzygitzh/nccl.git
 cd nccl
@@ -43,7 +44,7 @@ python3 -c "import msamp; print(msamp.__version__)"
 ```
 
 ### Usage
-Enabling MS-AMP is very simple, you only need to add one line of code "msamp.initialize(model, optimizer, opt_lvel)" after defining model and optimizer.
+Enabling MS-AMP is very simple when traning model on 1 GPU, you only need to add one line of code "msamp.initialize(model, optimizer, opt_level)" after defining model and optimizer.  
 Example:
 ```python
 import msamp
