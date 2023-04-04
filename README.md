@@ -13,13 +13,21 @@ Features:
 
 ### Prerequisites
 - Latest version of Linux, you're highly encouraged to use Ubuntu 18.04 or later.
-- H100 accelerator and compatible GPU drivers should be installed correctly. Driver version can be checked by running nvidia-smi. 
-- Python version 3.7 or later (which can be checked by running python3 --version).
-- Pip version 18.0 or later (which can be checked by running python3 -m pip --version).
-- CUDA version 11 or later (which can be checked by running nvcc --version).
-- nccl with fp8 support.
+- H100 accelerator and compatible GPU drivers should be installed correctly. Driver version can be checked by running `nvidia-smi`. 
+- Python version 3.7 or later (which can be checked by running `python3 --version`).
+- Pip version 18.0 or later (which can be checked by running `python3 -m pip --version`).
+- CUDA version 11 or later (which can be checked by running `nvcc --version`).
 
-### Installation
+### Install nccl to support fp8
+```bash
+git clone https://github.com/yzygitzh/nccl.git
+cd nccl
+git checkout ziyyang/fp8-support
+make -j src.build NVCC_GENCODE="-gencode=arch=compute_90,code=sm_90"
+sudo make install
+```
+
+### Install MS-AMP
 You can clone the source code from github and build it.
 ```bash
 git clone https://github.com/Azure/MS-AMP.git
