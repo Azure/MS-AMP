@@ -43,8 +43,7 @@ python3 -c "import msamp; print(msamp.__version__)"
 ```
 
 ### Usage
-It is very convinient to enable MS-AMP whening training model on 1 GPU, just add one line of code "msamp.initialize(model, optimizer, opt_lvel)" after model and optimizer are defined.
-
+Enabling MS-AMP is very simple, you only need to add one line of code "msamp.initialize(model, optimizer, opt_lvel)" after defining model and optimizer.
 Example:
 ```python
 import msamp
