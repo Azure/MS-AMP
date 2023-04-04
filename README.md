@@ -17,6 +17,7 @@ Features:
 - Python version 3.7 or later (which can be checked by running `python3 --version`).
 - Pip version 18.0 or later (which can be checked by running `python3 -m pip --version`).
 - CUDA version 11 or later (which can be checked by running `nvcc --version`).
+- PyTorch version 1.13 or later (which can be checked by running `python -c "import torch; print(torch.__version__)"`).
 
 ### Install nccl to support fp8
 ```bash
@@ -42,7 +43,7 @@ python3 -c "import msamp; print(msamp.__version__)"
 ```
 
 ### Usage
-It is very convinient to enable MS-AMP in training script, just add one line of code "msamp.initialize(model, optimizer, opt_lvel)" after model and optimizer are defined.
+It is very convinient to enable MS-AMP whening training model on 1 GPU, just add one line of code "msamp.initialize(model, optimizer, opt_lvel)" after model and optimizer are defined.
 
 Example:
 ```python
@@ -56,7 +57,21 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
 model, optimizer = msamp.initialize(model, optimizer, opt_level="O1")
 ...
 ```
- A runnable, comprehensive Mnist example demonstrating good practices can be found [here](https://github.com/Azure/MS-AMP/tree/main/examples).  
+
+For distributed training job, you need to add optimizer.all_reduce_grads(model) after backward to reduce gradients in process group.  
+Example:
+```python
+for batch_idx, (data, target) in enumerate(train_loader):
+    data, target = data.to(device), target.to(device)
+    optimizer.zero_grad()
+    output = model(data)
+    loss = loss(output, target)
+    loss.backward()
+    optimizer.all_reduce_grads(model)
+    optimizer.step()
+```
+A runnable, comprehensive Mnist example demonstrating good practices can be found [here](https://github.com/Azure/MS-AMP/tree/main/examples).  
+
 Recognized optimizers are torch.optim.Adam and torch.optim.AdamW.  
 Recognized opt_levels are "O1" and "O2". Try both, and see what gives the best speedup and accuracy for your model.
 - O1: We found that directly transitioning weight gradients from FP32 to FP8 in the Transformer Engine leads to a decrease in accuracy. However, this issue is resolved in O1 through the implementation of FP8 for weight gradients and AllReduce communication. This optimization also has the added benefits of saving GPU memory and reducing communication bandwidth.
