@@ -55,7 +55,7 @@ class DistOp:
             int: The nccl reduce op.
         """
         if op not in cls._torch_reduce_op_to_nccl_reduce_op:
-            raise ValueError("Unsupported reduce op: {}".format(op))
+            raise ValueError('Unsupported reduce op: {}'.format(op))
         return cls._torch_reduce_op_to_nccl_reduce_op[op]
 
     @classmethod
