@@ -20,11 +20,11 @@ class DistOp:
         Dtypes.kfloat8_e5m2: 11,
     }
     _torch_reduce_op_to_nccl_reduce_op = {
-        TorchReduceOp.SUM: 0,  # ncclSum,
-        TorchReduceOp.PRODUCT: 1,  # ncclProd,
-        TorchReduceOp.MIN: 2,  # ncclMin,
-        TorchReduceOp.MAX: 3,  # ncclMax,
-        TorchReduceOp.AVG: 4,  # ncclAvg,
+        TorchReduceOp.SUM: 0,    # ncclSum,
+        TorchReduceOp.PRODUCT: 1,    # ncclProd,
+        TorchReduceOp.MIN: 2,    # ncclMin,
+        TorchReduceOp.MAX: 3,    # ncclMax,
+        TorchReduceOp.AVG: 4,    # ncclAvg,
     }
 
     @classmethod
@@ -45,7 +45,7 @@ class DistOp:
         return cls._comm
 
     @classmethod
-    def _get_nccl_reduce_op(op):
+    def _get_nccl_reduce_op(cls, op):
         """Get the nccl reduce op.
 
         Args:
@@ -68,8 +68,9 @@ class DistOp:
             qtype (Dtypes.QType): the data type.
             op (int): one of the values from torch.distributed.ReduceOp enum.
         """
-        msamp_dist_op.reduce(tensor, tensor, dst, cls._get_nccl_reduce_op(op),
-                             cls._get_global_comm(), cls._qtype_to_nccltype[qtype])
+        msamp_dist_op.reduce(
+            tensor, tensor, dst, cls._get_nccl_reduce_op(op), cls._get_global_comm(), cls._qtype_to_nccltype[qtype]
+        )
 
     @classmethod
     def all_reduce(cls, tensor, qtype, op):
@@ -80,5 +81,6 @@ class DistOp:
             qtype (Dtypes.QType): the data type.
             op (int): one of the values from torch.distributed.ReduceOp enum.
         """
-        msamp_dist_op.all_reduce([tensor], [tensor], cls._get_nccl_reduce_op(op),
-                                 [cls._get_global_comm()], cls._qtype_to_nccltype[qtype])
+        msamp_dist_op.all_reduce(
+            [tensor], [tensor], cls._get_nccl_reduce_op(op), [cls._get_global_comm()], cls._qtype_to_nccltype[qtype]
+        )
