@@ -39,7 +39,7 @@ jobs:
       uses: actions/checkout@v2
     - name: Install mdl
       run: |
-        apt-get update
+        sudo apt-get update
         apt-get install rubygems
         gem install mdl
     - name: Lint

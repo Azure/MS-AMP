@@ -76,6 +76,7 @@ for batch_idx, (data, target) in enumerate(train_loader):
 A runnable, comprehensive MNIST example demonstrating good practices can be found [here](./examples).
 
 Recognized optimizers are torch.optim.Adam and torch.optim.AdamW.
+
 Recognized opt_levels are "O1" and "O2". Try both, and see what gives the best speedup and accuracy for your model.
 
 - O1: We found that directly transitioning weight gradients from FP32 to FP8 in the Transformer Engine leads to a decrease in accuracy. However, this issue is resolved in O1 through the implementation of FP8 for weight gradients and AllReduce communication. This optimization also has the added benefits of saving GPU memory and reducing communication bandwidth.
