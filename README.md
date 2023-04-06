@@ -39,6 +39,14 @@ After that, you can verify the installation by running:
 python3 -c "import msamp; print(msamp.__version__)"
 ```
 
+If you want to train model with multiple GPU, you need to install specific nccl to support FP8.
+
+```bash
+cd third_party/nccl
+make -j src.build
+sudo make install
+```
+
 ### Usage
 
 Enabling MS-AMP is very simple when traning model on single GPU, you only need to add one line of code `msamp.initialize(model, optimizer, opt_level)` after defining model and optimizer.
