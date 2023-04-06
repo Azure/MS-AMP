@@ -13,26 +13,17 @@ Features:
 
 ### Prerequisites
 - Latest version of Linux, you're highly encouraged to use Ubuntu 18.04 or later.
-- Nvidia GPU and compatible drivers should be installed correctly. Driver version can be checked by running `nvidia-smi`.
+- Nvidia GPU(e.g. V100/A100/H100) and compatible drivers should be installed correctly. Driver version can be checked by running `nvidia-smi`.
 - Python version 3.7 or later (which can be checked by running `python3 --version`).
 - Pip version 18.0 or later (which can be checked by running `python3 -m pip --version`).
 - CUDA version 11 or later (which can be checked by running `nvcc --version`).
 - PyTorch version 1.13 or later (which can be checked by running `python -c "import torch; print(torch.__version__)"`).
 
-### Install nccl to support fp8
-You need to install specific nccl to supports fp8. You can install it from source.
+### Install MS-AMP
+You can clone the source from GitHub and build it. 
 ```bash
 git clone https://github.com/Azure/MS-AMP.git
 git submodule update --init --recursive
-cd MS-AMP/third_party/nccl
-make -j src.build
-sudo make install
-```
-
-### Install MS-AMP
-You can install MS-AMP from source.
-```bash
-cd ../../
 python3 -m pip install .
 make postinstall
 ```
@@ -43,7 +34,7 @@ python3 -c "import msamp; print(msamp.__version__)"
 ```
 
 ### Usage
-Enabling MS-AMP is very simple when traning model on 1 GPU, you only need to add one line of code `msamp.initialize(model, optimizer, opt_level)` after defining model and optimizer.  
+Enabling MS-AMP is very simple when traning model on single GPU, you only need to add one line of code `msamp.initialize(model, optimizer, opt_level)` after defining model and optimizer.  
 
 Example:
 ```python
@@ -62,16 +53,17 @@ For distributed training job, you need to add `optimizer.all_reduce_grads(model)
 
 Example:
 ```python
+scaler = torch.cuda.amp.GradScaler()
 for batch_idx, (data, target) in enumerate(train_loader):
     data, target = data.to(device), target.to(device)
     optimizer.zero_grad()
     output = model(data)
     loss = loss(output, target)
-    loss.backward()
+    scaler.scale(loss).backward()
     optimizer.all_reduce_grads(model)
-    optimizer.step()
+    scaler.step(optimizer)
 ```
-A runnable, comprehensive Mnist example demonstrating good practices can be found [here](./examples).  
+A runnable, comprehensive MNIST example demonstrating good practices can be found [here](./examples).  
 
 Recognized optimizers are torch.optim.Adam and torch.optim.AdamW.  
 Recognized opt_levels are "O1" and "O2". Try both, and see what gives the best speedup and accuracy for your model.
