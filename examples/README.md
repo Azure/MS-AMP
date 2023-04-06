@@ -1,6 +1,6 @@
 This directory contains examples illustrating how to enable MS-AMP in training script.
 
-# Example
+# MNIST
 
 ## 1. Run mnist using single GPU
 
