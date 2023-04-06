@@ -28,6 +28,7 @@ You can clone the source from GitHub and build it.
 
 ```bash
 git clone https://github.com/Azure/MS-AMP.git
+cd MS-AMP
 git submodule update --init --recursive
 python3 -m pip install .
 make postinstall
