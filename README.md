@@ -24,12 +24,35 @@ Features:
 
 ### Install MS-AMP
 
-You can clone the source from GitHub and build it.
+You can clone the source from GitHub.
 
 ```bash
 git clone https://github.com/Azure/MS-AMP.git
 cd MS-AMP
 git submodule update --init --recursive
+```
+
+If you want to train model with multiple GPU, you need to install specific nccl to support FP8.
+
+```bash
+cd third_party/nccl
+
+# V100
+make -j src.build NVCC_GENCODE="-gencode=arch=compute_70,code=sm_70"
+
+# A100
+make -j src.build NVCC_GENCODE="-gencode=arch=compute_80,code=sm_80"
+
+# H100
+make -j src.build NVCC_GENCODE="-gencode=arch=compute_90,code=sm_90"
+
+sudo make install
+cd -
+```
+
+Then, you can install MS-AMP from source.
+
+```
 python3 -m pip install .
 make postinstall
 ```
@@ -38,14 +61,6 @@ After that, you can verify the installation by running:
 
 ```bash
 python3 -c "import msamp; print(msamp.__version__)"
-```
-
-If you want to train model with multiple GPU, you need to install specific nccl to support FP8.
-
-```bash
-cd third_party/nccl
-make -j src.build
-sudo make install
 ```
 
 ### Usage
