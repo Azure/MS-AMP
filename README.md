@@ -3,17 +3,17 @@
 MS-AMP is an automatic mixed precision package for deep learning developed by Microsoft. 
 
 Features:
-- Support the new FP8 feature that is introduced by Nvidia H100.
-- Speeds up math-intensive operations, such as linear layers, by using Tensor Cores.
-- Speeds up memory-limited operations by accessing one byte compared to half or single-precision.  
-- Reduces memory requirements for training models, enabling larger models or larger minibatches. 
-- Speeds up communication for distributed model by transmitting lower precision gradients. 
+- Support the new FP8 feature that is introduced by latest accelerators (e.g. H100).
+- Speed up math-intensive operations, such as linear layers, by using Tensor Cores.
+- Speed up memory-limited operations by accessing one byte compared to half or single-precision.  
+- Reduce memory requirements for training models, enabling larger models or larger minibatches. 
+- Speed up communication for distributed model by transmitting lower precision gradients. 
 
 ## Get started
 
 ### Prerequisites
 - Latest version of Linux, you're highly encouraged to use Ubuntu 18.04 or later.
-- H100 accelerator and compatible GPU drivers should be installed correctly. Driver version can be checked by running `nvidia-smi`. 
+- Nvidia GPU and compatible drivers should be installed correctly. Driver version can be checked by running `nvidia-smi`.
 - Python version 3.7 or later (which can be checked by running `python3 --version`).
 - Pip version 18.0 or later (which can be checked by running `python3 -m pip --version`).
 - CUDA version 11 or later (which can be checked by running `nvcc --version`).
@@ -22,19 +22,18 @@ Features:
 ### Install nccl to support fp8
 You need to install specific nccl to supports fp8. You can install it from source.
 ```bash
-git clone https://github.com/yzygitzh/nccl.git
-cd nccl
-git checkout ziyyang/fp8-support
-make -j src.build NVCC_GENCODE="-gencode=arch=compute_90,code=sm_90"
+git clone https://github.com/Azure/MS-AMP.git
+git submodule update --init --recursive
+cd MS-AMP/third_party/nccl
+make -j src.build
 sudo make install
 ```
 
 ### Install MS-AMP
-You can clone the source code from github and build it.
+You can install MS-AMP from source.
 ```bash
-git clone https://github.com/Azure/MS-AMP.git
-cd MS-AMP
-python -m pip install .
+cd ../../
+python3 -m pip install .
 make postinstall
 ```
 
@@ -44,7 +43,8 @@ python3 -c "import msamp; print(msamp.__version__)"
 ```
 
 ### Usage
-Enabling MS-AMP is very simple when traning model on 1 GPU, you only need to add one line of code "msamp.initialize(model, optimizer, opt_level)" after defining model and optimizer.  
+Enabling MS-AMP is very simple when traning model on 1 GPU, you only need to add one line of code `msamp.initialize(model, optimizer, opt_level)` after defining model and optimizer.  
+
 Example:
 ```python
 import msamp
@@ -58,7 +58,8 @@ model, optimizer = msamp.initialize(model, optimizer, opt_level="O1")
 ...
 ```
 
-For distributed training job, you need to add optimizer.all_reduce_grads(model) after backward to reduce gradients in process group.  
+For distributed training job, you need to add `optimizer.all_reduce_grads(model)` after backward to reduce gradients in process group.  
+
 Example:
 ```python
 for batch_idx, (data, target) in enumerate(train_loader):
@@ -70,7 +71,7 @@ for batch_idx, (data, target) in enumerate(train_loader):
     optimizer.all_reduce_grads(model)
     optimizer.step()
 ```
-A runnable, comprehensive Mnist example demonstrating good practices can be found [here](https://github.com/Azure/MS-AMP/tree/main/examples).  
+A runnable, comprehensive Mnist example demonstrating good practices can be found [here](./examples).  
 
 Recognized optimizers are torch.optim.Adam and torch.optim.AdamW.  
 Recognized opt_levels are "O1" and "O2". Try both, and see what gives the best speedup and accuracy for your model.
@@ -99,3 +100,10 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
+## Trademarks
+
+This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft 
+trademarks or logos is subject to and must follow 
+[Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general).
+Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship.
+Any use of third-party trademarks or logos are subject to those third-party's policies.
