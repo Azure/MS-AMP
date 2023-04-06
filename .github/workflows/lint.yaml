@@ -40,8 +40,8 @@ jobs:
     - name: Install mdl
       run: |
         sudo apt-get update
-        apt-get install rubygems
-        gem install mdl
+        sudo apt-get install rubygems
+        sudo gem install mdl
     - name: Lint
       run: |
         make mdlint
