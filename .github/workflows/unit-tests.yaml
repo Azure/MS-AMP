@@ -28,6 +28,8 @@ jobs:
     steps:
     - name: Checkout msamp
       uses: actions/checkout@v2
+      with:
+        submodules: recursive
     - name: Install dependencies
       run: |
         python3 -m pip install --upgrade pip
