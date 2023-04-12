@@ -412,6 +412,15 @@ class ScalingTensor:
         """
         return self.value.numel()
 
+    def nelement(self):
+        """Get number of elements in tensor.
+
+        Return:
+            int: The number of elements in value tensor.
+        """
+        # nelement is an alias for numel
+        return self.numel()
+
     @property
     def device(self):
         """Get device.
@@ -448,6 +457,13 @@ class ScalingTensor:
                 if not isinstance(data, torch.Tensor):
                     raise TypeError('The type of data is not supported')
                 self.value.data = data
+
+    def data_ptr(self):
+        """Get data pointer.
+
+        Returns the address of the first element of the tensor.
+        """
+        return self.value.data_ptr()
 
     def copy_(self, src):
         """Copy from another tensor.
