@@ -239,14 +239,18 @@ class ScalingTensor:
         if qtype == Dtypes.kfloat8_e4m3:
             if self.meta.qtype == Dtypes.kfloat16:
                 # Scaling Float16 to Scaling FP8E4M3
+                old_amax = self.meta.amax[0]
                 meta = ScalingMeta(qtype=qtype, amax=self.meta.amax.clone(),
                                    window_size=self.meta.window_size)
                 # re-compute scaling factor
                 meta.reset_scaling_factor()
                 # unscale it since self.value has been scaled by `self.scale`
+                scale_inv = torch.reciprocal(meta.scale)
                 meta.scale.mul_(self.meta.scale_inv)
                 with ScalingMeta.in_time_scaling_context(enabled=False):
                     value = TypeCast.cast_to_fp8(self.value, meta)
+                    meta.amax[0] = old_amax
+                    meta.scale_inv.fill_(scale_inv)
                 return ScalingTensor(value, meta=meta)
         elif qtype == Dtypes.kfloat32:
             return self.float().cast(Dtypes.kfloat32)

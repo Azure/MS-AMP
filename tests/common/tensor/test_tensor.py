@@ -140,19 +140,15 @@ class ScalingTensorTestCase(unittest.TestCase):
     @decorator.cuda_test
     def test_tensor_cast_from_scaling_tensor(self):
         """Test tensor cast from ScalingTensor."""
-        fp16_value = torch.tensor([1.0 / (2 ** 17)], dtype=torch.float16, device=self.device)
+        fp16_value = torch.tensor([1.0 / (2 ** 17)], dtype=torch.float16, device='cuda')
         fp32_value = fp16_value.float()
-
-        # cast FP16/FP32 to ScalingTensor(FP16)
-        scaling_fp16 = fp16_value.cast(Dtypes.kfloat16)
-        scaling_fp32 = fp32_value.cast(Dtypes.kfloat16)
-
-        self.assertTrue(torch.allclose(fp32_value, scaling_fp16.float()))
-        self.assertTrue(torch.allclose(fp32_value, scaling_fp32.float()))
-
-        # cast ScalingTensor(FP16) to ScalingTensor(FP8E4M3)
-        scaling_fp8 = scaling_fp16.cast(Dtypes.kfloat8_e4m3)
-        self.assertTrue(torch.allclose(fp32_value, scaling_fp8.float()))
+        for dtype in [torch.float16, torch.float32]:
+            value = fp16_value.to(dtype)
+            scaling_fp16 = value.cast(Dtypes.kfloat16)
+            self.assertTrue(torch.allclose(fp32_value, scaling_fp16.float()))
+            # cast ScalingTensor (FP16) to ScalingTensor (FP8E4M3)
+            scaling_fp8 = scaling_fp16.cast(Dtypes.kfloat8_e4m3)
+            self.assertTrue(torch.allclose(fp32_value, scaling_fp8.float()))
 
     @decorator.cuda_test
     def test_tensor_mul(self):
