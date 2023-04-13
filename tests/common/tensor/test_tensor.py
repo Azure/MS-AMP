@@ -138,6 +138,23 @@ class ScalingTensorTestCase(unittest.TestCase):
             scaling_tensor.cast(Dtypes.kfloat8_e5m2)
 
     @decorator.cuda_test
+    def test_tensor_cast_from_scaling_tensor(self):
+        """Test tensor cast from ScalingTensor."""
+        fp16_value = torch.tensor([1.0 / (2 ** 17)], dtype=torch.float16, device=self.device)
+        fp32_value = fp16_value.float()
+
+        # cast FP16/FP32 to ScalingTensor(FP16)
+        scaling_fp16 = fp16_value.cast(Dtypes.kfloat16)
+        scaling_fp32 = fp32_value.cast(Dtypes.kfloat16)
+
+        self.assertTrue(torch.allclose(fp32_value, scaling_fp16.float()))
+        self.assertTrue(torch.allclose(fp32_value, scaling_fp32.float()))
+
+        # cast ScalingTensor(FP16) to ScalingTensor(FP8E4M3)
+        scaling_fp8 = scaling_fp16.cast(Dtypes.kfloat8_e4m3)
+        self.assertTrue(torch.allclose(fp32_value, scaling_fp8.float()))
+
+    @decorator.cuda_test
     def test_tensor_mul(self):
         """Test mul function in ScalingTensor."""
         tensor = torch.randn(self.size, device=self.device)
