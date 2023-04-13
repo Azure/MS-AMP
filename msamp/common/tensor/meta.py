@@ -89,6 +89,7 @@ class ScalingMeta:
 
             def __exit__(self, exc_type, exc_val, exc_tb):
                 ScalingMeta.in_time_scaling = self.in_time_scaling
+
         return InTimeScalingContext(enabled=enabled)
 
     def reset_scaling_factor(self, qtype=None):

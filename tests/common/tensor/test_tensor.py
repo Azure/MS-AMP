@@ -140,7 +140,7 @@ class ScalingTensorTestCase(unittest.TestCase):
     @decorator.cuda_test
     def test_tensor_cast_from_scaling_tensor(self):
         """Test tensor cast from ScalingTensor."""
-        fp16_value = torch.tensor([1.0 / (2 ** 17)], dtype=torch.float16, device='cuda')
+        fp16_value = torch.tensor([1.0 / (2**17)], dtype=torch.float16, device='cuda')
         fp32_value = fp16_value.float()
         for dtype in [torch.float16, torch.float32]:
             value = fp16_value.to(dtype)

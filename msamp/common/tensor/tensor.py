@@ -240,8 +240,7 @@ class ScalingTensor:
             if self.meta.qtype == Dtypes.kfloat16:
                 # Scaling Float16 to Scaling FP8E4M3
                 old_amax = self.meta.amax[0]
-                meta = ScalingMeta(qtype=qtype, amax=self.meta.amax.clone(),
-                                   window_size=self.meta.window_size)
+                meta = ScalingMeta(qtype=qtype, amax=self.meta.amax.clone(), window_size=self.meta.window_size)
                 # re-compute scaling factor
                 meta.reset_scaling_factor()
                 # unscale it since self.value has been scaled by `self.scale`
