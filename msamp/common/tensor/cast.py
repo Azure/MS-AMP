@@ -61,10 +61,11 @@ class TypeCast:
             torch.Tensor: tensor whose dtype is torch.float16.
         """
         meta.amax[0] = input.abs().max()
-        in_time = meta.is_in_time_scaling()
-        if in_time:
-            # notice: we scale the tensor with qtype FP8-E4M3.
-            meta.reset_scaling_factor(qtype=Dtypes.kfloat8_e4m3)
+        if input.dtype == torch.float16:
+            meta.scale.fill_(1.0)
+            meta.scale_inv.fill_(1.0)
+            return input.clone()
+        meta.reset_scaling_factor()
         if sync:
             world_size = DistUtil.get_world_size()
             if world_size > 1:

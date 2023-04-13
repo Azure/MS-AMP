@@ -24,9 +24,9 @@ class ScalingMeta:
             window_size (int, optional): Window size, defaults to 1.
         """
         self.qtype = qtype
-        self.scale = scale if scale is not None else torch.ones((), device='cuda')
-        self.scale_inv = scale_inv if scale_inv is not None else torch.ones((), device='cuda')
-        self.amax = amax if amax is not None else torch.zeros((window_size, ), device='cuda')
+        self.scale = scale if scale is not None else torch.ones((), dtype=torch.float32, device='cuda')
+        self.scale_inv = scale_inv if scale_inv is not None else torch.ones((), dtype=torch.float32, device='cuda')
+        self.amax = amax if amax is not None else torch.zeros((window_size, ), dtype=torch.float32, device='cuda')
         self.amax_counter = torch.zeros((), dtype=torch.int32)
         self.window_size = window_size
         # lock flag to avoid the reference of the meta changed.
@@ -68,6 +68,24 @@ class ScalingMeta:
             bool: if windows size equals 1 or in warm up stage return True, otherwise return False.
         """
         return ScalingMeta.in_time_scaling and (self.window_size == 1 or self.is_warmup())
+
+    def in_time_scaling_context(self):
+        """A context manager to set in_time_scaling flag.
+
+        Returns:
+            InTimeScalingContext: A context manager to set in_time_scaling flag.
+        """
+        class InTimeScalingContext:
+            def __init__(self):
+                self.in_time_scaling = ScalingMeta.in_time_scaling
+
+            def __enter__(self, enabled):
+                self.in_time_scaling = ScalingMeta.in_time_scaling
+                ScalingMeta.in_time_scaling = enabled
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                ScalingMeta.in_time_scaling = self.in_time_scaling
+        return InTimeScalingContext()
 
     def reset_scaling_factor(self, qtype=None):
         """Reset scaling factor.
