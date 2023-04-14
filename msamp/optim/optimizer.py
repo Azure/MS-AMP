@@ -49,7 +49,7 @@ class LBOptimizer(Optimizer):
         if not model_state.ready_to_all_reduce_grads:
             return
         scaling_params = [p for p in model.parameters() if isinstance(p, ScalingParameter)]
-        grads = [p.grad for p in scaling_params]
+        grads = [p.grad for p in scaling_params if p.grad is not None]
         TensorDist.all_reduce_avg(grads)
         # make sure that FP8 weight gradients have been reduced.
         model_state.ready_to_all_reduce_grads = False
