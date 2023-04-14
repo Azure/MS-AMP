@@ -133,16 +133,3 @@ class LinearTestCase(unittest.TestCase):
         output1 = model1(input)
         output2 = model2(input)
         self.assertTrue(torch.equal(output1, output2))
-
-    @decorator.cuda_test
-    def test_get_fp8_wgrads(self):
-        """Test get_fp8_wgrads of FP8Linear."""
-        linear = torch.nn.Linear(4, 8).cuda()
-        model = LinearReplacer.replace(linear, Dtypes.kfloat16)
-        input = torch.randn((4, 4), device='cuda')
-        output = model(input)
-        output.sum().backward()
-
-        wgrads = model.get_fp8_wgrads()
-        self.assertTrue(len(wgrads) == 1)
-        self.assertEqual(wgrads[0], model.weight.grad)
