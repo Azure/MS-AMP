@@ -31,7 +31,7 @@ def _compute_total_norm(parameters, norm_type=2.0):
         norms = [g.detach().abs().max().to(device) for g in grads]
         total_norm = norms[0] if len(norms) == 1 else torch.max(torch.stack(norms))
     else:
-        norms = [norm.to(device) for norm in torch._foreach_norm(grads, norm_type)]
+        norms = [norm.to(device) for norm in torch._foreach_norm([grad.flatten() for grad in grads], norm_type)]
         total_norm = torch.norm(torch.stack(norms), norm_type)
 
     return total_norm
