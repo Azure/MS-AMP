@@ -274,7 +274,7 @@ class ScalingTensor:
             bool: return True if elements in this tensor are all finite.
                   otherwise False.
         """
-        if not torch.isfinite(self.meta.scale_inv) or not torch.isfinite(self.meta.amax[0]):
+        if not torch.isfinite(self.meta.scale_inv):
             return False
         if self.qtype == Dtypes.kfloat8_e4m3:
             # all elemenets are not NaN
@@ -631,7 +631,6 @@ class ScalingTensor:
 
 class TorchOverider:
     """Class to override torch attributes and functions."""
-    one_scales = dict()
     torch_unary_funcs = ['torch.zeros_like', 'torch.ones_like', 'torch.overrides.is_tensor_like']
 
     @classmethod
@@ -764,11 +763,10 @@ class TorchOverider:
             """
             cpu_torch_grads = []
             cuda_torch_grads = []
-            scaling_grads_scale_inv, scaling_grads_amax0 = [], []
+            scaling_grads_scale_inv = []
             for grad in grads:
                 if isinstance(grad, ScalingTensor):
                     scaling_grads_scale_inv.append(grad.meta.scale_inv)
-                    scaling_grads_amax0.append(grad.meta.amax[0])
                 elif grad.is_cuda:
                     cuda_torch_grads.append(grad)
                 else:
@@ -788,11 +786,6 @@ class TorchOverider:
             if scaling_grads_scale_inv:
                 # torch._amp_foreach_non_finite_check_and_unscale_
                 old_fn(scaling_grads_scale_inv, found_inf, inv_scale)
-
-                device = found_inf.device
-                if device not in cls.one_scales:
-                    cls.one_scales[device] = torch.ones(1, device=device)
-                old_fn(scaling_grads_amax0, found_inf, cls.one_scales[device])
 
         return new_fn
 

@@ -32,11 +32,16 @@ class TypeCast:
         in_time = meta.is_in_time_scaling()
         if in_time:
             meta.amax[0] = input.abs().max()
-            meta.reset_scaling_factor()
         if sync:
             world_size = DistUtil.get_world_size()
+            # In all_reduce, max(nan, 3) = 3. Therefore, we replace all NaN with INF.
+            meta.amax.nan_to_num_(nan=float('inf'))
             if world_size > 1:
-                dist.all_reduce(meta.scale, op=dist.ReduceOp.MIN)
+                dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX)
+        if in_time:
+            meta.reset_scaling_factor()
+
+        existed_inf = bool(torch.isinf(meta.amax[0]))
         input_fp8 = TransformerEngineWrapper.cast_to_fp8(
             input.view(1, -1),
             meta.scale,
@@ -44,6 +49,9 @@ class TypeCast:
             meta.scale_inv,
             meta.qtype,
         )
+
+        if existed_inf:
+            meta.scale_inv.fill_(float('inf'))
 
         shape = input.shape
         return input_fp8.view(shape)
@@ -62,15 +70,22 @@ class TypeCast:
         """
         meta.amax[0] = input.abs().max()
         in_time = meta.is_in_time_scaling()
+        if sync:
+            world_size = DistUtil.get_world_size()
+            # In all_reduce, max(nan, 3) = 3. Therefore, we replace all NaN with INF.
+            meta.amax.nan_to_num_(nan=float('inf'))
+            if world_size > 1:
+                dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX)
+
         if in_time:
             # notice: we scale the tensor with qtype FP8-E4M3.
             meta.reset_scaling_factor(qtype=Dtypes.kfloat8_e4m3)
-        if sync:
-            world_size = DistUtil.get_world_size()
-            if world_size > 1:
-                dist.all_reduce(meta.scale, op=dist.ReduceOp.MIN)
 
-        meta.scale_inv.data.copy_(torch.reciprocal(meta.scale))    # scale_inv = 1 / scale
+        existed_inf = bool(torch.isinf(meta.amax[0]))
+        if existed_inf:
+            meta.scale_inv.fill_(float('inf'))
+        else:
+            meta.scale_inv.copy_(torch.reciprocal(meta.scale))    # scale_inv = 1 / scale
         input_fp16 = (input * meta.scale).to(torch.float16)
         return input_fp16
 
