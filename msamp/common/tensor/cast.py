@@ -35,7 +35,7 @@ class TypeCast:
         if sync:
             world_size = DistUtil.get_world_size()
             # In all_reduce, max(nan, 3) = 3. Therefore, we replace all NaN with INF.
-            meta.amax.nan_to_num_(nan=float('inf'))
+            meta.amax[0].nan_to_num_(nan=float('inf'))
             if world_size > 1:
                 dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX)
         if in_time:
@@ -73,7 +73,7 @@ class TypeCast:
         if sync:
             world_size = DistUtil.get_world_size()
             # In all_reduce, max(nan, 3) = 3. Therefore, we replace all NaN with INF.
-            meta.amax.nan_to_num_(nan=float('inf'))
+            meta.amax[0].nan_to_num_(nan=float('inf'))
             if world_size > 1:
                 dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX)
 
