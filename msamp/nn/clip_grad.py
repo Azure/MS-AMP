@@ -10,9 +10,11 @@ from msamp.common.tensor import ScalingTensor
 
 def _compute_total_norm(parameters, norm_type=2.0):
     """Computes the total norm of the parameters.
+
     Args:
         parameters (Iterable[Tensor] or Tensor): an iterable of Tensor or ScalingTensor.
         norm_type (float or int): type of the used p-norm. Can be ``'inf'`` for infinity norm.
+
     Return:
         Total norm of the parameters (viewed as a single vector).
     """
