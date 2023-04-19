@@ -19,26 +19,20 @@ def _compute_total_norm(parameters, norm_type=2.0):
         Total norm of the parameters (viewed as a single vector).
     """
     grad_dtype = torch.float32
-    grads = [p.grad for p in parameters if p.grad is not None]
+    grads = [p.grad.to(grad_dtype).detach() for p in parameters if p.grad is not None]
 
     if len(grads) == 0:
         return torch.tensor(0.)
 
     device = grads[0].device
 
-    def map_grads(fn, grads):
-        outs = []
-        for grad in grads:
-            outs.append(fn(grad.to(grad_dtype)))
-        return outs
-
     norm_type = float(norm_type)
     if norm_type == float('inf'):
-        norms = list(map_grads(lambda g: g.detach().abs().max().to(device), grads))
+        norms = [g.detach().abs().max().to(device) for g in grads]
         total_norm = norms[0] if len(norms) == 1 else torch.max(torch.stack(norms))
     else:
-        norm_grads = list(map_grads(lambda g: torch.norm(g.detach(), norm_type).to(device), grads))
-        total_norm = torch.norm(torch.stack(norm_grads), norm_type)
+        norms = [norm.to(device) for norm in torch._foreach_norm([grad.flatten() for grad in grads], norm_type)]
+        total_norm = torch.norm(torch.stack(norms), norm_type)
 
     return total_norm
 
@@ -79,7 +73,6 @@ def clip_grad_norm_(parameters, max_norm, norm_type=2.0, error_if_nonfinite=Fals
 
     grads = [p.grad for p in parameters if p.grad is not None]
     max_norm = float(max_norm)
-    torch.nn.utils.clip_grad_norm_
     if max_norm > 0:
         clip_coef = max_norm / (total_norm + 1e-6)
         clip_coef_clamped = torch.clamp(clip_coef, max=1.0)

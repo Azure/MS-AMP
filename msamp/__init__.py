@@ -77,11 +77,9 @@ def initialize(model, optimizer=None, opt_level='O1'):    # noqa: C901
     default_args['exp_avg_dtype'] = exp_avg_dtype
     default_args['exp_avg_sq_dtype'] = exp_avg_sq_dtype
 
-    # currently, we don't support foreach and capturable.
-    if 'foreach' in default_args:
-        del default_args['foreach']
-    if 'capturable' in default_args:
-        del default_args['capturable']
+    # Currently, we don't support foreach, capturable, differentiable, and fused.
+    for k in ['foreach', 'capturable', 'differentiable', 'fused']:
+        default_args.pop(k, None)
 
     cast_optimizer = None
     if isinstance(optimizer, torch.optim.Adam):
