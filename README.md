@@ -39,10 +39,8 @@ cd third_party/nccl
 
 # V100
 make -j src.build NVCC_GENCODE="-gencode=arch=compute_70,code=sm_70"
-
 # A100
 make -j src.build NVCC_GENCODE="-gencode=arch=compute_80,code=sm_80"
-
 # H100
 make -j src.build NVCC_GENCODE="-gencode=arch=compute_90,code=sm_90"
 
@@ -64,7 +62,9 @@ python3 -c "import msamp; print(msamp.__version__)"
 ```
 
 ### Run unit tests
+
 You can execute the following command to run unit tests.
+
 ```
 pytest
 ```
@@ -124,11 +124,13 @@ Here here details of different MS-AMP optimization levels:
 ## Performance
 
 ### Accuracy: no loss of accuracy
+
 We evaluate the training loss and validation performance of one typical models Swin-Transformer using MS-AMP O2 and FP16 AMP. We observe that the model trained with MS-AMP O2 model can obtain comparable performance to the ones using Nvidia FP16 AMP. This demonstrates the efficacy of Mixed FP8 O2 mode in MS-AMP.
 
 ![image](./docs/assets/swin-tiny-acc.png) ![image](./docs/assets/swin-tiny-loss.png)
 
 ### Memory
+
 MS-AMP maintains 32-bit accuracy with a small fraction of the memory footprint on a range of tasks, including DeiT model and Swin Transformer on ImageNet classification. More specifically, for a 1B parameter model, MS-AMP with O2 mode could save about 12GB GPU memory compared with AMP FP16.
 
 | Model      | # Parameters(Billion) | Batch Size | AMP GPU Memory(MB) | MS-AMP GPU Memory(MB) |
