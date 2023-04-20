@@ -3,9 +3,8 @@ FROM nvcr.io/nvidia/pytorch:22.09-py3
 ENV LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH}"
 
 # Install FP8-NCCL (arch >= 5.3)
-RUN cd /tmp && git clone git@github.com:yzygitzh/nccl && \
+RUN cd /tmp && git clone -b ziyyang/fp8-support https://github.com/yzygitzh/nccl && \
     cd nccl && \
-    git checkout ziyyang/fp8-support && \
     make -j src.build NVCC_GENCODE="\
     -gencode=arch=compute_53,code=sm_53 \
     -gencode=arch=compute_60,code=sm_60 \
@@ -19,7 +18,6 @@ RUN cd /tmp && git clone git@github.com:yzygitzh/nccl && \
     -gencode=arch=compute_87,code=sm_87 \
     -gencode=arch=compute_89,code=sm_89 \
     -gencode=arch=compute_90,code=sm_90 \
-    -gencode=arch=compute_90a,code=sm_90a \
     " && \
     make install && \
     rm -rf /tmp/nccl
