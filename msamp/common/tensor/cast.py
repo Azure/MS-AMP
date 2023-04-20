@@ -6,7 +6,7 @@
 import torch
 import torch.distributed as dist
 
-from msamp.common.dtype import Dtypes
+from msamp.common.dtype import Dtypes, Floating
 from msamp.common.utils import DistUtil
 from msamp.common.utils import TransformerEngineWrapper
 
@@ -69,6 +69,7 @@ class TypeCast:
             world_size = DistUtil.get_world_size()
             if world_size > 1:
                 dist.all_reduce(meta.scale, op=dist.ReduceOp.MIN)
+        meta.scale.clamp_(max=Floating.qfp_max[meta.qtype])
 
         meta.scale_inv.data.copy_(torch.reciprocal(meta.scale))    # scale_inv = 1 / scale
         input_fp16 = (input * meta.scale).to(torch.float16)

@@ -382,8 +382,12 @@ class ScalingTensor:
         Return:
             bool: True if value tensor is nan, otherwise False.
         """
-        if Dtypes.is_fp8_qtype(self.qtype):
-            return self.value == 127
+        if self.qtype == Dtypes.kfloat8_e4m3:
+            # NaN: S.1111.111
+            return (self.value & 0x7F) == 0x7F
+        elif self.qtype == Dtypes.kfloat8_e5m2:
+            # NaN: S.11111.{01,10,11}
+            return (self.value & 0x7F) > 0x7C
         return torch.isnan(self.value)
 
     @property
@@ -615,7 +619,6 @@ class ScalingTensor:
 
 class TorchOverider:
     """Class to override torch attributes and functions."""
-    one_scales = dict()
     torch_unary_funcs = ['torch.zeros_like', 'torch.ones_like', 'torch.overrides.is_tensor_like']
 
     @classmethod
@@ -748,11 +751,12 @@ class TorchOverider:
             """
             cpu_torch_grads = []
             cuda_torch_grads = []
-            scaling_grads_scale_inv, scaling_grads_amax0 = [], []
+            scaling_grads = []
+            scaling_grads_scale_inv = []
             for grad in grads:
                 if isinstance(grad, ScalingTensor):
+                    scaling_grads.append(grad)
                     scaling_grads_scale_inv.append(grad.meta.scale_inv)
-                    scaling_grads_amax0.append(grad.meta.amax[0])
                 elif grad.is_cuda:
                     cuda_torch_grads.append(grad)
                 else:
@@ -772,11 +776,9 @@ class TorchOverider:
             if scaling_grads_scale_inv:
                 # torch._amp_foreach_non_finite_check_and_unscale_
                 old_fn(scaling_grads_scale_inv, found_inf, inv_scale)
-
-                device = found_inf.device
-                if device not in cls.one_scales:
-                    cls.one_scales[device] = torch.ones(1, device=device)
-                old_fn(scaling_grads_amax0, found_inf, cls.one_scales[device])
+                for grad in scaling_grads:
+                    if grad.isnan().any():
+                        found_inf.fill_(True)
 
         return new_fn
 
