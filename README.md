@@ -66,7 +66,7 @@ python3 -c "import msamp; print(msamp.__version__)"
 You can execute the following command to run unit tests.
 
 ```
-pytest
+python3 setup.py test
 ```
 
 ### Usage
