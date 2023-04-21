@@ -71,6 +71,7 @@ def train(args, model, device, train_loader, optimizer, epoch):
         loss = F.nll_loss(output, target)
         scaler.scale(loss).backward()
         scaler.step(optimizer)
+        scaler.update()
         if batch_idx % args.log_interval == 0:
             print(
                 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(

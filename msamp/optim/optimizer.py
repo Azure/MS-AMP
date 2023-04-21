@@ -14,7 +14,7 @@ from torch.optim.optimizer import Optimizer, required
 from msamp.common.dtype import Floating
 from msamp.common.tensor import ScalingTensor, ScalingMeta
 from msamp.common.tensor import TensorDist
-from msamp.nn import model_state
+from msamp.nn import model_state, ScalingParameter
 
 
 class LBOptimizer(Optimizer):
@@ -48,14 +48,11 @@ class LBOptimizer(Optimizer):
         """All-reduce gradients of parameters."""
         if not model_state.ready_to_all_reduce_grads:
             return
-        while hasattr(model, 'module'):
-            model = model.module
-        get_fp8_wgrads_fn = getattr(model, 'get_fp8_wgrads', None)
-        if get_fp8_wgrads_fn is not None:
-            wgrads = get_fp8_wgrads_fn()
-            TensorDist.all_reduce_avg(wgrads)
-            # make sure that FP8 weight gradients have been reduced.
-            model_state.ready_to_all_reduce_grads = False
+        scaling_params = [p for p in model.parameters() if isinstance(p, ScalingParameter)]
+        grads = [p.grad for p in scaling_params if p.grad is not None]
+        TensorDist.all_reduce_avg(grads)
+        # make sure that FP8 weight gradients have been reduced.
+        model_state.ready_to_all_reduce_grads = False
 
     def lb_step(self, closure=None):
         """Performs a single optimization step. The subclass needs to implement this method.
@@ -122,8 +119,10 @@ class LBOptimizer(Optimizer):
             nonlocal start_index
             packed = {k: v for k, v in group.items() if k != 'params'}
             param_mappings.update(
-                {id(p): i
-                 for i, p in enumerate(group['params'], start_index) if id(p) not in param_mappings}
+                {
+                    id(p): i
+                    for i, p in enumerate(group['params'], start_index) if id(p) not in param_mappings
+                }
             )
             packed['params'] = [param_mappings[id(p)] for p in group['params']]
             start_index += len(packed['params'])

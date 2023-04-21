@@ -73,6 +73,7 @@ def train(args, model, device, train_loader, optimizer, epoch):
         if hasattr(optimizer, 'all_reduce_grads'):
             optimizer.all_reduce_grads(model)
         scaler.step(optimizer)
+        scaler.update()
         if dist.get_rank() == 0:
             if batch_idx % args.log_interval == 0:
                 print(
