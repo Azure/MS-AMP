@@ -63,7 +63,7 @@ Then, you can install MS-AMP from source.
 
 ```
 python3 -m pip install --upgrade pip
-python3 -m pip install .[test]
+python3 -m pip install .
 make postinstall
 ```
 
@@ -71,14 +71,6 @@ After that, you can verify the installation by running:
 
 ```bash
 python3 -c "import msamp; print(msamp.__version__)"
-```
-
-### Run unit tests
-
-You can execute the following command to run unit tests.
-
-```
-python3 setup.py test
 ```
 
 ### Usage
