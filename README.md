@@ -39,10 +39,8 @@ cd third_party/nccl
 
 # V100
 make -j src.build NVCC_GENCODE="-gencode=arch=compute_70,code=sm_70"
-
 # A100
 make -j src.build NVCC_GENCODE="-gencode=arch=compute_80,code=sm_80"
-
 # H100
 make -j src.build NVCC_GENCODE="-gencode=arch=compute_90,code=sm_90"
 
@@ -61,6 +59,14 @@ After that, you can verify the installation by running:
 
 ```bash
 python3 -c "import msamp; print(msamp.__version__)"
+```
+
+### Run unit tests
+
+You can execute the following command to run unit tests.
+
+```
+python3 setup.py test
 ```
 
 ### Usage
@@ -97,7 +103,7 @@ for batch_idx, (data, target) in enumerate(train_loader):
     scaler.step(optimizer)
 ```
 
-A runnable, comprehensive MNIST example demonstrating good practices can be found [here](./examples).
+A runnable, comprehensive MNIST example demonstrating good practices can be found [here](./examples). For more examples, please go to [MS-AMP-Examples](https://github.com/Azure/MS-AMP-Examples).
 
 Recognized optimizers are torch.optim.Adam and torch.optim.AdamW.
 
@@ -108,11 +114,29 @@ Recognized opt_levels are "O1" and "O2". Try both, and see what gives the best s
 - O2: From O1 to O2, our main focus is on enabling the use of low-bit data formats for auxiliary tensors in the Adam/AdamW optimizer without any loss in accuracy. Specifically, we are able to maintain accuracy by representing the first-order optimizer state in FP8 and the second-order state in FP16. This optimization has the potential to save up to 62.5% of GPU memory for the optimizer when the model size is particularly large.
 
 Here here details of different MS-AMP optimization levels:
-| Optimization Levvel | Computation(GEMM) | Comm. | Weight | Weight Gradient | Optimizer States |
+| Optimization Level  | Computation(GEMM) | Comm  | Weight | Weight Gradient | Optimizer States |
 | ------------------- | -----------       | ----- | ------ | --------------- | ---------------- |
-| Nvidia TE           | FP8               | FP32  | FP16   | FP8             | FP32+FP32
+| FP16 AMP            | FP16              | FP32  | FP32   | FP32            | FP32+FP32        |
+| Nvidia TE           | FP8               | FP32  | FP32   | FP32            | FP32+FP32        |
 | MS-AMP O1           | FP8               | FP8   | FP16   | FP8             | FP32+FP32        |
 | MS-AMP O2           | FP8               | FP8   | FP16   | FP8             | FP8+FP16         |
+
+## Performance
+
+### Accuracy: no loss of accuracy
+
+We evaluated the training loss and validation performance of a typical model, Swin-Transformer, using both MS-AMP O2 and FP16 AMP. Our observations showed that the model trained with MS-AMP O2 mode achieved comparable performance to those trained using FP16 AMP. This demonstrates the effectiveness of the Mixed FP8 O2 mode in MS-AMP.
+
+![image](./docs/assets/swin-tiny-acc.png) ![image](./docs/assets/swin-tiny-loss.png)
+
+### Memory
+
+MS-AMP preserves 32-bit accuracy while using only a fraction of the memory footprint on a range of tasks, including the DeiT model and Swin Transformer for ImageNet classification. For example, for a model with 1 billion parameters, MS-AMP with O2 mode can save approximately 12GB of GPU memory compared to FP16 AMP.
+
+| Model      | # Parameters(Billion) | Batch Size | FP16 AMP GPU Memory(MB) | MS-AMP GPU Memory(MB) |
+| -----------| --------------------- | ---------- | ----------------------  | --------------------- |
+| Swin       | 1.0                   | 16         | 34,322                  |  22,414               |
+| DeiT       | 1.2                   | 128        | 62,696                  |  48,328               |
 
 ## Contributing
 
