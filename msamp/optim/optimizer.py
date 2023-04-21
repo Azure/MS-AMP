@@ -97,16 +97,22 @@ class LBOptimizer(Optimizer):
 
             mask_valid = torch.isfinite(amaxs[:, 0])
             mask_inf_nan = ~mask_valid
-            # filter out inf and nan
+            # filter out inf and nan from amaxs
             amaxs[mask_inf_nan, 0] = 0
 
             sf = ScalingMeta.compute_scaling_factor(amaxs.max(1).values, scales, fp_max, margin)
 
+            # shift window
             amaxs.copy_(amaxs.roll(1, dims=1))
+            # set 0 for the first element in the window
             amaxs[:, 0] = 0
+
             amax_counters += 1
+            # reset counter when meeting inf or nan
             amax_counters[mask_inf_nan] = 0
-            scales[mask_valid] = sf[mask_valid]
+
+            # update scaling factors
+            scales.copy_(sf)
 
     def state_dict(self):
         r"""Returns the state of the optimizer as a :class:`dict`.
