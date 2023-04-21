@@ -69,11 +69,13 @@ class ScalingTensorTestCase(unittest.TestCase):
         meta = ScalingMeta(Dtypes.kfloat8_e4m3)
         scaling_tensor = ScalingTensor(TypeCast.cast_to_fp8(tensor, meta), meta=meta)
 
+        self.assertEqual(scaling_tensor.data_ptr(), scaling_tensor.value.data_ptr())
         self.assertTrue(scaling_tensor.grad is None)
         self.assertTrue(scaling_tensor.is_cuda)
         self.assertEqual(scaling_tensor.shape, self.size)
         self.assertEqual(scaling_tensor.size(), self.size)
         self.assertEqual(scaling_tensor.numel(), self.size[0] * self.size[1])
+        self.assertEqual(scaling_tensor.nelement(), self.size[0] * self.size[1])
         self.assertEqual(scaling_tensor.device, tensor.device)
         self.assertEqual(scaling_tensor.dtype, torch.uint8)
         self.assertEqual(scaling_tensor.type(), 'msamp.common.tensor.tensor.ScalingTensor')
