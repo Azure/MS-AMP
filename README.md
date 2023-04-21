@@ -22,6 +22,13 @@ Features:
 - CUDA version 11 or later (which can be checked by running `nvcc --version`).
 - PyTorch version 1.13 or later (which can be checked by running `python -c "import torch; print(torch.__version__)"`).
 
+We strongly recommend using [PyTorch NGC Container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch). For example, to start PyTorch 1.13 container, run the following command:
+
+```
+sudo docker run -it -d --name=msamp --privileged --net=host --ipc=host --gpus=all nvcr.io/nvidia/pytorch:22.09-py3 bash
+sudo docker exec -it msamp bash
+```
+
 ### Install MS-AMP
 
 You can clone the source from GitHub.
@@ -44,13 +51,18 @@ make -j src.build NVCC_GENCODE="-gencode=arch=compute_80,code=sm_80"
 # H100
 make -j src.build NVCC_GENCODE="-gencode=arch=compute_90,code=sm_90"
 
-sudo make install
+apt-get update
+apt install build-essential devscripts debhelper fakeroot
+make pkg.debian.build
+dpkg -i build/pkg/deb/libnccl2_*.deb
+
 cd -
 ```
 
 Then, you can install MS-AMP from source.
 
 ```
+python3 -m pip install --upgrade pip
 python3 -m pip install .
 make postinstall
 ```
@@ -59,14 +71,6 @@ After that, you can verify the installation by running:
 
 ```bash
 python3 -c "import msamp; print(msamp.__version__)"
-```
-
-### Run unit tests
-
-You can execute the following command to run unit tests.
-
-```
-python3 setup.py test
 ```
 
 ### Usage
