@@ -140,7 +140,8 @@ class ScalingTensorTestCase(unittest.TestCase):
     @decorator.cuda_test
     def test_tensor_cast_with_exception_value(self):
         """Test cast function in ScalingTensor with exception value."""
-        for dtype in [Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2, Dtypes.kfloat16, Dtypes.kfloat32]:
+        # skip kfloat32 since it does not need quantization.
+        for dtype in [Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2, Dtypes.kfloat16]:
             with self.subTest(dtype=dtype):
                 x = torch.randn((2,), device=self.device)
                 t = x.cast(dtype)
@@ -154,7 +155,7 @@ class ScalingTensorTestCase(unittest.TestCase):
                             else:
                                 x2[-1] = exception_value
                             t2 = x2.cast(dtype)
-                            self.assertFalse(torch.isfinite(t.meta.amax[0]))
+                            self.assertFalse(torch.isfinite(t2.meta.amax[0]))
 
     @decorator.cuda_test
     def test_tensor_mul(self):
