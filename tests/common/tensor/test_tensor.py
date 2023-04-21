@@ -145,7 +145,7 @@ class ScalingTensorTestCase(unittest.TestCase):
         # skip kfloat32 since it does not need quantization.
         for dtype in [Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2, Dtypes.kfloat16]:
             with self.subTest(dtype=dtype):
-                x = torch.randn((2,), device=self.device)
+                x = torch.randn((2, ), device=self.device)
                 t = x.cast(dtype)
                 self.assertTrue(torch.isfinite(t.meta.amax[0]))
                 for exception_value in [float('nan'), float('inf'), float('-inf')]:
