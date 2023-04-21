@@ -63,7 +63,7 @@ Then, you can install MS-AMP from source.
 
 ```
 python3 -m pip install --upgrade pip
-python3 -m pip install .
+python3 -m pip install .[test]
 make postinstall
 ```
 
