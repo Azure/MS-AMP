@@ -23,6 +23,7 @@ Features:
 - PyTorch version 1.13 or later (which can be checked by running `python -c "import torch; print(torch.__version__)"`).
 
 We strongly recommend using [PyTorch NGC Container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch). For example, to start PyTorch 1.13 container, run the following command:
+
 ```
 sudo docker run -it -d --name=msamp --privileged --net=host --ipc=host --gpus=all nvcr.io/nvidia/pytorch:22.09-py3 bash
 sudo docker exec -it msamp bash
