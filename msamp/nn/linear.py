@@ -260,19 +260,9 @@ class LinearReplacer:
         for k, p in fp8_named_weights:
             p._param_name = k
 
-        # register functions
-        get_fp8_wgrads_name = 'get_fp8_wgrads'
-        if hasattr(model, get_fp8_wgrads_name):
-            raise ValueError(f'`{get_fp8_wgrads_name}` is already in model')
-
         # DDP ignores the FP8 weights, and the optimizer provides a function `optimizer.all_reduce_grads(model)`
         # to sync them.
         torch.nn.parallel.DistributedDataParallel._set_params_and_buffers_to_ignore_for_model(model, fp8_names)
-
-        def get_fp8_wgrads():
-            return [p.grad for p in fp8_weights]
-
-        setattr(model, get_fp8_wgrads_name, get_fp8_wgrads)
 
         model_state.register_scaling_metas(model)
         return model
