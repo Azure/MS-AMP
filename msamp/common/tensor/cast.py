@@ -32,6 +32,10 @@ class TypeCast:
         in_time = meta.is_in_time_scaling()
         if in_time:
             meta.amax[0] = input.abs().max()
+            # create a temporary tensor to avoid cast_to_fp8 to modify meta.amax[0]
+            arg_amax = torch.zeros_like(meta.amax[0])
+        else:
+            arg_amax = meta.amax[0]
         if sync:
             # convert NAN to INF since NCCL-ReduceMax ignores NAN
             meta.amax[0].nan_to_num_(nan=float('inf'))
@@ -43,7 +47,7 @@ class TypeCast:
         input_fp8 = TransformerEngineWrapper.cast_to_fp8(
             input.view(1, -1),
             meta.scale,
-            meta.amax[0],
+            arg_amax,
             meta.scale_inv,
             meta.qtype,
         )
