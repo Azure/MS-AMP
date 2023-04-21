@@ -33,10 +33,10 @@ class TypeCast:
         if in_time:
             meta.amax[0] = input.abs().max()
         if sync:
+            # convert NAN to INF since NCCL-ReduceMax ignores NAN
+            meta.amax[0].nan_to_num_(nan=float('inf'))
             world_size = DistUtil.get_world_size()
             if world_size > 1:
-                # convert NAN to INF since NCCL-ReduceMax ignores NAN
-                meta.amax[0].nan_to_num_(nan=float('inf'))
                 dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX)
         if in_time or sync:
             meta.reset_scaling_factor()
@@ -66,10 +66,10 @@ class TypeCast:
         meta.amax[0] = input.abs().max()
         in_time = meta.is_in_time_scaling()
         if sync:
+            # convert NAN to INF since NCCL-ReduceMax ignores NAN
+            meta.amax[0].nan_to_num_(nan=float('inf'))
             world_size = DistUtil.get_world_size()
             if world_size > 1:
-                # convert NAN to INF since NCCL-ReduceMax ignores NAN
-                meta.amax[0].nan_to_num_(nan=float('inf'))
                 dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX)
         if in_time or sync:
             # notice: we scale the tensor with qtype FP8-E4M3.
