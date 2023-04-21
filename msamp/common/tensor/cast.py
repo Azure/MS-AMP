@@ -38,7 +38,8 @@ class TypeCast:
             arg_amax = meta.amax[0]
         if sync:
             # convert NAN to INF since NCCL-ReduceMax ignores NAN
-            meta.amax[0].nan_to_num_(nan=float('inf'))
+            # notice: nan and posinf must be INF
+            meta.amax[0].nan_to_num_(nan=torch.inf, posinf=torch.inf)
             world_size = DistUtil.get_world_size()
             if world_size > 1:
                 dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX)
@@ -71,7 +72,8 @@ class TypeCast:
         in_time = meta.is_in_time_scaling()
         if sync:
             # convert NAN to INF since NCCL-ReduceMax ignores NAN
-            meta.amax[0].nan_to_num_(nan=float('inf'))
+            # notice: nan and posinf must be INF
+            meta.amax[0].nan_to_num_(nan=torch.inf, posinf=torch.inf)
             world_size = DistUtil.get_world_size()
             if world_size > 1:
                 dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX)
