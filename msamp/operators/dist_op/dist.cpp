@@ -16,8 +16,6 @@
 #include <utility>
 #include <vector>
 
-using namespace torch;
-using namespace std;
 
 ncclComm_t *to_nccl_comm(ncclComm_t *var) { return reinterpret_cast<ncclComm_t *>(var); }
 
@@ -120,7 +118,7 @@ struct NcclCommList {
             }
         }
     }
-    ArrayRef<ncclComm_t> ref() const { return ArrayRef<ncclComm_t>(comms.get(), ndevices); }
+    at::ArrayRef<ncclComm_t> ref() const { return at::ArrayRef<ncclComm_t>(comms.get(), ndevices); }
 };
 
 using device_list = std::vector<int>;
@@ -131,7 +129,7 @@ struct ncclCommPtr {
     ncclComm_t ptr;
 };
 
-ArrayRef<ncclComm_t> get_communicators(TensorList inputs) {
+at::ArrayRef<ncclComm_t> get_communicators(at::TensorList inputs) {
     static auto get_device = [](const at::Tensor &t) -> int { return t.get_device(); };
     device_list devices = fmap(inputs, get_device);
     auto it = _communicators.find(devices);
@@ -153,7 +151,7 @@ ncclCommPtr get_communicator(ncclUniqueId uid, int rank, int world_size) {
 }
 
 void dist_reduce(const at::Tensor &input, at::Tensor &output, int32_t root, int32_t op, const ncclCommPtr &user_comm,
-            int nccl_type = -1) {
+                 int nccl_type = -1) {
     ncclDataType_t data_type = nccl_type == -1 ? to_nccl_data_type(input) : (ncclDataType_t)nccl_type;
 
     const auto count = input.numel();
@@ -169,8 +167,9 @@ void dist_reduce(const at::Tensor &input, at::Tensor &output, int32_t root, int3
                           to_nccl_comm(comm), stream));
 }
 
-void dist_all_reduce(const vector<Tensor> &inputs, vector<Tensor> &outputs, int32_t op,
-                const std::vector<ncclCommPtr> &user_comms, int nccl_type = -1) {
+void dist_all_reduce(const std::vector<at::Tensor> &inputs, std::vector<at::Tensor> &outputs,
+                     int32_t op,
+                     const std::vector<ncclCommPtr> &user_comms, int nccl_type = -1) {
     const auto len = inputs.size();
 
     ncclDataType_t data_type = nccl_type == -1 ? to_nccl_data_type(inputs[0]) : (ncclDataType_t)nccl_type;
