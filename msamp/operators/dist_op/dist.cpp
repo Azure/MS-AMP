@@ -152,7 +152,7 @@ ncclCommPtr get_communicator(ncclUniqueId uid, int rank, int world_size) {
     return comm;
 }
 
-void reduce(const at::Tensor &input, at::Tensor &output, int32_t root, int32_t op, const ncclCommPtr &user_comm,
+void dist_reduce(const at::Tensor &input, at::Tensor &output, int32_t root, int32_t op, const ncclCommPtr &user_comm,
             int nccl_type = -1) {
     ncclDataType_t data_type = nccl_type == -1 ? to_nccl_data_type(input) : (ncclDataType_t)nccl_type;
 
@@ -169,7 +169,7 @@ void reduce(const at::Tensor &input, at::Tensor &output, int32_t root, int32_t o
                           to_nccl_comm(comm), stream));
 }
 
-void all_reduce(const vector<Tensor> &inputs, vector<Tensor> &outputs, int32_t op,
+void dist_all_reduce(const vector<Tensor> &inputs, vector<Tensor> &outputs, int32_t op,
                 const std::vector<ncclCommPtr> &user_comms, int nccl_type = -1) {
     const auto len = inputs.size();
 
@@ -206,8 +206,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
                 return id;
             }));
     py::class_<ncclCommPtr>(m, "ncclCommPtr").def(py::init<>());
-    m.def("reduce", &reduce, "Reduce");
-    m.def("all_reduce", &all_reduce, "All reduce");
+    m.def("reduce", &dist_reduce, "Reduce");
+    m.def("all_reduce", &dist_all_reduce, "All reduce");
     m.def("get_nccl_uid", &get_nccl_uid, "Get NCCL UID");
     m.def("get_communicator", &get_communicator, "Get communicator");
 }
