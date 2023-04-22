@@ -24,6 +24,7 @@ setup(
             ['dist.cpp'],
             define_macros=define_macros,
             extra_compile_args=extra_compile_args,
+            libraries=['nccl'],
         )
     ],
     cmdclass={'build_ext': BuildExtension}
