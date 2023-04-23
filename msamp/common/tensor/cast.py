@@ -6,7 +6,7 @@
 import torch
 import torch.distributed as dist
 
-from msamp.common.dtype import Dtypes
+from msamp.common.dtype import Dtypes, Floating
 from msamp.common.utils import DistUtil
 from msamp.common.utils import TransformerEngineWrapper
 
@@ -32,15 +32,23 @@ class TypeCast:
         in_time = meta.is_in_time_scaling()
         if in_time:
             meta.amax[0] = input.abs().max()
-            meta.reset_scaling_factor()
+            # create a temporary tensor to avoid cast_to_fp8 to modify meta.amax[0]
+            arg_amax = torch.zeros_like(meta.amax[0])
+        else:
+            arg_amax = meta.amax[0]
         if sync:
+            # convert NAN to INF since NCCL-ReduceMax ignores NAN
+            # notice: nan and posinf must be INF
+            meta.amax[0].nan_to_num_(nan=torch.inf, posinf=torch.inf)
             world_size = DistUtil.get_world_size()
             if world_size > 1:
-                dist.all_reduce(meta.scale, op=dist.ReduceOp.MIN)
+                dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX)
+        if in_time or sync:
+            meta.reset_scaling_factor()
         input_fp8 = TransformerEngineWrapper.cast_to_fp8(
             input.view(1, -1),
             meta.scale,
-            meta.amax[0],
+            arg_amax,
             meta.scale_inv,
             meta.qtype,
         )
@@ -62,13 +70,17 @@ class TypeCast:
         """
         meta.amax[0] = input.abs().max()
         in_time = meta.is_in_time_scaling()
-        if in_time:
-            # notice: we scale the tensor with qtype FP8-E4M3.
-            meta.reset_scaling_factor(qtype=Dtypes.kfloat8_e4m3)
         if sync:
+            # convert NAN to INF since NCCL-ReduceMax ignores NAN
+            # notice: nan and posinf must be INF
+            meta.amax[0].nan_to_num_(nan=torch.inf, posinf=torch.inf)
             world_size = DistUtil.get_world_size()
             if world_size > 1:
-                dist.all_reduce(meta.scale, op=dist.ReduceOp.MIN)
+                dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX)
+        if in_time or sync:
+            # notice: we scale the tensor with qtype FP8-E4M3.
+            meta.reset_scaling_factor(qtype=Dtypes.kfloat8_e4m3)
+        meta.scale.clamp_(max=Floating.qfp_max[meta.qtype])
 
         meta.scale_inv.data.copy_(torch.reciprocal(meta.scale))    # scale_inv = 1 / scale
         input_fp16 = (input * meta.scale).to(torch.float16)
