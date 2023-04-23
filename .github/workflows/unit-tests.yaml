@@ -20,8 +20,8 @@ jobs:
         - torch: "1.14"
           nvcr: 22.12-py3
         # 2.0.0a0+1767026
-        #- torch: "2.0"
-        #  nvcr: 23.03-py3
+        - torch: "2.0"
+          nvcr: 23.03-py3
     container:
       image: nvcr.io/nvidia/pytorch:${{ matrix.nvcr }}
       options: --privileged --ipc=host --gpus=all
