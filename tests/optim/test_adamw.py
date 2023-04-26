@@ -4,6 +4,7 @@
 """Tests for adamw optimizer."""
 
 import copy
+import itertools
 import unittest
 import torch
 
@@ -148,18 +149,19 @@ class LBAdamwTestCase(unittest.TestCase):
 
         self.assertTrue(torch.equal(model1.weight.value, model2.weight.value))
 
-    def check_LBAdamWBase_state_dtypes(self):
+    def test_lb_adamw_base_state_dtypes(self):
         """Check the dtype of LBAdamWBase optimizer state."""
-        from msamp.optim import LBAdamW
-        dtypes = [torch.uint8, torch.int8, torch.float16, torch.float32]
+        from msamp.optim.adamw_base import LBAdamWBase
+        dtypes = [torch.uint8, torch.int8, torch.float16]
         linear = torch.nn.Linear(4, 8).cuda()
         model = LinearReplacer.replace(linear, Dtypes.kfloat16)
         x = torch.randn((4, 4), device='cuda', dtype=torch.float32)
-        for exp_avg_dtype in dtypes:
-            for exp_avg_sq_dtype in dtypes:
+        pairs = list(itertools.product(dtypes, dtypes)) + [[torch.float32, torch.float32]]
+        for exp_avg_dtype, exp_avg_sq_dtype in pairs:
+            with self.subTest(exp_avg_dtype=exp_avg_dtype, exp_avg_sq_dtype=exp_avg_sq_dtype):
                 y = model(x)
                 y.sum().backward()
-                opt = LBAdamW(model.parameters(), exp_avg_dtype=exp_avg_dtype, exp_avg_sq_dtype=exp_avg_sq_dtype)
+                opt = LBAdamWBase(model.parameters(), exp_avg_dtype=exp_avg_dtype, exp_avg_sq_dtype=exp_avg_sq_dtype)
                 opt.step()
                 opt.zero_grad(set_to_none=True)
 
