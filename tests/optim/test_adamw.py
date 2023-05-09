@@ -73,8 +73,8 @@ class LBAdamwTestCase(unittest.TestCase):
         self.assertTrue(torch.allclose(model1.weight, model2.weight.float(), 0, diff))
 
     def test_all_reduce_grads(self):
-        from msamp.common.tensor import TensorDist
         """Test the function `all_reduce_grads`."""
+        from msamp.common.tensor import TensorDist
         input = torch.randn(4, 4, device='cuda')
         model1 = torch.nn.Linear(4, 4).cuda()
         model2 = torch.nn.Linear(4, 4).cuda()
