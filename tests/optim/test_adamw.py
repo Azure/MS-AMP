@@ -85,10 +85,12 @@ class LBAdamwTestCase(unittest.TestCase):
         loss.backward()
         old_all_reduce_avg = TensorDist.all_reduce_avg
         num_grads = 0
+
         def debug_all_reduce_avg(grads):
             nonlocal num_grads
             num_grads += len(grads)
             return old_all_reduce_avg(grads)
+
         TensorDist.all_reduce_avg = debug_all_reduce_avg
         opt.all_reduce_grads(model1)
         self.assertEqual(num_grads, 1)
