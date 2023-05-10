@@ -165,15 +165,14 @@ class FunctionalOverider:
                 input = input.reshape(-1, dim)
 
             output_dtype = torch.get_autocast_gpu_dtype() if torch.is_autocast_enabled() else input.dtype
-            out = _FP8GemmFunction.apply(
-                input, weight, weight._scaling_metas, cls.EMPTY_GRAD_TENSOR.type(output_dtype)
-            )
+            out = _FP8GemmFunction.apply(input, weight, weight._scaling_metas, cls.EMPTY_GRAD_TENSOR.type(output_dtype))
             if bias is not None:
                 out = out + bias.type(output_dtype).view(1, -1)
 
             if len(shape) != 2:
                 out = out.view(shape[:-1] + (-1, ))
             return out
+
         return new_fn
 
 
