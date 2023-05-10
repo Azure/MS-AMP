@@ -124,25 +124,24 @@ class FunctionalOverider:
         def new_fn(input, weight, bias=None):
             r"""linear(input, weight, bias=None) -> Tensor.
 
-Applies a linear transformation to the incoming data: :math:`y = xA^T + b`.
+            Applies a linear transformation to the incoming data: :math:`y = xA^T + b`.
 
-This operation supports 2-D :attr:`weight` with :ref:`sparse layout<sparse-docs>`
+            This operation supports 2-D :attr:`weight` with :ref:`sparse layout<sparse-docs>`
 
+            .. warning::
+                Sparse support is a beta feature and some layout(s)/dtype/device combinations may not be supported,
+                or may not have autograd support. If you notice missing functionality please
+                open a feature request.
 
-.. warning::
-    Sparse support is a beta feature and some layout(s)/dtype/device combinations may not be supported,
-    or may not have autograd support. If you notice missing functionality please
-    open a feature request.
+            This operator supports :ref:`TensorFloat32<tf32_on_ampere>`.
 
-This operator supports :ref:`TensorFloat32<tf32_on_ampere>`.
+            Shape:
 
-Shape:
-
-    - Input (torch.Tensor): :math:`(*, in\_features)` where `*` means any number of
-      additional dimensions, including none
-    - Weight (torch.Tensor or ScalingTensor): :math:`(out\_features, in\_features)` or :math:`(in\_features)`
-    - Bias (torch.Tensor or None): :math:`(out\_features)` or :math:`()`
-    - Output (torch.Tensor): :math:`(*, out\_features)` or :math:`(*)`, based on the shape of the weight
+                - Input (Tensor): :math:`(*, in\_features)` where `*` means any number of
+                  additional dimensions, including none
+                - Weight (Tensor or ScalingTensor): :math:`(out\_features, in\_features)` or :math:`(in\_features)`
+                - Bias (Tensor or None): :math:`(out\_features)` or :math:`()`
+                - Output (Tensor): :math:`(*, out\_features)` or :math:`(*)`, based on the shape of the weight
             """
             if not isinstance(input, torch.Tensor):
                 raise TypeError(f'input should be a torch.Tensor. current type: {type(input)}')
