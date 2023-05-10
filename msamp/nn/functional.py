@@ -143,7 +143,7 @@ Shape:
     - Weight (torch.Tensor or ScalingTensor): :math:`(out\_features, in\_features)` or :math:`(in\_features)`
     - Bias (torch.Tensor or None): :math:`(out\_features)` or :math:`()`
     - Output (torch.Tensor): :math:`(*, out\_features)` or :math:`(*)`, based on the shape of the weight
-"""
+            """
             if not isinstance(input, torch.Tensor):
                 raise TypeError(f'input should be a torch.Tensor. current type: {type(input)}')
             if not isinstance(weight, (torch.Tensor, ScalingTensor)):
