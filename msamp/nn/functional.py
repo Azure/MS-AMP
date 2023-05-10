@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as F
 
 from msamp.common.dtype import Dtypes
-from msamp.common.tensor import ScalingTensor, ScalingMeta, TensorDist
+from msamp.common.tensor import ScalingTensor
 from msamp.operators.gemm import Gemm
 from msamp.common.utils import DistUtil
 from msamp.nn import model_state
@@ -120,9 +120,9 @@ class FunctionalOverider:
 
     @classmethod
     def _get_wrapper_for_linear(cls, old_fn):
-        """Get wrapper for torch.nn.functional.linear (F.linear)"""
+        """Get wrapper for torch.nn.functional.linear (F.linear)."""
         def new_fn(input, weight, bias=None):
-            """linear(input, weight, bias=None) -> Tensor
+            r"""linear(input, weight, bias=None) -> Tensor
 
         Applies a linear transformation to the incoming data: :math:`y = xA^T + b`.
 

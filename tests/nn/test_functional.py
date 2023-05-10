@@ -3,9 +3,7 @@
 
 """Tests for linear module in MS-AMP."""
 
-import io
 import itertools
-import copy
 import unittest
 import torch
 import torch.nn.functional as F
