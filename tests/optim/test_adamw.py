@@ -151,7 +151,6 @@ class LBAdamwTestCase(unittest.TestCase):
 
     def test_lb_adamw_base_state_dtypes(self):
         """Check the dtype of LBAdamWBase optimizer state."""
-        from msamp.optim.adamw_base import LBAdamWBase
         dtypes = [torch.uint8, torch.int8, torch.float16]
         linear = torch.nn.Linear(4, 8).cuda()
         model = LinearReplacer.replace(linear, Dtypes.kfloat16)
@@ -168,7 +167,6 @@ class LBAdamwTestCase(unittest.TestCase):
     @decorator.cuda_test
     def test_historical_window_quantization(self):
         """Test historical window quantization."""
-        from msamp.optim import LBAdamW
         linear = torch.nn.Linear(4, 8).cuda()
         model = LinearReplacer.replace(linear, Dtypes.kfloat16)
         opt = LBAdamW(model.parameters())
