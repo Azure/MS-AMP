@@ -60,3 +60,28 @@ class FunctionalTestCase(unittest.TestCase):
 
         # check weight w/ scaling_metas
         F.linear(input, model.weight, bias=model.bias)
+
+    @decorator.cuda_test
+    def test_linear_forward_backward(self):
+        """Test linear forward and backward."""
+        input = torch.randn((4, 4), device='cuda')
+        input1 = input.clone()
+        input2 = input.clone()
+
+        input1.requires_grad = True
+        input2.requires_grad = True
+
+        linear = torch.nn.Linear(4, 4).cuda()
+        model1 = LinearReplacer.replace(linear, Dtypes.kfloat16)
+        model2 = LinearReplacer.replace(linear, Dtypes.kfloat16)
+
+        output1 = model1(input)
+        output1.sum().backward()
+
+        output2 = F.linear(input, model2, bias=model2.bias)
+        output2.sum().backward()
+
+        self.assertTrue(torch.equal(output1, output2))
+        self.assertTrue(torch.equal(model1.weight.grad.float(), model2.weight.grad.float()))
+        self.assertTrue(torch.equal(model1.bias.grad, model2.bias.grad))
+        self.assertTrue(torch.equal(input1.grad, input2.grad))
