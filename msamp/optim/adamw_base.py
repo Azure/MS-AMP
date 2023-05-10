@@ -121,11 +121,11 @@ class LBAdamWBase(LBOptimizer):
             group.setdefault('amsgrad', False)
             group.setdefault('maximize', False)
 
-    def _get_state_tensor(self, tensor, dtype):
+    def _get_state_tensor(self, state, dtype):
         """Get the state tensor of the given dtype.
 
         Args:
-            tensor (torch.Tensor): the orignal tensor.
+            state (torch.Tensor): the orignal state tensor.
             dtype (torch.dtype): the dtype of the state tensor.
 
         Returns:
@@ -135,7 +135,7 @@ class LBAdamWBase(LBOptimizer):
             if dtype not in [torch.uint8, torch.int8, torch.float16]:
                 raise TypeError('Unsupported dtype: {}'.format(dtype))
             qtype = Dtypes.dtype_to_qtype[dtype]
-            state = tensor.cast(qtype)
+            state = state.cast(qtype)
         return state
 
     def _update_lp_tensor(self, lp, hp):

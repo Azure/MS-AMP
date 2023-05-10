@@ -4,6 +4,7 @@
 """Tests for adamw optimizer."""
 
 import copy
+import itertools
 import unittest
 import torch
 
@@ -176,10 +177,24 @@ class LBAdamwTestCase(unittest.TestCase):
 
         self.assertTrue(torch.equal(model1.weight.value, model2.weight.value))
 
+    def test_lb_adamw_base_state_dtypes(self):
+        """Check the dtype of LBAdamWBase optimizer state."""
+        dtypes = [torch.uint8, torch.int8, torch.float16]
+        linear = torch.nn.Linear(4, 8).cuda()
+        model = LinearReplacer.replace(linear, Dtypes.kfloat16)
+        x = torch.randn((4, 4), device='cuda', dtype=torch.float32)
+        pairs = list(itertools.product(dtypes, dtypes)) + [[torch.float32, torch.float32]]
+        for exp_avg_dtype, exp_avg_sq_dtype in pairs:
+            with self.subTest(exp_avg_dtype=exp_avg_dtype, exp_avg_sq_dtype=exp_avg_sq_dtype):
+                y = model(x)
+                y.sum().backward()
+                opt = LBAdamWBase(model.parameters(), exp_avg_dtype=exp_avg_dtype, exp_avg_sq_dtype=exp_avg_sq_dtype)
+                opt.step()
+                opt.zero_grad(set_to_none=True)
+
     @decorator.cuda_test
     def test_historical_window_quantization(self):
         """Test historical window quantization."""
-        from msamp.optim import LBAdamW
         linear = torch.nn.Linear(4, 8).cuda()
         model = LinearReplacer.replace(linear, Dtypes.kfloat16)
         opt = LBAdamW(model.parameters())
