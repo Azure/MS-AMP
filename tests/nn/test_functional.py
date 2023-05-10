@@ -78,10 +78,20 @@ class FunctionalTestCase(unittest.TestCase):
         output1 = model1(input)
         output1.sum().backward()
 
-        output2 = F.linear(input, model2, bias=model2.bias)
+        output2 = F.linear(input, model2.weight, bias=model2.bias)
         output2.sum().backward()
 
         self.assertTrue(torch.equal(output1, output2))
         self.assertTrue(torch.equal(model1.weight.grad.float(), model2.weight.grad.float()))
         self.assertTrue(torch.equal(model1.bias.grad, model2.bias.grad))
         self.assertTrue(torch.equal(input1.grad, input2.grad))
+
+        # Check Scaling Metas
+        metas_names = set(model1.scaling_metas.keys())
+        self.assertEqual(len(metas_names ^ set(model2.scaling_metas.keys())), 0)
+        for meta_name in meta_names:
+            meta1 = model1.scaling_metas[meta_name]
+            meta2 = model2.scaling_metas[meta_name]
+            self.assertTrue(torch.equal(meta1.scale, meta2.scale))
+            self.assertTrue(torch.equal(meta1.scale_inv, meta2.scale_inv))
+            self.assertTrue(torch.equal(meta1.amax, meta2.amax))
