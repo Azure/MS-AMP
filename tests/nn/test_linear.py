@@ -116,6 +116,17 @@ class LinearTestCase(unittest.TestCase):
         self.assertEqual(model(input.half()).dtype, torch.float16)
 
     @decorator.cuda_test
+    def test_linear_weight_attrs(self):
+        """Test weight attrs of FP8Linear."""
+        input = torch.randn(4, 4, device='cuda')
+        linear = torch.nn.Linear(4, 8).cuda()
+        abc = 42
+        linear.weight.abc = abc
+        model = LinearReplacer.replace(linear, Dtypes.kfloat16)
+        self.assertTrue(hasattr(model.weight, 'abc'))
+        self.assertEqual(model.weight.abc, abc)
+
+    @decorator.cuda_test
     def test_state_dict(self):
         """Test state dict of FP8Linear."""
         input = torch.randn((4, 4), device='cuda')
