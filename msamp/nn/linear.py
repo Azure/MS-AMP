@@ -4,6 +4,7 @@
 """linear module in MS-AMP."""
 
 import torch
+import torch.nn.functional as F
 
 from msamp.common.dtype import Dtypes
 from msamp.common.tensor import ScalingTensor, ScalingMeta, TensorDist
@@ -16,7 +17,6 @@ class FP8Linear(ScalingModule):
     """Linear layer with FP8 support."""
     DEFAULT_WINDOW_SIZE = 16
     DEFAULT_WGRAD_WINDOW_SIZE = 1
-    EMPTY_GRAD_TENSOR = torch.nn.Parameter(torch.tensor([]))
 
     def __init__(self, in_features, out_features, use_bias=True, weight_qtype=Dtypes.kfloat16):
         """Constructor.
@@ -46,6 +46,7 @@ class FP8Linear(ScalingModule):
             wgrad=ScalingMeta(Dtypes.kfloat8_e4m3, window_size=FP8Linear.DEFAULT_WGRAD_WINDOW_SIZE),
             ograd=ScalingMeta(Dtypes.kfloat8_e5m2, window_size=FP8Linear.DEFAULT_WINDOW_SIZE)
         )
+        self.weight._scaling_metas = self.scaling_metas
 
     def forward(self, input):
         """Forward function.
@@ -56,29 +57,73 @@ class FP8Linear(ScalingModule):
         Returns:
             torch.Tensor: Output tensor.
         """
-        model_state.ready_to_scale_tensor = True
-        shape = input.shape
-
-        if len(shape) != 2:
-            dim = shape[-1]
-            input = input.reshape(-1, dim)
-
-        output_dtype = torch.get_autocast_gpu_dtype() if torch.is_autocast_enabled() else input.dtype
-        out = _FP8GemmFunction.apply(
-            input, self.weight, self.scaling_metas, FP8Linear.EMPTY_GRAD_TENSOR.type(output_dtype)
-        )
-        if self.bias is not None:
-            out = out + self.bias.type(output_dtype).view(1, -1)
-
-        if len(shape) != 2:
-            out = out.view(shape[:-1] + (-1, ))
-        return out
+        return F.linear(input, self.weight, bias=self.bias)
 
     def extra_repr(self):
         """Return the extra representation of this module."""
         return 'in_features={}, out_features={}, bias={}'.format(
             self.in_features, self.out_features, self.bias is not None
         )
+
+
+EMPTY_GRAD_TENSOR = torch.nn.Parameter(torch.tensor([]))
+
+old_linear = F.linear
+def scaling_tensor_linear(input, weight, bias=None):
+    """
+linear(input, weight, bias=None) -> Tensor
+
+Applies a linear transformation to the incoming data: :math:`y = xA^T + b`.
+
+This operation supports 2-D :attr:`weight` with :ref:`sparse layout<sparse-docs>`
+
+
+.. warning::
+	Sparse support is a beta feature and some layout(s)/dtype/device combinations may not be supported,
+	or may not have autograd support. If you notice missing functionality please
+	open a feature request.
+
+This operator supports :ref:`TensorFloat32<tf32_on_ampere>`.
+
+Shape:
+
+	- Input (torch.Tensor): :math:`(*, in\_features)` where `*` means any number of
+	  additional dimensions, including none
+	- Weight (torch.Tensor or ScalingTensor): :math:`(out\_features, in\_features)` or :math:`(in\_features)`
+	- Bias (torch.Tensor or None): :math:`(out\_features)` or :math:`()`
+	- Output (torch.Tensor): :math:`(*, out\_features)` or :math:`(*)`, based on the shape of the weight
+    """
+    if not isinstance(input, torch.Tensor):
+        raise TypeError('input should be a torch.Tensor.')
+    if not isinstance(weight, (torch.Tesnor, ScalingTensor)):
+        raise TypeError('weight should be a torch.Tensor or ScalingTensor.')
+    if bias is not None and isinstance(bias, torch.Tensor):
+        raise TypeError('bias should be a torch.Tensor.')
+
+    if isinstance(weight, torch.Tensor):
+        return old_linear(input, weight, bias=bias)
+
+    model_state.ready_to_scale_tensor = True
+    shape = input.shape
+
+    if len(shape) != 2:
+        dim = shape[-1]
+        input = input.reshape(-1, dim)
+
+    output_dtype = torch.get_autocast_gpu_dtype() if torch.is_autocast_enabled() else input.dtype
+    out = _FP8GemmFunction.apply(
+        input, weight, weight._scaling_metas, EMPTY_GRAD_TENSOR.type(output_dtype)
+    )
+    if bias is not None:
+        out = out + bias.type(output_dtype).view(1, -1)
+
+    if len(shape) != 2:
+        out = out.view(shape[:-1] + (-1, ))
+    return out
+
+
+# override F.linear
+F.linear = scaling_tensor_linear
 
 
 class _FP8GemmFunction(torch.autograd.Function):
