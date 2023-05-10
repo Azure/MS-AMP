@@ -70,8 +70,7 @@ EMPTY_GRAD_TENSOR = torch.nn.Parameter(torch.tensor([]))
 
 old_linear = F.linear
 def scaling_tensor_linear(input, weight, bias=None):
-    """
-linear(input, weight, bias=None) -> Tensor
+    """linear(input, weight, bias=None) -> Tensor
 
 Applies a linear transformation to the incoming data: :math:`y = xA^T + b`.
 
@@ -94,11 +93,11 @@ Shape:
 	- Output (torch.Tensor): :math:`(*, out\_features)` or :math:`(*)`, based on the shape of the weight
     """
     if not isinstance(input, torch.Tensor):
-        raise TypeError('input should be a torch.Tensor.')
-    if not isinstance(weight, (torch.Tesnor, ScalingTensor)):
-        raise TypeError('weight should be a torch.Tensor or ScalingTensor.')
-    if bias is not None and isinstance(bias, torch.Tensor):
-        raise TypeError('bias should be a torch.Tensor.')
+        raise TypeError(f'input should be a torch.Tensor. current type: {type(input)}')
+    if not isinstance(weight, (torch.Tensor, ScalingTensor)):
+        raise TypeError(f'weight should be a torch.Tensor or ScalingTensor. current type: {type(weight)}')
+    if bias is not None and not isinstance(bias, torch.Tensor):
+        raise TypeError(f'bias should be a torch.Tensor. current type: {type(bias)}')
 
     if isinstance(weight, torch.Tensor):
         return old_linear(input, weight, bias=bias)
