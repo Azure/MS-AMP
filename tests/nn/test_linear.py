@@ -121,7 +121,6 @@ class LinearTestCase(unittest.TestCase):
     @decorator.cuda_test
     def test_linear_custom_attrs(self):
         """Test custom attrs of FP8Linear."""
-        input = torch.randn(4, 4, device='cuda')
         linear = torch.nn.Linear(4, 8).cuda()
         linear_attr_abc = 123
         weight_attr_abc = 42
