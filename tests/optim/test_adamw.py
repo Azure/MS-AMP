@@ -9,6 +9,7 @@ import unittest
 import torch
 
 from msamp.common.dtype import Dtypes
+from msamp.common.tensor import TensorDist
 from msamp.optim import LBAdamW, LBAdam, LBAdamWBase, DSAdam
 from msamp.nn import LinearReplacer, model_state
 from tests.helper import decorator
@@ -75,7 +76,6 @@ class LBAdamwTestCase(unittest.TestCase):
 
     def test_all_reduce_grads(self):
         """Test the function `all_reduce_grads`."""
-        from msamp.common.tensor import TensorDist
         input = torch.randn(4, 4, device='cuda')
         model1 = torch.nn.Linear(4, 4).cuda()
         model2 = torch.nn.Linear(4, 4).cuda()
