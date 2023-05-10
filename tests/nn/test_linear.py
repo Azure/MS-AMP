@@ -89,7 +89,7 @@ class LinearTestCase(unittest.TestCase):
         self.assertTrue('weight' in parameters)
         self.assertTrue('bias' in parameters)
         self.assertTrue(isinstance(model.weight, ScalingTensor))
-        self.assertTrue(torch.allclose(model.weight.float(), linear.weight, rtol=1e-1, atol=1e-1))
+        self.assertTrue(torch.allclose(model.weight.float(), linear.weight, rtol=2e-4, atol=1e-3))
         self.assertTrue((linear.bias == model.bias).all())
 
     @decorator.cuda_test
