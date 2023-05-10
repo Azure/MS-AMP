@@ -28,23 +28,35 @@ class FunctionalTestCase(unittest.TestCase):
         input = torch.randn((4, 4), device='cuda')
         linear = torch.nn.Linear(4, 4).cuda()
         model = LinearReplacer.replace(linear, Dtypes.kfloat16)
+
+        # input, weight, bias
         valid_types = {
             (torch.Tensor, torch.Tensor, torch.Tensor),
-            (torch.Tensor, torch.Tensor, None),
+            (torch.Tensor, torch.Tensor, type(None)),
             (torch.Tensor, ScalingTensor, torch.Tensor),
-            (torch.Tensor, ScalingTensor, None),
+            (torch.Tensor, ScalingTensor, type(None)),
         }
+
+        def _is_valid_types(*args):
+            assert len(args) == 3
+            for valid_type in valid_types:
+                if all(isinstance(v, t) for t, v in zip(valid_type, args)):
+                    return True
+            return False
+
         values = [None, input, model.weight]
         for a, b, c in itertools.product(values, values, [model.bias, None]):
-            types = (type(a), type(b), type(c))
-            if types in valid_types:
-                F.linear(a, b, bias=c)
-            else:
-                with self.assertRaises(TypeError):
+            with self.subTest(a=type(a), b=type(b), c=type(c)):
+                if _is_valid_types(a, b, c):
                     F.linear(a, b, bias=c)
+                else:
+                    with self.assertRaises(TypeError):
+                        F.linear(a, b, bias=c)
+
         # check weight w/o scaling_metas
         weight2 = model.weight.clone()
         with self.assertRaises(ValueError):
             F.linear(input, weight2, bias=model.bias)
+
         # check weight w/ scaling_metas
-        F.linear(input, weight, bias=model.bias)
+        F.linear(input, model.weight, bias=model.bias)
