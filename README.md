@@ -123,7 +123,7 @@ Currently MS-AMP supports two optimization levels: O1 and O2. Try both, and see 
 
 - O2: From O1 to O2, our main focus is on enabling the use of low-bit data formats for auxiliary tensors in the Adam/AdamW optimizer without any loss in accuracy. Specifically, we are able to maintain accuracy by representing the first-order optimizer state in FP8 and the second-order state in FP16. This optimization has the potential to save up to 62.5% of GPU memory for the optimizer when the model size is particularly large.
 
-Here here details of different MS-AMP optimization levels:
+Here are details of different MS-AMP optimization levels:
 | Optimization Level  | Computation(GEMM) | Comm  | Weight | Weight Gradient | Optimizer States |
 | ------------------- | -----------       | ----- | ------ | --------------- | ---------------- |
 | FP16 AMP            | FP16              | FP32  | FP32   | FP32            | FP32+FP32        |
