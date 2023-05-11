@@ -137,7 +137,7 @@ Here here details of different MS-AMP optimization levels:
 
 We evaluated the training loss and validation performance of a typical model, Swin-Transformer, using both MS-AMP O2 and FP16 AMP. Our observations showed that the model trained with MS-AMP O2 mode achieved comparable performance to those trained using FP16 AMP. This demonstrates the effectiveness of the Mixed FP8 O2 mode in MS-AMP.
 
-Here is the result for Swin-Transformer tiny model:
+Here is the result for Swin-T model:
 
 ![image](./docs/assets/swin-tiny-acc.png) ![image](./docs/assets/swin-tiny-loss.png)
 
@@ -147,7 +147,7 @@ For detailed setting and results, please go to [MS-AMP-Example](https://github.c
 
 MS-AMP preserves 32-bit accuracy while using only a fraction of the memory footprint on a range of tasks, including the DeiT model and Swin Transformer for ImageNet classification. For example, for a model with 1 billion parameters, MS-AMP with O2 mode can save approximately 12GB of GPU memory compared to FP16 AMP.
 
-Here is the result for Swin-Transformer giant model and DeiT large model:
+Here is the result for Swin-giant-1B model and ViT-L/16 model:
 
 ![Image](./docs/assets/gpu-memory.png)
 
