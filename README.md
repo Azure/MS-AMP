@@ -4,6 +4,12 @@ MS-AMP is an automatic mixed precision package for deep learning developed by Mi
 
 Features:
 
+- Support O1 optimization: Apply FP8 to weights and weight gradients and support FP8 in communication.
+- Support O2 optimization: Support FP8 for two optimizizers(Adam and AdamW).
+- Provide two training examples using FP8: Swin-Transformer and DeiT.
+
+MS-AMP has the following benefit comparing with Transformer Engine:
+
 - Support the new FP8 feature that is introduced by latest accelerators (e.g. H100).
 - Speed up math-intensive operations, such as linear layers, by using Tensor Cores.
 - Speed up memory-limited operations by accessing one byte compared to half or single-precision.
@@ -109,9 +115,9 @@ for batch_idx, (data, target) in enumerate(train_loader):
 
 A runnable, comprehensive MNIST example demonstrating good practices can be found [here](./examples). For more examples, please go to [MS-AMP-Examples](https://github.com/Azure/MS-AMP-Examples).
 
-Recognized optimizers are torch.optim.Adam and torch.optim.AdamW.
+### Optimization Level
 
-Recognized opt_levels are "O1" and "O2". Try both, and see what gives the best speedup and accuracy for your model.
+Currently MS-AMP supports two optimization levels: O1 and O2. Try both, and see what gives the best speedup and accuracy for your model.
 
 - O1: We found that directly transitioning weight gradients from FP32 to FP8 in the Transformer Engine leads to a decrease in accuracy. However, this issue is resolved in O1 through the implementation of FP8 for weight gradients and AllReduce communication. This optimization also has the added benefits of saving GPU memory and reducing communication bandwidth.
 
@@ -131,16 +137,21 @@ Here here details of different MS-AMP optimization levels:
 
 We evaluated the training loss and validation performance of a typical model, Swin-Transformer, using both MS-AMP O2 and FP16 AMP. Our observations showed that the model trained with MS-AMP O2 mode achieved comparable performance to those trained using FP16 AMP. This demonstrates the effectiveness of the Mixed FP8 O2 mode in MS-AMP.
 
+Here is the result for Swin-Transformer tiny model:
+
 ![image](./docs/assets/swin-tiny-acc.png) ![image](./docs/assets/swin-tiny-loss.png)
+
+For detailed setting and results, please go to [MS-AMP-Example](https://github.com/Azure/MS-AMP-Examples).
 
 ### Memory
 
 MS-AMP preserves 32-bit accuracy while using only a fraction of the memory footprint on a range of tasks, including the DeiT model and Swin Transformer for ImageNet classification. For example, for a model with 1 billion parameters, MS-AMP with O2 mode can save approximately 12GB of GPU memory compared to FP16 AMP.
 
-| Model      | # Parameters(Billion) | Batch Size | FP16 AMP GPU Memory(MB) | MS-AMP GPU Memory(MB) |
-| -----------| --------------------- | ---------- | ----------------------  | --------------------- |
-| Swin       | 1.0                   | 16         | 34,322                  |  22,414               |
-| DeiT       | 1.2                   | 128        | 62,696                  |  48,328               |
+Here is the result for Swin-Transformer giant model and DeiT large model:
+
+![Image](./docs/assets/gpu-memory.png)
+
+For detailed setting and results, please go to [MS-AMP-Example](https://github.com/Azure/MS-AMP-Examples).
 
 ## Contributing
 
