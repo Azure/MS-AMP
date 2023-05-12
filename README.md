@@ -135,11 +135,11 @@ Here are details of different MS-AMP optimization levels:
 
 ### Accuracy: no loss of accuracy
 
-We evaluated the training loss and validation performance of a typical model, Swin-Transformer, using both MS-AMP O2 and FP16 AMP. Our observations showed that the model trained with MS-AMP O2 mode achieved comparable performance to those trained using FP16 AMP. This demonstrates the effectiveness of the Mixed FP8 O2 mode in MS-AMP.
+We evaluated the training loss and validation performance of two typical model, Swin-Transformer and DeiT, using both MS-AMP O2 and FP16 AMP. Our observations showed that the models trained with MS-AMP O2 mode achieved comparable performance to those trained using FP16 AMP. This demonstrates the effectiveness of the Mixed FP8 O2 mode in MS-AMP.
 
-Here is the result for Swin-T model:
+Here is the result for Swin-T model and DeiT-S:
 
-![image](./docs/assets/swin-tiny-acc.png) ![image](./docs/assets/swin-tiny-loss.png)
+![image](./docs/assets/performance.png) 
 
 ### Memory
 
