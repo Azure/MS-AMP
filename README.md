@@ -5,7 +5,7 @@ MS-AMP is an automatic mixed precision package for deep learning developed by Mi
 Features:
 
 - Support O1 optimization: Apply FP8 to weights and weight gradients and support FP8 in communication.
-- Support O2 optimization: Support FP8 for two optimizizers(Adam and AdamW).
+- Support O2 optimization: Support FP8 for two optimizers(Adam and AdamW).
 - Provide two training examples using FP8: Swin-Transformer and DeiT.
 
 MS-AMP has the following benefit comparing with Transformer Engine:
@@ -141,13 +141,11 @@ Here is the result for Swin-T model:
 
 ![image](./docs/assets/swin-tiny-acc.png) ![image](./docs/assets/swin-tiny-loss.png)
 
-For detailed setting and results, please go to [MS-AMP-Example](https://github.com/Azure/MS-AMP-Examples).
-
 ### Memory
 
 MS-AMP preserves 32-bit accuracy while using only a fraction of the memory footprint on a range of tasks, including the DeiT model and Swin Transformer for ImageNet classification. For example, for a model with 1 billion parameters, MS-AMP with O2 mode can save approximately 12GB of GPU memory compared to FP16 AMP.
 
-Here is the result for Swin-giant-1B model and ViT-L/16 model:
+Here is the result for Swin-giant-1B model and ViT-1.2B model:
 
 ![Image](./docs/assets/gpu-memory.png)
 
