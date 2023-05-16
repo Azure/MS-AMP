@@ -6,7 +6,7 @@ Features:
 
 - Support O1 optimization: Apply FP8 to weights and weight gradients and support FP8 in communication.
 - Support O2 optimization: Support FP8 for two optimizers(Adam and AdamW).
-- Provide two training examples using FP8: Swin-Transformer and DeiT.
+- Provide three training examples using FP8: Swin-Transformer, DeiT and RoBERTa.
 
 MS-AMP has the following benefit comparing with Transformer Engine:
 
@@ -135,11 +135,11 @@ Here are details of different MS-AMP optimization levels:
 
 ### Accuracy: no loss of accuracy
 
-We evaluated the training loss and validation performance of a typical model, Swin-Transformer, using both MS-AMP O2 and FP16 AMP. Our observations showed that the model trained with MS-AMP O2 mode achieved comparable performance to those trained using FP16 AMP. This demonstrates the effectiveness of the Mixed FP8 O2 mode in MS-AMP.
+We evaluated the training loss and validation performance of three typical models, Swin-Transformer, DeiT and RoBERTa, using both MS-AMP O2 and FP16 AMP. Our observations showed that the models trained with MS-AMP O2 mode achieved comparable performance to those trained using FP16 AMP. This demonstrates the effectiveness of the Mixed FP8 O2 mode in MS-AMP.
 
-Here is the result for Swin-T model:
+Here are the results for Swin-T, DeiT-S and RoBERTa-B:
 
-![image](./docs/assets/swin-tiny-acc.png) ![image](./docs/assets/swin-tiny-loss.png)
+![image](./docs/assets/performance.png)
 
 ### Memory
 
