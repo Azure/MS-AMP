@@ -143,9 +143,9 @@ Here are the results for Swin-T, DeiT-S and RoBERTa-B:
 
 ### Memory
 
-MS-AMP preserves 32-bit accuracy while using only a fraction of the memory footprint on a range of tasks, including the DeiT model and Swin Transformer for ImageNet classification. For example, for a model with 1 billion parameters, MS-AMP with O2 mode can save approximately 12GB of GPU memory compared to FP16 AMP.
+MS-AMP preserves 32-bit accuracy while using only a fraction of the memory footprint on a range of tasks, including the DeiT model and Swin Transformer for ImageNet classification. For example, comparing to FP16 AMP, MS-AMP with O2 mode can achieve 44% memory saving for Swin-1.0B and 26% memory saving for ViT-1.2B. The proportion of memory saved will be more obvious for larger models.
 
-Here is the result for Swin-giant-1B model and ViT-1.2B model:
+Here are the results for Swin-giant-1B and ViT-1.2B.
 
 ![Image](./docs/assets/gpu-memory.png)
 
