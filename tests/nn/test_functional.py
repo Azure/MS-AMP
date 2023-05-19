@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-"""Tests for linear module in MS-AMP."""
+"""Tests for functional in MS-AMP."""
 
 import itertools
 import unittest
