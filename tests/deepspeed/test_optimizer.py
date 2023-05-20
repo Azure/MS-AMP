@@ -21,6 +21,7 @@ class DeepSpeedTestCase(unittest.TestCase):
 
     @decorator.cuda_test
     def test_fused_optimizer(self):
+        """Test fused optimizer."""
         input = torch.randn(4, 4, device='cuda')
         model = torch.nn.Linear(4, 4, bias=False).cuda()
         model1 = LinearReplacer.replace(model, Dtypes.kfloat16)
