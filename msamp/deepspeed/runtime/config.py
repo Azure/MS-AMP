@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-"""DeepSpeed Config with MS-AMP-support."""
+"""DeepSpeed Config with MS-AMP support."""
 
 # flake8: noqa: F403
 from deepspeed.runtime.config import *
