@@ -6,9 +6,11 @@
 import unittest
 import torch
 
-from tests.helper import decorator
 from msamp import deepspeed
+from msamp.common.dtype import Dtypes
+from msamp.nn import LinearReplacer
 from msamp.optim import LBAdamW
+from tests.helper import decorator
 
 
 class DeepSpeedTestCase(unittest.TestCase):
@@ -23,7 +25,7 @@ class DeepSpeedTestCase(unittest.TestCase):
         model = torch.nn.Linear(4, 4, bias=False).cuda()
         model1 = LinearReplacer.replace(model, Dtypes.kfloat16)
         model2 = LinearReplacer.replace(model, Dtypes.kfloat16)
-        assert torch.all(model1.weight.float(), model2.weight.float())
+        assert torch.equal(model1.weight.float(), model2.weight.float())
         opt1 = LBAdamW(list(model1.parameters()))
         opt2 = LBAdamW(list(model2.parameters()))
 
@@ -35,12 +37,13 @@ class DeepSpeedTestCase(unittest.TestCase):
         model2, opt2, _, _ = deepspeed.initialize(
             model=model2,
             optimizer=opt2,
-            dist_init_required=False,
             config=config,
         )
 
+        # In deepspeed, model2.weight has been converted to FP8 E4M3.
+        assert torch.equal(model1.weight.cast(Dtypes.kfloat8_e4m3).float(), model2.weight.float())
         model1(input).sum().backward()
         opt1.step()
         model2.backward(model2(input).sum())
         model2.step()
-        assert torch.all(model1.weight.float(), model2.weight.float())
+        assert torch.equal(model1.weight.cast(Dtypes.kfloat8_e4m3).float(), model2.weight.float())

@@ -81,34 +81,44 @@ class FP8_Optimizer(DeepSpeedOptimizer):
             for p in param_group['params']:
                 if isinstance(p, ScalingTensor):
                     # FP8 Tensor
+                    fp8_params.append(p)
+                else:
+                    # torch.Tensor
+                    fp16_params.append(p)
+
+            if len(fp16_params) > 0:
+                self.fp16_groups.append(fp16_params)
+                # init fp16 weight buffer, flattened
+                self.fp16_groups_flat.append(_flatten_dense_tensors([p.clone().detach() for p in self.fp16_groups[i]]))
+                # set model fp16 weight to slices of flattened buffer
+                updated_params = _unflatten_dense_tensors(self.fp16_groups_flat[i], self.fp16_groups[i])
+                for p, q in zip(self.fp16_groups[i], updated_params):
+                    p.data = q.data
+
+                # init fp32 master weight, flattened
+                self.fp32_groups_flat.append(self.fp16_groups_flat[i].clone().float().detach())
+                # modify optimizer of have flat master weight
+                self.fp32_groups_flat[i].requires_grad = True    # keep this in case internal optimizer uses it
+            else:
+                self.fp16_groups.append([])
+                self.fp16_groups_flat.append(torch.tensor([]))
+                self.fp32_groups_flat.append(torch.tensor([]))
+
+            if len(fp8_params) > 0:
+                self.fp8_groups.append(fp8_params)
+                for p in fp8_params:
                     # high-precision param
                     master_weight = p.clone().cast(MASTER_WEIGHT_QTYPE)
                     master_weight.requires_grad = True
                     master_weight._param_name = getattr(p, '_param_name', '')
                     # low-precision param
                     p.data = p.data.cast(WEIGHT_QTYPE)
-                    fp8_params.append(p)
                     fp8_master_params.append(master_weight)
-                else:
-                    # torch.Tensor
-                    fp16_params.append(p)
 
-            self.fp16_groups.append(fp16_params)
-            # init fp16 weight buffer, flattened
-            self.fp16_groups_flat.append(_flatten_dense_tensors([p.clone().detach() for p in self.fp16_groups[i]]))
-            # set model fp16 weight to slices of flattened buffer
-            updated_params = _unflatten_dense_tensors(self.fp16_groups_flat[i], self.fp16_groups[i])
-            for p, q in zip(self.fp16_groups[i], updated_params):
-                p.data = q.data
-
-            # init fp32 master weight, flattened
-            self.fp32_groups_flat.append(self.fp16_groups_flat[i].clone().float().detach())
-            # modify optimizer of have flat master weight
-            self.fp32_groups_flat[i].requires_grad = True    # keep this in case internal optimizer uses it
-
-            # FP8
-            self.fp8_groups.append(fp8_params)
-            self.fp8_master_groups.append(fp8_master_params)
+                self.fp8_master_groups.append(fp8_master_params)
+            else:
+                self.fp8_groups.append([])
+                self.fp8_master_groups.append([])
 
             # update param group
             param_group['params'] = [self.fp32_groups_flat[i]] + fp8_master_params
@@ -244,19 +254,23 @@ class FP8_Optimizer(DeepSpeedOptimizer):
         for i, group in enumerate(self.fp16_groups):
             data_type = self.fp32_groups_flat[i].dtype
 
-            grads_groups_flat.append(
-                _flatten_dense_tensors(
-                    [
-                        torch.zeros(p.size(), dtype=data_type, device=p.device)
-                        if p.grad is None else p.grad.to(data_type) for p in group
-                    ]
+            if len(group) > 0:
+                grads_groups_flat.append(
+                    _flatten_dense_tensors(
+                        [
+                            torch.zeros(p.size(), dtype=data_type, device=p.device)
+                            if p.grad is None else p.grad.to(data_type) for p in group
+                        ]
+                    )
                 )
-            )
+            else:
+                grads_groups_flat.append(torch.tensor([]))
 
             for p in group:
                 p.grad = None
 
-            self.fp32_groups_flat[i].grad = grads_groups_flat[i]
+            if len(group) > 0:
+                self.fp32_groups_flat[i].grad = grads_groups_flat[i]
 
         # FP8
         assert len(self.fp8_groups) == len(self.fp8_master_groups)

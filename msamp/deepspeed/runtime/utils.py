@@ -6,7 +6,6 @@
 from msamp.common.tensor import ScalingTensor
 from deepspeed.runtime.utils import *
 
-
 _origin_CheckOverflow = CheckOverflow
 
 
