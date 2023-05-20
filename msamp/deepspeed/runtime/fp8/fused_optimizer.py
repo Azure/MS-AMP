@@ -23,21 +23,9 @@ from msamp.common.tensor import ScalingTensor, ScalingMeta
 from msamp.common.dtype import Dtypes
 from msamp.nn import model_state
 
-USING_FP32_MASTER_WEIGHT = bool(int(os.getenv('USING_FP32_MASTER_WEIGHT', 0)))
-if True:
-    # Mixed FP8 O2
-    if USING_FP32_MASTER_WEIGHT:
-        MASTER_WEIGHT_QTYPE = Dtypes.kfloat32
-    else:
-        MASTER_WEIGHT_QTYPE = Dtypes.kfloat16
-    WEIGHT_QTYPE = Dtypes.kfloat8_e4m3
-    WEIGHT_GRAD_QTYPE = Dtypes.kfloat8_e4m3
-else:
-    # Mixed FP8 O0
-    MASTER_WEIGHT_QTYPE = Dtypes.kfloat32
-    WEIGHT_QTYPE = Dtypes.kfloat16
-    WEIGHT_GRAD_QTYPE = Dtypes.kfloat16
-
+MASTER_WEIGHT_QTYPE = Dtypes.kfloat16
+WEIGHT_QTYPE = Dtypes.kfloat8_e4m3
+WEIGHT_GRAD_QTYPE = Dtypes.kfloat8_e4m3
 
 class FP8_Optimizer(DeepSpeedOptimizer):
     """
@@ -169,26 +157,6 @@ class FP8_Optimizer(DeepSpeedOptimizer):
     def initialize_optimizer_states(self):
         # optimizer.step() may change the parameters (like l2_reg).
         return
-        for i, group in enumerate(self.fp16_groups):
-            self.fp32_groups_flat[i].grad = torch.zeros(
-                self.fp32_groups_flat[i].size(),
-                device=self.fp32_groups_flat[i].device)
-
-        for pg in self.fp8_master_groups:
-            for p in pg:
-                p.grad = ScalingTensor(
-                    p.value.new_zeros(p.shape, dtype=torch.uint8),
-                    ScalingMeta(WEIGHT_GRAD_QTYPE),
-                )
-
-        self.optimizer.step()
-
-        for i, group in enumerate(self.fp16_groups):
-            self.fp32_groups_flat[i].grad = None
-
-        for pg in self.fp8_master_groups:
-            for p in pg:
-                p.grad = None
 
     def zero_grad(self, set_grads_to_None=True):
         """
