@@ -24,6 +24,14 @@ MASTER_WEIGHT_QTYPE = Dtypes.kfloat16
 WEIGHT_QTYPE = Dtypes.kfloat8_e4m3
 WEIGHT_GRAD_QTYPE = Dtypes.kfloat8_e4m3
 
+COMPUTE_NORM = 'compute_norm'
+OVERFLOW_CHECK = 'overflow_check'
+OVERFLOW_TIMERS = [COMPUTE_NORM, OVERFLOW_CHECK]
+UNSCALE_AND_CLIP = 'unscale_and_clip'
+BASIC_STEP = 'basic_step'
+UPDATE_FP16 = 'update_fp16'
+STEP_TIMERS = OVERFLOW_TIMERS + [UNSCALE_AND_CLIP, BASIC_STEP, UPDATE_FP16]
+
 
 class FP8_Optimizer(DeepSpeedOptimizer):
     """FP8 Optimizer."""
@@ -43,14 +51,13 @@ class FP8_Optimizer(DeepSpeedOptimizer):
         timers=None
     ):
         """This init function wraps the user optimizer."""
-
         self.fused_adam_legacy = fused_adam_legacy
         self.timers = timers
         self.deepspeed = deepspeed
         self.has_moe_layers = has_moe_layers
         self.using_pipeline = self.deepspeed.pipeline_parallelism if self.deepspeed is not None else None
         if not torch.cuda.is_available():
-            raise SystemError("Cannot use fp16 without CUDA.")
+            raise SystemError('Cannot use fp16 without CUDA.')
         self.optimizer = init_optimizer
 
         # param flattened by groups
@@ -184,11 +191,11 @@ class FP8_Optimizer(DeepSpeedOptimizer):
     def set_lr(self, lr):
         """Set the learning rate."""
         for param_group in self.optimizer.param_groups:
-            param_group["lr"] = lr
+            param_group['lr'] = lr
 
     def get_lr(self):
         """Return the current learning rate."""
-        return self.optimizer.param_groups[0]["lr"]
+        return self.optimizer.param_groups[0]['lr']
 
     def override_loss_scale(self, loss_scale):
         """Override loss scale."""
@@ -198,18 +205,10 @@ class FP8_Optimizer(DeepSpeedOptimizer):
         self.external_loss_scale = loss_scale
 
     def step(self, closure=None):
-        """step optimizer. Not supporting closure."""
-
+        """Step optimizer. Not supporting closure."""
+        # flake8: noqa: C901
         if self.fused_adam_legacy:
             return self.step_fused_adam()
-
-        COMPUTE_NORM = "compute_norm"
-        OVERFLOW_CHECK = 'overflow_check'
-        OVERFLOW_TIMERS = [COMPUTE_NORM, OVERFLOW_CHECK]
-        UNSCALE_AND_CLIP = 'unscale_and_clip'
-        BASIC_STEP = 'basic_step'
-        UPDATE_FP16 = 'update_fp16'
-        STEP_TIMERS = OVERFLOW_TIMERS + [UNSCALE_AND_CLIP, BASIC_STEP, UPDATE_FP16]
 
         # First determine if there is overflow.
         self.start_timers([OVERFLOW_CHECK])
@@ -228,8 +227,8 @@ class FP8_Optimizer(DeepSpeedOptimizer):
         if self.overflow:
             if self.verbose:
                 log_dist(
-                    "Overflow detected. Skipping step. Attempted loss "
-                    f"scale: {prev_scale}, reducing to {self.cur_scale}",
+                    'Overflow detected. Skipping step. Attempted loss '
+                    f'scale: {prev_scale}, reducing to {self.cur_scale}',
                     ranks=[0]
                 )
             # Clear gradients
@@ -321,8 +320,11 @@ class FP8_Optimizer(DeepSpeedOptimizer):
         return self.overflow
 
     def _get_norm_with_moe_layers(self, all_groups_norm):
+        """Get the norm of the gradients with moe layers."""
         # all_groups_norm_old = all_groups_norm
-        # Need to allreduce (avg) the norms across different ranks because moe params will not be synced during allreduce
+        # Need to allreduce (avg) the norms across
+        # different ranks because moe params
+        # will not be synced during allreduce
         if self.using_pipeline:
             pg = self.deepspeed.mpu.get_data_parallel_group()
         else:
@@ -335,6 +337,7 @@ class FP8_Optimizer(DeepSpeedOptimizer):
         return all_groups_norm
 
     def unscale_and_clip_grads(self, grad_groups_flat, total_norm, apply_scale=True):
+        """Unscale and clip the gradients."""
         # compute combined scale factor for this group
         combined_scale = self.cur_scale
         if self.clip_grad > 0.:
@@ -350,12 +353,13 @@ class FP8_Optimizer(DeepSpeedOptimizer):
         return combined_scale
 
     def backward(self, loss, create_graph=False, retain_graph=False):
-        """
-        :attr:`backward` performs the following steps:
+        """Backward function.
 
+        :attr:`backward` performs the following steps:
         1. fp32_loss = loss.float()
         2. scaled_loss = fp32_loss*loss_scale
-        3. scaled_loss.backward(), which accumulates scaled gradients into the ``.grad`` attributes of the model's fp16 leaves
+        3. scaled_loss.backward(), which accumulates scaled gradients
+           into the ``.grad`` attributes of the model's fp16 leaves
         """
         if self.custom_loss_scaler:
             scaled_loss = self.external_loss_scale * loss
@@ -365,34 +369,37 @@ class FP8_Optimizer(DeepSpeedOptimizer):
             scaled_loss.backward(create_graph=create_graph, retain_graph=retain_graph)
 
     def _update_scale(self, skip):
+        """Update the scale factor."""
         if self.dynamic_loss_scale:
             prev_scale = self.cur_scale
             if skip:
                 self.cur_scale = max(self.cur_scale / self.scale_factor, self.min_loss_scale)
                 self.last_overflow_iter = self.cur_iter
                 if self.verbose:
-                    logger.info(f"\nGrad overflow on iteration {self.cur_iter}")
-                    logger.info(f"Reducing dynamic loss scale from {prev_scale} to {self.cur_scale}")
+                    logger.info(f'\nGrad overflow on iteration {self.cur_iter}')
+                    logger.info(f'Reducing dynamic loss scale from {prev_scale} to {self.cur_scale}')
             else:
                 # Ensure self.scale_window updates since last overflow
                 stable_interval = (self.cur_iter - self.last_overflow_iter) - 1
                 if (stable_interval > 0) and (stable_interval % self.scale_window == 0):
                     self.cur_scale *= self.scale_factor
                     if self.verbose:
-                        logger.info(f"No Grad overflow for {self.scale_window} iterations")
-                        logger.info(f"Increasing dynamic loss scale from {prev_scale} to {self.cur_scale}")
+                        logger.info(f'No Grad overflow for {self.scale_window} iterations')
+                        logger.info(f'Increasing dynamic loss scale from {prev_scale} to {self.cur_scale}')
         else:
             if skip:
-                logger.info("Grad overflow on iteration: %s", self.cur_iter)
-                logger.info("Using static loss scale of: %s", self.cur_scale)
+                logger.info('Grad overflow on iteration: %s', self.cur_iter)
+                logger.info('Using static loss scale of: %s', self.cur_scale)
         self.cur_iter += 1
         return
 
     # Promote state so it can be retrieved or set via "fp16_optimizer_instance.state"
     def _get_state(self):
+        """Get the state of the optimizer."""
         return self.optimizer.state
 
     def _set_state(self, value):
+        """Set the state of the optimizer."""
         self.optimizer.state = value
 
     state = property(_get_state, _set_state)
@@ -400,16 +407,18 @@ class FP8_Optimizer(DeepSpeedOptimizer):
     # Promote param_groups so it can be retrieved or set via "fp16_optimizer_instance.param_groups"
     # (for example, to adjust the learning rate)
     def _get_param_groups(self):
+        """Get the param_groups of the optimizer."""
         return self.optimizer.param_groups
 
     def _set_param_groups(self, value):
+        """Set the param_groups of the optimizer."""
         self.optimizer.param_groups = value
 
     param_groups = property(_get_param_groups, _set_param_groups)
 
     def state_dict(self):
-        """
-        Returns a dict containing the current state of this :class:`FP16_Optimizer` instance.
+        """Returns a dict containing the current state of this :class:`FP16_Optimizer` instance.
+
         This dict contains attributes of :class:`FP16_Optimizer`, as well as the state_dict
         of the contained Pytorch optimizer.
         Example::
@@ -434,12 +443,13 @@ class FP8_Optimizer(DeepSpeedOptimizer):
 
     # Refresh fp32 master params from fp16 copies
     def refresh_fp32_params(self):
+        """Refresh fp32 master params from fp16 copies."""
         for current, saved in zip(self.fp32_groups_flat, self.fp16_groups_flat):
             current.data.copy_(saved.data)
 
     def load_state_dict(self, state_dict, load_optimizer_states=True):
-        """
-        Loads a state_dict created by an earlier call to state_dict().
+        """Loads a state_dict created by an earlier call to state_dict().
+
         If ``fp16_optimizer_instance`` was constructed from some ``init_optimizer``,
         whose parameters in turn came from ``model``, it is expected that the user
         will call ``model.load_state_dict()`` before
@@ -488,16 +498,19 @@ class FP8_Optimizer(DeepSpeedOptimizer):
                 p.data.copy_(m.data)
 
     def __repr__(self):
+        """Returns a string containing a pretty-printed representation of the optimizer."""
         return repr(self.optimizer)
 
     # Promote loss scale so it can be retrieved or set via "fp16_optimizer_instance.loss_scale"
     def _get_loss_scale(self):
+        """Get the loss scale of the optimizer."""
         if self.custom_loss_scaler:
             return self.external_loss_scale
         else:
             return self.cur_scale
 
     def _set_loss_scale(self, value):
+        """Set the loss scale of the optimizer."""
         self.loss_scaler.cur_scale = value
 
     loss_scale = property(_get_loss_scale, _set_loss_scale)
