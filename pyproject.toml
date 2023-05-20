@@ -52,6 +52,7 @@ test = [
     "pytest>=7.2.0",
     "yapf>=0.32.0",
     "deepspeed",
+    "mpi4py",
 ]
 
 [project.urls]
