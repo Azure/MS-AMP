@@ -71,7 +71,7 @@ jobs:
         uses: docker/setup-buildx-action@v1
       - name: Login to the GitHub Container Registry
         uses: docker/login-action@v1
-        if: ${{ github.event_name == 'pull_request' }}
+        if: ${{ github.event_name != 'pull_request' }}
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -83,7 +83,7 @@ jobs:
           platforms: linux/amd64
           context: .
           file: ${{ steps.metadata.outputs.dockerfile }}
-          push: ${{ github.event_name == 'pull_request' }}
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.metadata.outputs.tags }}
           cache-from: ${{ steps.metadata.outputs.cache_from }}
           cache-to: ${{ steps.metadata.outputs.cache_to }}
