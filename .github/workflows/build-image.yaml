@@ -1,0 +1,97 @@
+name: Build Image
+
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+  release:
+    types:
+    - published
+
+jobs:
+  docker:
+    name: Docker build ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+        - name: torch1.14-cuda11.8
+          tags: ghcr.io/azure/ms-amp/main:cuda11.8
+        - name: torch2.1-cuda12.1
+          tags: ghcr.io/azure/ms-amp/main:cuda12.1,ghcr.io/azure/ms-amp/msamp:latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+      - name: Free disk space
+        run: |
+          mkdir /tmp/emptydir
+          for dir in /usr/share/swift /usr/share/dotnet /usr/local/share/powershell /usr/local/share/chromium /usr/local/lib/android /opt/ghc; do
+            sudo rsync -a --delete /tmp/emptydir/ ${dir}
+          done
+          sudo apt-get clean
+          sudo docker rmi $(sudo docker images --format "{{.Repository}}:{{.Tag}}" --filter=reference="node" --filter=reference="buildpack-deps")
+          df -h
+      - name: Prepare metadata
+        id: metadata
+        run: |
+          TAGS=${{ matrix.tags }}
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            TAGS=$(sed "s/main:/msamp:${GITHUB_REF##*/}-/g" <<< ${TAGS})
+          fi
+          DOCKERFILE=dockerfile/${{ matrix.name }}.dockerfile
+
+          BUILD_ARGS="NUM_MAKE_JOBS=8"
+
+          CACHE_FROM="type=registry,ref=$(cut -d, -f1 <<< ${TAGS})"
+          CACHE_TO=""
+          if [[ "${{ github.event_name }}" != "pull_request" ]]; then
+            CACHE_TO="type=inline,mode=max"
+          fi
+
+          echo ::set-output name=dockerfile::${DOCKERFILE}
+          echo ::set-output name=build_args::${BUILD_ARGS}
+          echo ::set-output name=tags::${TAGS}
+          echo ::set-output name=cache_from::${CACHE_FROM}
+          echo ::set-output name=cache_to::${CACHE_TO}
+      - name: Echo build args
+        run: echo ${{ steps.metadata.outputs.build_args }}
+      - name: Echo image tag
+        run: echo ${{ steps.metadata.outputs.tags }}
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Login to the GitHub Container Registry
+        uses: docker/login-action@v1
+        if: ${{ github.event_name != 'pull_request' }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        id: docker_build
+        uses: docker/build-push-action@v2
+        with:
+          platforms: linux/amd64
+          context: .
+          file: ${{ steps.metadata.outputs.dockerfile }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.metadata.outputs.tags }}
+          cache-from: ${{ steps.metadata.outputs.cache_from }}
+          cache-to: ${{ steps.metadata.outputs.cache_to }}
+          build-args: |
+            ${{ steps.metadata.outputs.build_args }}
+          labels: |
+            org.opencontainers.image.source=${{ github.event.repository.html_url }}
+            org.opencontainers.image.created=${{ github.event.repository.pushed_at }}
+            org.opencontainers.image.revision=${{ github.sha }}
+      - name: Echo image digest
+        run: echo ${{ steps.docker_build.outputs.digest }}
