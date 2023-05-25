@@ -4,9 +4,9 @@
 """MS-AMP FP8Optimizer."""
 
 from itertools import chain
+
 import torch
 from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
-
 from deepspeed import comm as dist
 from deepspeed.runtime import DeepSpeedOptimizer
 from deepspeed.runtime.utils import get_global_norm, get_grad_norm
@@ -49,7 +49,7 @@ class FP8Optimizer(DeepSpeedOptimizer):
             verbose (bool, optional): log verbose information. Defaults to True.
             mpu (MPU, optional): Model parallel unit. Defaults to None.
             clip_grad (float, optional): Gradient clipping. Defaults to 0.0.
-            fused_adam_legacy (bool, optional): Fused adam legacy. Defaults to False. Currenlty only support False.
+            fused_adam_legacy (bool, optional): Fused adam legacy. Defaults to False. Currently only support False.
             has_moe_layers (bool, optional): Has moe layers. Defaults to False.
             timers (Timers, optional): Timers. Defaults to None.
         """
@@ -443,7 +443,7 @@ class FP8Optimizer(DeepSpeedOptimizer):
         """Update the scale factor.
 
         Args:
-            overflow (bool): overflow or not. If overflow, current scale will be devided by scale factor, vice versa.
+            overflow (bool): overflow or not. If overflow, current scale will be divided by scale factor, vice versa.
         """
         if self.dynamic_loss_scale:
             prev_scale = self.cur_scale

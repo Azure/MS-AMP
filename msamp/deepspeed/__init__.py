@@ -76,16 +76,15 @@ def initialize(
         * ``lr_scheduler``: Wrapped lr scheduler if user ``lr_scheduler`` is passed, or
           if ``lr_scheduler`` specified in JSON configuration. Otherwise ``None``.
     """
-
     log_dist(
-        "DeepSpeed info: version={}, git-hash={}, git-branch={}".format(__version__, __git_hash__, __git_branch__),
+        'DeepSpeed info: version={}, git-hash={}, git-branch={}'.format(__version__, __git_hash__, __git_branch__),
         ranks=[0]
     )
 
     # Disable zero.Init context if it's currently enabled
     zero.partition_parameters.shutdown_init_context()
 
-    assert model is not None, "deepspeed.initialize requires a model"
+    assert model is not None, 'deepspeed.initialize requires a model'
 
     global dist
     from deepspeed import comm as dist
@@ -97,21 +96,21 @@ def initialize(
         config = config_params
 
     # Check for deepscale_config for backwards compat
-    if hasattr(args, "deepscale_config") and args.deepscale_config is not None:
-        logger.warning("************ --deepscale_config is deprecated, please use --deepspeed_config ************")
-        if hasattr(args, "deepspeed_config"):
+    if hasattr(args, 'deepscale_config') and args.deepscale_config is not None:
+        logger.warning('************ --deepscale_config is deprecated, please use --deepspeed_config ************')
+        if hasattr(args, 'deepspeed_config'):
             assert (
                 args.deepspeed_config is None
-            ), "Not sure how to proceed, we were given both a deepscale_config and deepspeed_config"
+            ), 'Not sure how to proceed, we were given both a deepscale_config and deepspeed_config'
         args.deepspeed_config = args.deepscale_config
         args.deepscale_config = None
 
     # Check that we have only one config passed
-    if hasattr(args, "deepspeed_config") and args.deepspeed_config is not None:
-        assert config is None, "Not sure how to proceed, we were given deepspeed configs in the deepspeed arguments " \
-             " and deepspeed.initialize() function call"
+    if hasattr(args, 'deepspeed_config') and args.deepspeed_config is not None:
+        assert config is None, 'Not sure how to proceed, we were given deepspeed configs in the deepspeed arguments ' \
+             ' and deepspeed.initialize() function call'
         config = args.deepspeed_config
-    assert config is not None, "DeepSpeed requires --deepspeed_config to specify configuration file"
+    assert config is not None, 'DeepSpeed requires --deepspeed_config to specify configuration file'
 
     if not isinstance(model, PipelineModule):
         config_class = DeepSpeedConfig(config, mpu)
@@ -144,7 +143,7 @@ def initialize(
                 config_class=config_class
             )
     else:
-        assert mpu is None, "mpu must be None with pipeline parallelism"
+        assert mpu is None, 'mpu must be None with pipeline parallelism'
         mpu = model.mpu()
         config_class = DeepSpeedConfig(config, mpu)
         engine = PipelineEngine(

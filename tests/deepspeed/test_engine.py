@@ -4,9 +4,9 @@
 """Tests for deepspeed engine with MS-AMP."""
 
 import unittest
+
 import torch
 import torch.nn as nn
-
 from deepspeed.ops.adam import FusedAdam
 from deepspeed.runtime.fp16.fused_optimizer import FP16_Optimizer
 
@@ -145,7 +145,7 @@ class DeepSpeedEngineTestCase(unittest.TestCase):
 
     @decorator.cuda_test
     def test_backward(self):
-        """test backward method."""
+        """Test backward method."""
         model = nn.Linear(4, 4, device='cuda')
         model = LinearReplacer.replace(model, Dtypes.kfloat16)
         optimizer = LBAdamW(list(model.parameters()))

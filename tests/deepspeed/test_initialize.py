@@ -4,17 +4,15 @@
 """Tests for deepspeed initialize with MS-AMP."""
 
 import unittest
+
 import torch
 import torch.nn as nn
-
 from deepspeed.runtime.pipe.engine import PipelineEngine
 from deepspeed.runtime.hybrid_engine import DeepSpeedHybridEngine
-
 from deepspeed.pipe import PipelineModule
 
 from msamp import deepspeed
 from msamp.deepspeed.runtime.engine import MSAMPDeepSpeedEngine
-
 from tests.helper import decorator
 
 

@@ -3,9 +3,10 @@
 # this file is adapted from deepspeed (Copyright (c) Microsoft Corporation.
 # SPDX-License-Identifier: Apache-2.0. DeepSpeed Team)
 
+"""DeepSpeedEngine in MS-AMP."""
+
 import torch
 import deepspeed
-
 from deepspeed.runtime.engine import SparseTensor, ZERO_OPTIMIZATION, AMP, amp, \
                                      FP16, BFLOAT16, ADAGRAD_OPTIMIZER, ADAM_OPTIMIZER, ADAMW_OPTIMIZER, \
                                      TORCH_ADAM_PARAM, ADAM_W_MODE, ADAM_W_MODE_DEFAULT, LAMB_OPTIMIZER, \
@@ -20,8 +21,7 @@ from msamp.deepspeed.runtime.config import MSAMP_ADAM_OPTIMIZER, MSAMP_ADAMW_OPT
 
 
 def split_half_float_double_sparse(tensors):
-    """
-    Split tensors into buckets of the same type.
+    """Split tensors into buckets of the same type.
 
     Args:
         tensors (list): list of tensors to be bucketed.
@@ -30,13 +30,13 @@ def split_half_float_double_sparse(tensors):
         list: list of buckets, each bucket is a tuple of (dtype, list of tensors).
     """
     supported_types = [
-        "torch.cuda.HalfTensor", "torch.cuda.FloatTensor", "torch.cuda.DoubleTensor", "torch.cuda.BFloat16Tensor",
-        "msamp.common.tensor.tensor.ScalingTensor",
+        'torch.cuda.HalfTensor', 'torch.cuda.FloatTensor', 'torch.cuda.DoubleTensor', 'torch.cuda.BFloat16Tensor',
+        'msamp.common.tensor.tensor.ScalingTensor',
         SparseTensor.type()
     ]
 
     for t in tensors:
-        assert t.type() in supported_types, f"attempting to reduce an unsupported grad type: {t.type()}"
+        assert t.type() in supported_types, f'attempting to reduce an unsupported grad type: {t.type()}'
 
     buckets = []
     for _, dtype in enumerate(supported_types):
@@ -52,7 +52,7 @@ deepspeed.runtime.engine.split_half_float_double_sparse = split_half_float_doubl
 class MSAMPDeepSpeedEngine(DeepSpeedEngine):
     """DeepSpeed Engine with MS-AMP support."""
     def _configure_optimizer(self, client_optimizer, model_parameters):
-        """config basic optimizer and optimizer.
+        """Config basic optimizer and optimizer.
 
         Args:
             client_optimizer (torch.optim.Optimizer or callable): client optimizer.
@@ -61,7 +61,7 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
         if client_optimizer is not None:
             if isinstance(client_optimizer, tuple(self._supported_optims())):
                 client_optimizer.param_groups[:] = [
-                    pg for pg in client_optimizer.param_groups if len(pg["params"]) != 0
+                    pg for pg in client_optimizer.param_groups if len(pg['params']) != 0
                 ]
                 log_dist("Removing param_group that has no 'params' in the client Optimizer", ranks=[0])
 
@@ -72,12 +72,12 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
                 log_dist('Using client callable to create basic optimizer', ranks=[0])
         else:
             basic_optimizer = self._configure_basic_optimizer(model_parameters)
-            log_dist(f"Using DeepSpeed Optimizer param name {self.optimizer_name()} as basic optimizer", ranks=[0])
+            log_dist(f'Using DeepSpeed Optimizer param name {self.optimizer_name()} as basic optimizer', ranks=[0])
 
         self._check_for_duplicates(basic_optimizer)
 
         self.basic_optimizer = basic_optimizer
-        log_dist("DeepSpeed Basic Optimizer = {}".format(basic_optimizer.__class__.__name__), ranks=[0])
+        log_dist('DeepSpeed Basic Optimizer = {}'.format(basic_optimizer.__class__.__name__), ranks=[0])
 
         optimizer_wrapper = self._do_optimizer_sanity_check(basic_optimizer)
         use_fp8 = False
@@ -90,7 +90,7 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
             self.optimizer = self._configure_fp8_optimizer(basic_optimizer, optimizer_wrapper)
         elif optimizer_wrapper == AMP:
             amp_params = self.amp_params()
-            log_dist(f"Initializing AMP with these params: {amp_params}", ranks=[0])
+            log_dist(f'Initializing AMP with these params: {amp_params}', ranks=[0])
             model, self.optimizer = amp.initialize(self.module, basic_optimizer, **amp_params)
             self._set_client_model(model)
             self._broadcast_model()
@@ -102,13 +102,13 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
         else:
             self.optimizer = basic_optimizer
 
-        log_dist("DeepSpeed Final Optimizer = {}".format(self.optimizer_name()), ranks=[0])
+        log_dist('DeepSpeed Final Optimizer = {}'.format(self.optimizer_name()), ranks=[0])
 
         self.compression_scheduler = self._configure_compression_scheduler()
         self.quantizer = self._configure_quantization()
 
     def _configure_basic_optimizer(self, model_parameters):    # noqa: C901
-        """config basic optimizer.
+        """Config basic optimizer.
 
         Args:
             model_parameters (list): list of model parameters.
@@ -120,7 +120,7 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
         if optimizer_parameters is None:
             optimizer_parameters = {}
         # print(optimizer_parameters.keys())
-        if "max_grad_norm" in optimizer_parameters.keys():
+        if 'max_grad_norm' in optimizer_parameters.keys():
             raise ValueError(
                 "'max_grad_norm' is not supported as an optimizer parameter, please switch to using the deepspeed \
                   parameter 'gradient_clipping' see: https://www.deepspeed.ai/docs/config-json/#gradient-clipping  \
@@ -183,26 +183,26 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
 
             optimizer = FusedLamb(model_parameters, **optimizer_parameters)
         elif self.optimizer_name() == ONEBIT_ADAM_OPTIMIZER:
-            assert not self.zero_optimization(), "1bit-Adam is not compatible with ZeRO"
+            assert not self.zero_optimization(), '1bit-Adam is not compatible with ZeRO'
             from deepspeed.runtime.fp16.onebit.adam import OnebitAdam
 
             optimizer = OnebitAdam(model_parameters, self, **optimizer_parameters)
             if not self.fp16_enabled():
-                logger.warning(f"Currently the convergence of 1-bit Adam is only verified under FP16")
+                logger.warning('Currently the convergence of 1-bit Adam is only verified under FP16')
         elif self.optimizer_name() == ZERO_ONE_ADAM_OPTIMIZER:
-            assert not self.zero_optimization(), "0/1 Adam is not compatible with ZeRO"
+            assert not self.zero_optimization(), '0/1 Adam is not compatible with ZeRO'
             from deepspeed.runtime.fp16.onebit.zoadam import ZeroOneAdam
 
             optimizer = ZeroOneAdam(model_parameters, self, **optimizer_parameters)
             if not self.fp16_enabled():
-                logger.warning(f'Currently the convergence of 0/1 Adam is only verified under FP16')
+                logger.warning('Currently the convergence of 0/1 Adam is only verified under FP16')
         elif self.optimizer_name() == ONEBIT_LAMB_OPTIMIZER:
-            assert not self.zero_optimization(), "1bit-Lamb is not compatible with ZeRO"
+            assert not self.zero_optimization(), '1bit-Lamb is not compatible with ZeRO'
             from deepspeed.runtime.fp16.onebit.lamb import OnebitLamb
 
             optimizer = OnebitLamb(model_parameters, self, **optimizer_parameters)
             if not self.fp16_enabled():
-                logger.warning(f"Currently the convergence of 1-bit Lamb is only verified under FP16")
+                logger.warning('Currently the convergence of 1-bit Lamb is only verified under FP16')
         else:
             torch_optimizer = getattr(torch.optim, self.optimizer_name())
             optimizer = torch_optimizer(model_parameters, **optimizer_parameters)
@@ -223,7 +223,7 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
         clip_grad = self.gradient_clipping()
 
         if optimizer_wrapper == FP16 and self.dynamic_loss_scale():
-            log_dist("Creating fp8 optimizer with dynamic loss scale", ranks=[0])
+            log_dist('Creating fp8 optimizer with dynamic loss scale', ranks=[0])
             timers = self.timers if self.wall_clock_breakdown() else None
             optimizer = FP8Optimizer(
                 optimizer,
@@ -239,7 +239,7 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
             )
         else:
             log_dist(
-                "Creating fp8 optimizer with static loss scale: {}".format(self.loss_scale()),
+                'Creating fp8 optimizer with static loss scale: {}'.format(self.loss_scale()),
                 ranks=[0],
             )
             loss_scale = self.loss_scale()
@@ -272,29 +272,33 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
         return super()._configure_zero_optimizer(optimizer)
 
     @instrument_w_nvtx
-    def backward(
+    def backward(      # noqa: C901
         self,
-        loss,    # noqa: C901
+        loss,
         allreduce_gradients=True,
         release_loss=False,
         retain_graph=False,
         scale_wrt_gas=True
     ):
-        """Execute backward pass on the loss
+        """Execute backward pass on the loss.
 
-        Arguments:
-            loss: Torch tensor on which to execute backward propagation
-            allreduce_gradients: is deprecated, ignored, and will soon be removed
-            retain_graph: bool, default: false. forward on user defined choice of retain_graph
+        Args:
+            loss: Torch tensor on which to execute backward propagation.
+            all_reduce_gradients (bool, optional): All reduce gradients in the backward pass.
+            release_loss (bool, optional): Release the loss tensor after the backward pass.
+            retain_graph (bool, optional): Retain the computation graph after backward pass.
+            scale_wrt_gas (bool, optional): Scale the loss w.r.t. gradient accumulation steps.
+
+        Returns:
+            loss: The loss tensor.
         """
-
-        see_memory_usage("Engine before backward", force=self.memory_breakdown())
+        see_memory_usage('Engine before backward', force=self.memory_breakdown())
 
         if self.scale_wrt_gas is not None:
             scale_wrt_gas = self.scale_wrt_gas
 
         if not allreduce_gradients:
-            logger.warning(f"Argument `allreduce_gradients` is deprecated, ignored, and will soon be removed")
+            logger.warning('Argument `allreduce_gradients` is deprecated, ignored, and will soon be removed')
 
         # scale loss w.r.t. gradient accumulation if needed
         if self.gradient_accumulation_steps() > 1 and scale_wrt_gas:
@@ -306,7 +310,7 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
                 if self.global_rank == 0:
                     self.summary_events = [
                         (
-                            f"Train/Samples/train_loss",
+                            'Train/Samples/train_loss',
                             loss.mean().item() * self.gradient_accumulation_steps(),
                             self.global_samples,
                         )
@@ -316,7 +320,7 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
         self._start_timers(self.engine_timers.backward_timers)
 
         assert self.optimizer is not None and not isinstance(self.optimizer, DummyOptim), \
-            "must provide optimizer during init in order to use backward"
+            'must provide optimizer during init in order to use backward'
 
         self._start_timers(self.engine_timers.backward_inner_timers)
 
@@ -360,7 +364,7 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
             # loss.data = None
             pass
 
-        see_memory_usage("Engine after backward", force=self.memory_breakdown())
+        see_memory_usage('Engine after backward', force=self.memory_breakdown())
 
         return loss
 
