@@ -1,41 +1,28 @@
-"""Copyright 2019 The Microsoft DeepSpeed Team.
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
 
-Copyright NVIDIA/apex
-This file is adapted from FP8_Optimizer in NVIDIA/apex.
-"""
+"""MS-AMP FP8Optimizer."""
 
 from itertools import chain
 import torch
 from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 
+from deepspeed import comm as dist
 from deepspeed.runtime import DeepSpeedOptimizer
 from deepspeed.runtime.utils import get_global_norm, get_grad_norm
-from ..utils import CheckOverflow
 from deepspeed.runtime.fp16.loss_scaler import INITIAL_LOSS_SCALE, SCALE_WINDOW, MIN_LOSS_SCALE
 from deepspeed.utils import groups, logger, log_dist
-from deepspeed import comm as dist
 from deepspeed.checkpoint.constants import OPTIMIZER_STATE_DICT, CLIP_GRAD
 
 import msamp
 from msamp.common.tensor import ScalingTensor
 from msamp.common.dtype import Dtypes
-
-MASTER_WEIGHT_QTYPE = Dtypes.kfloat16
-WEIGHT_QTYPE = Dtypes.kfloat8_e4m3
-WEIGHT_GRAD_QTYPE = Dtypes.kfloat8_e4m3
-
-COMPUTE_NORM = 'compute_norm'
-OVERFLOW_CHECK = 'overflow_check'
-OVERFLOW_TIMERS = [COMPUTE_NORM, OVERFLOW_CHECK]
-UNSCALE_AND_CLIP = 'unscale_and_clip'
-BASIC_STEP = 'basic_step'
-UPDATE_FP16 = 'update_fp16'
-STEP_TIMERS = OVERFLOW_TIMERS + [UNSCALE_AND_CLIP, BASIC_STEP, UPDATE_FP16]
+from msamp.deepspeed.runtime.utils import MSAMPCheckOverflow
 
 
-class FP8_Optimizer(DeepSpeedOptimizer):
+class FP8Optimizer(DeepSpeedOptimizer):
     """FP8 Optimizer."""
-    def __init__(
+    def __init__(  # noqa: C901
         self,
         init_optimizer,
         deepspeed=None,
@@ -50,7 +37,22 @@ class FP8_Optimizer(DeepSpeedOptimizer):
         has_moe_layers=False,
         timers=None
     ):
-        """This init function wraps the user optimizer."""
+        """Constructor. This init function wraps the user optimizer.
+
+        Args:
+            init_optimizer (torch.optim.Optimizer): User optimizer.
+            deepspeed (DeepSpeedEngine): DeepSpeedEngine handle.
+            static_loss_scale (float, optional): Static loss scale. Defaults to 1.0.
+            dynamic_loss_scale (bool, optional): Dynamic loss scale. Defaults to False.
+            initial_dynamic_scale (int, optional): Initial dynamic scale. Defaults to 2**32.
+            dynamic_loss_args (dict, optional): Dynamic loss args. Defaults to None.
+            verbose (bool, optional): log verbose information. Defaults to True.
+            mpu (MPU, optional): Model parallel unit. Defaults to None.
+            clip_grad (float, optional): Gradient clipping. Defaults to 0.0.
+            fused_adam_legacy (bool, optional): Fused adam legacy. Defaults to False. Currenlty only support False.
+            has_moe_layers (bool, optional): Has moe layers. Defaults to False.
+            timers (Timers, optional): Timers. Defaults to None.
+        """
         self.fused_adam_legacy = fused_adam_legacy
         self.timers = timers
         self.deepspeed = deepspeed
@@ -61,13 +63,13 @@ class FP8_Optimizer(DeepSpeedOptimizer):
         self.optimizer = init_optimizer
 
         # param flattened by groups
-        self.fp16_groups = []
-        self.fp16_groups_flat = []
-        self.fp32_groups_flat = []
+        self.fp16_groups = []    # list[list[torch.Tensor]]]
+        self.fp16_groups_flat = []    # list[torch.Tensor]
+        self.fp32_groups_flat = []    # list[torch.Tensor]
 
         # MSAMP
-        self.fp8_groups = []
-        self.fp8_master_groups = []
+        self.fp8_groups = []    # list[list[ScalingTensor]]
+        self.fp8_master_groups = []    # list[list[ScalingTensor]]
 
         self._global_grad_norm = 0.
 
@@ -108,11 +110,11 @@ class FP8_Optimizer(DeepSpeedOptimizer):
                 self.fp8_groups.append(fp8_params)
                 for p in fp8_params:
                     # high-precision param
-                    master_weight = p.clone().cast(MASTER_WEIGHT_QTYPE)
+                    master_weight = p.clone().cast(Dtypes.kfloat16)
                     master_weight.requires_grad = True
                     master_weight._param_name = getattr(p, '_param_name', '')
                     # low-precision param
-                    p.data = p.data.cast(WEIGHT_QTYPE)
+                    p.data = p.data.cast(Dtypes.kfloat8_e4m3)
                     fp8_master_params.append(master_weight)
 
                 self.fp8_master_groups.append(fp8_master_params)
@@ -157,7 +159,9 @@ class FP8_Optimizer(DeepSpeedOptimizer):
         self.mpu = mpu
 
         self.overflow = False
-        self.overflow_checker = CheckOverflow(self.fp16_groups + self.fp8_groups, mpu=self.mpu, deepspeed=deepspeed)
+        self.overflow_checker = MSAMPCheckOverflow(
+            self.fp16_groups + self.fp8_groups, mpu=self.mpu, deepspeed=deepspeed
+        )
         self.initialize_optimizer_states()
 
     def initialize_optimizer_states(self):
@@ -166,7 +170,11 @@ class FP8_Optimizer(DeepSpeedOptimizer):
         return
 
     def zero_grad(self, set_grads_to_None=True):
-        """Zero FP16 parameter grads."""
+        """Zero FP16 and fp8 parameter grads.
+
+        Args:
+            set_grads_to_None (bool, optional): Set grads to None. Defaults to True.
+        """
         # For speed, set model fp16 grad to None by default
         for group in self.fp16_groups + self.fp8_groups:
             for p in group:
@@ -182,43 +190,74 @@ class FP8_Optimizer(DeepSpeedOptimizer):
         raise NotImplementedError('[TODO] support ScalingTensor')
 
     def start_timers(self, name_list):
-        """Start timers."""
+        """Start timers.
+
+        Args:
+            name_list: list of timer names.
+        """
         if self.timers is not None:
             for name in name_list:
                 self.timers(name).start()
 
     def stop_timers(self, name_list):
-        """Stop timers."""
+        """Stop timers.
+
+        Args:
+            name_list: list of timer names.
+        """
         if self.timers is not None:
             for name in name_list:
                 self.timers(name).stop()
 
     def log_timers(self, name_list):
-        """Log timers."""
+        """Log timers.
+
+        Args:
+            name_list: list of timer names.
+        """
         if self.timers is not None:
             self.timers.log(name_list)
 
     def set_lr(self, lr):
-        """Set the learning rate."""
+        """Set the learning rate.
+
+        Args:
+            lr (float): learning rate.
+        """
         for param_group in self.optimizer.param_groups:
             param_group['lr'] = lr
 
     def get_lr(self):
-        """Return the current learning rate."""
+        """Return the current learning rate.
+
+        Returns:
+            float: learning rate.
+        """
         return self.optimizer.param_groups[0]['lr']
 
     def override_loss_scale(self, loss_scale):
-        """Override loss scale."""
+        """Override loss scale.
+
+        Args:
+            loss_scale (float): loss scale.
+        """
         if loss_scale != self.external_loss_scale:
             logger.info(f'[deepspeed] setting loss scale from {self.external_loss_scale} -> {loss_scale}')
         self.custom_loss_scaler = True
         self.external_loss_scale = loss_scale
 
-    def step(self, closure=None):
+    def step(self, closure=None):    # noqa: C901
         """Step optimizer. Not supporting closure."""
-        # flake8: noqa: C901
         if self.fused_adam_legacy:
             return self.step_fused_adam()
+
+        COMPUTE_NORM = 'compute_norm'
+        OVERFLOW_CHECK = 'overflow_check'
+        OVERFLOW_TIMERS = [COMPUTE_NORM, OVERFLOW_CHECK]
+        UNSCALE_AND_CLIP = 'unscale_and_clip'
+        BASIC_STEP = 'basic_step'
+        UPDATE_FP16 = 'update_fp16'
+        STEP_TIMERS = OVERFLOW_TIMERS + [UNSCALE_AND_CLIP, BASIC_STEP, UPDATE_FP16]
 
         # First determine if there is overflow.
         self.start_timers([OVERFLOW_CHECK])
@@ -323,7 +362,7 @@ class FP8_Optimizer(DeepSpeedOptimizer):
 
         for ps, master_ps in zip(self.fp8_groups, self.fp8_master_groups):
             for p, m in zip(ps, master_ps):
-                p.data = m.data.cast(WEIGHT_QTYPE)
+                p.data = m.data.cast(Dtypes.kfloat8_e4m3)
 
         self.stop_timers([UPDATE_FP16])
 
@@ -334,7 +373,14 @@ class FP8_Optimizer(DeepSpeedOptimizer):
         return self.overflow
 
     def _get_norm_with_moe_layers(self, all_groups_norm):
-        """Get the norm of the gradients with moe layers."""
+        """Get the norm of the gradients with moe layers.
+
+        Args:
+            all_groups_norm (float): norm of the gradients.
+
+        Returns:
+            float: norm of the gradients.
+        """
         # all_groups_norm_old = all_groups_norm
         # Need to allreduce (avg) the norms across
         # different ranks because moe params
@@ -351,7 +397,13 @@ class FP8_Optimizer(DeepSpeedOptimizer):
         return all_groups_norm
 
     def unscale_and_clip_grads(self, grad_groups_flat, total_norm, apply_scale=True):
-        """Unscale and clip the gradients."""
+        """Unscale and clip the gradients.
+
+        Args:
+            grad_groups_flat (list[torch.Tensor|ScalingTensor]): list of gradients.
+            total_norm (float): total norm of the gradients.
+            apply_scale (bool, optional): Apply scale. Defaults to True.
+        """
         # compute combined scale factor for this group
         combined_scale = self.cur_scale
         if self.clip_grad > 0.:
@@ -374,6 +426,11 @@ class FP8_Optimizer(DeepSpeedOptimizer):
         2. scaled_loss = fp32_loss*loss_scale
         3. scaled_loss.backward(), which accumulates scaled gradients
            into the ``.grad`` attributes of the model's fp16 leaves
+
+        Args:
+            loss (torch.Tensor): Loss tensor.
+            create_graph (bool, optional): Create graph. Defaults to False.
+            retain_graph (bool, optional): Retain graph. Defaults to False.
         """
         if self.custom_loss_scaler:
             scaled_loss = self.external_loss_scale * loss
@@ -382,11 +439,15 @@ class FP8_Optimizer(DeepSpeedOptimizer):
             scaled_loss = (loss.float()) * self.cur_scale
             scaled_loss.backward(create_graph=create_graph, retain_graph=retain_graph)
 
-    def _update_scale(self, skip):
-        """Update the scale factor."""
+    def _update_scale(self, overflow):
+        """Update the scale factor.
+
+        Args:
+            overflow (bool): overflow or not. If overflow, current scale will be devided by scale factor, vice versa.
+        """
         if self.dynamic_loss_scale:
             prev_scale = self.cur_scale
-            if skip:
+            if overflow:
                 self.cur_scale = max(self.cur_scale / self.scale_factor, self.min_loss_scale)
                 self.last_overflow_iter = self.cur_iter
                 if self.verbose:
@@ -401,19 +462,26 @@ class FP8_Optimizer(DeepSpeedOptimizer):
                         logger.info(f'No Grad overflow for {self.scale_window} iterations')
                         logger.info(f'Increasing dynamic loss scale from {prev_scale} to {self.cur_scale}')
         else:
-            if skip:
+            if overflow:
                 logger.info('Grad overflow on iteration: %s', self.cur_iter)
                 logger.info('Using static loss scale of: %s', self.cur_scale)
         self.cur_iter += 1
-        return
 
     # Promote state so it can be retrieved or set via "fp16_optimizer_instance.state"
     def _get_state(self):
-        """Get the state of the optimizer."""
+        """Get the state of the optimizer.
+
+        Returns:
+            dict: state of the optimizer.
+        """
         return self.optimizer.state
 
     def _set_state(self, value):
-        """Set the state of the optimizer."""
+        """Set the state of the optimizer.
+
+        Args:
+            value (dict): state of the optimizer.
+        """
         self.optimizer.state = value
 
     state = property(_get_state, _set_state)
@@ -421,11 +489,19 @@ class FP8_Optimizer(DeepSpeedOptimizer):
     # Promote param_groups so it can be retrieved or set via "fp16_optimizer_instance.param_groups"
     # (for example, to adjust the learning rate)
     def _get_param_groups(self):
-        """Get the param_groups of the optimizer."""
+        """Get the param_groups of the optimizer.
+
+        Returns:
+            list: param_groups of the optimizer.
+        """
         return self.optimizer.param_groups
 
     def _set_param_groups(self, value):
-        """Set the param_groups of the optimizer."""
+        """Set the param_groups of the optimizer.
+
+        Args:
+            value (list): param_groups of the optimizer.
+        """
         self.optimizer.param_groups = value
 
     param_groups = property(_get_param_groups, _set_param_groups)
@@ -476,6 +552,10 @@ class FP8_Optimizer(DeepSpeedOptimizer):
             checkpoint = torch.load("saved.pth")
             model.load_state_dict(checkpoint['model'])
             optimizer.load_state_dict(checkpoint['optimizer'])
+
+        Args:
+            state_dict (dict): A state_dict to load from.
+            load_optimizer_states (bool, optional): Load optimizer states. Defaults to True.
         """
         # I think it should actually be ok to reload the optimizer before the model.
         self.dynamic_loss_scale = state_dict['dynamic_loss_scale']
@@ -517,14 +597,22 @@ class FP8_Optimizer(DeepSpeedOptimizer):
 
     # Promote loss scale so it can be retrieved or set via "fp16_optimizer_instance.loss_scale"
     def _get_loss_scale(self):
-        """Get the loss scale of the optimizer."""
+        """Get the loss scale of the optimizer.
+
+        Returns:
+            float: loss scale of the optimizer.
+        """
         if self.custom_loss_scaler:
             return self.external_loss_scale
         else:
             return self.cur_scale
 
     def _set_loss_scale(self, value):
-        """Set the loss scale of the optimizer."""
+        """Set the loss scale of the optimizer.
+
+        Returns:
+            float: loss scale of the optimizer.
+        """
         self.loss_scaler.cur_scale = value
 
     loss_scale = property(_get_loss_scale, _set_loss_scale)

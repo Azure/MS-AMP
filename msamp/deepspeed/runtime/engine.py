@@ -1,25 +1,33 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
-# this file is adapted from deepspeed (Copyright (c) Microsoft Corporation. SPDX-License-Identifier: Apache-2.0. DeepSpeed Team)
+# this file is adapted from deepspeed (Copyright (c) Microsoft Corporation.
+# SPDX-License-Identifier: Apache-2.0. DeepSpeed Team)
 
-# flake8: noqa: F405, Q000
-
+import torch
 import deepspeed
-from deepspeed.runtime.engine import *
 
-from .fp8.fused_optimizer import FP8_Optimizer
-from .config import MSAMP_ADAM_OPTIMIZER, MSAMP_ADAMW_OPTIMIZER
+from deepspeed.runtime.engine import SparseTensor, ZERO_OPTIMIZATION, AMP, amp, \
+                                     FP16, BFLOAT16, ADAGRAD_OPTIMIZER, ADAM_OPTIMIZER, ADAMW_OPTIMIZER, \
+                                     TORCH_ADAM_PARAM, ADAM_W_MODE, ADAM_W_MODE_DEFAULT, LAMB_OPTIMIZER, \
+                                     ONEBIT_ADAM_OPTIMIZER, logger, ZERO_ONE_ADAM_OPTIMIZER, ONEBIT_LAMB_OPTIMIZER, \
+                                     DeepSpeedEngine, instrument_w_nvtx, log_dist, see_memory_usage, DummyOptim
 
-from msamp.common.tensor import ScalingTensor, ScalingMeta
-from msamp.optim.optimizer import LBOptimizer
+from msamp.common.tensor import ScalingTensor, TensorDist
 from msamp.optim import LBAdam as MSAMP_Adam, LBAdamW as MSAMP_AdamW, DSAdam
-from msamp.common.dtype import Dtypes
-from msamp.common.tensor import TensorDist
+from msamp.optim.optimizer import LBOptimizer
+from msamp.deepspeed.runtime.fp8.fused_optimizer import FP8Optimizer
+from msamp.deepspeed.runtime.config import MSAMP_ADAM_OPTIMIZER, MSAMP_ADAMW_OPTIMIZER
 
 
 def split_half_float_double_sparse(tensors):
     """
     Split tensors into buckets of the same type.
+
+    Args:
+        tensors (list): list of tensors to be bucketed.
+
+    Returns:
+        list: list of buckets, each bucket is a tuple of (dtype, list of tensors).
     """
     supported_types = [
         "torch.cuda.HalfTensor", "torch.cuda.FloatTensor", "torch.cuda.DoubleTensor", "torch.cuda.BFloat16Tensor",
@@ -31,7 +39,7 @@ def split_half_float_double_sparse(tensors):
         assert t.type() in supported_types, f"attempting to reduce an unsupported grad type: {t.type()}"
 
     buckets = []
-    for i, dtype in enumerate(supported_types):
+    for _, dtype in enumerate(supported_types):
         bucket = [t for t in tensors if t.type() == dtype]
         if bucket:
             buckets.append((dtype, bucket))
@@ -40,23 +48,16 @@ def split_half_float_double_sparse(tensors):
 
 deepspeed.runtime.engine.split_half_float_double_sparse = split_half_float_double_sparse
 
-_origin_DeepSpeedEngine = deepspeed.runtime.engine.DeepSpeedEngine
 
-
-class MSAMPDeepSpeedEngine(_origin_DeepSpeedEngine):
-    @property
-    def communication_data_type(self):
-        res = self._config.communication_data_type
-        if res is not None:
-            return res
-
-        if self.fp16_enabled():
-            return torch.float16
-
-        return torch.float32
-
-    # Configure optimizer
+class MSAMPDeepSpeedEngine(DeepSpeedEngine):
+    """DeepSpeed Engine with MS-AMP support."""
     def _configure_optimizer(self, client_optimizer, model_parameters):
+        """config basic optimizer and optimizer.
+
+        Args:
+            client_optimizer (torch.optim.Optimizer or callable): client optimizer.
+            model_parameters (list): list of model parameters.
+        """
         if client_optimizer is not None:
             if isinstance(client_optimizer, tuple(self._supported_optims())):
                 client_optimizer.param_groups[:] = [
@@ -83,7 +84,7 @@ class MSAMPDeepSpeedEngine(_origin_DeepSpeedEngine):
         if isinstance(basic_optimizer, LBOptimizer):
             use_fp8 = True
 
-        if optimizer_wrapper == ZERO_OPTIMIZATION or (use_fp8 and optimizer_wrapper == BFLOAT16):
+        if optimizer_wrapper == ZERO_OPTIMIZATION:
             self.optimizer = self._configure_zero_optimizer(basic_optimizer, use_fp8=use_fp8)
         elif use_fp8:
             self.optimizer = self._configure_fp8_optimizer(basic_optimizer, optimizer_wrapper)
@@ -106,14 +107,24 @@ class MSAMPDeepSpeedEngine(_origin_DeepSpeedEngine):
         self.compression_scheduler = self._configure_compression_scheduler()
         self.quantizer = self._configure_quantization()
 
-    def _configure_basic_optimizer(self, model_parameters):
+    def _configure_basic_optimizer(self, model_parameters):    # noqa: C901
+        """config basic optimizer.
+
+        Args:
+            model_parameters (list): list of model parameters.
+
+        Returns:
+            torch.optim.Optimizer: basic optimizer.
+        """
         optimizer_parameters = self.optimizer_params()
         if optimizer_parameters is None:
             optimizer_parameters = {}
         # print(optimizer_parameters.keys())
         if "max_grad_norm" in optimizer_parameters.keys():
             raise ValueError(
-                "'max_grad_norm' is not supported as an optimizer parameter, please switch to using the deepspeed parameter 'gradient_clipping' see: https://www.deepspeed.ai/docs/config-json/#gradient-clipping for more details"
+                "'max_grad_norm' is not supported as an optimizer parameter, please switch to using the deepspeed \
+                  parameter 'gradient_clipping' see: https://www.deepspeed.ai/docs/config-json/#gradient-clipping  \
+                  for more details"
             )
 
         if self.optimizer_name() in [ADAGRAD_OPTIMIZER, ADAM_OPTIMIZER, ADAMW_OPTIMIZER]:
@@ -198,18 +209,23 @@ class MSAMPDeepSpeedEngine(_origin_DeepSpeedEngine):
         return optimizer
 
     def _configure_fp8_optimizer(self, optimizer, optimizer_wrapper):
+        """Configure fp8 optimizer.
+
+        Args:
+            optimizer (torch.optim.Optimizer): basic optimizer.
+            optimizer_wrapper (str): optimizer wrapper.
+
+        Returns:
+            FP8_Optimizer: fp8 optimizer.
+        """
         initial_dynamic_scale = self.initial_dynamic_scale()
         dynamic_loss_args = self.dynamic_loss_scale_args()
         clip_grad = self.gradient_clipping()
-        if APEX_INSTALLED:
-            fused_opts = (apex.optimizers.FusedAdam, FusedAdam)
-        else:
-            fused_opts = FusedAdam
 
         if optimizer_wrapper == FP16 and self.dynamic_loss_scale():
             log_dist("Creating fp8 optimizer with dynamic loss scale", ranks=[0])
             timers = self.timers if self.wall_clock_breakdown() else None
-            optimizer = FP8_Optimizer(
+            optimizer = FP8Optimizer(
                 optimizer,
                 deepspeed=self,
                 dynamic_loss_scale=True,
@@ -229,7 +245,7 @@ class MSAMPDeepSpeedEngine(_origin_DeepSpeedEngine):
             loss_scale = self.loss_scale()
             if loss_scale == 0:
                 loss_scale = 1
-            optimizer = FP8_Optimizer(
+            optimizer = FP8Optimizer(
                 optimizer,
                 deepspeed=self,
                 static_loss_scale=loss_scale,
@@ -242,130 +258,34 @@ class MSAMPDeepSpeedEngine(_origin_DeepSpeedEngine):
         return optimizer
 
     def _configure_zero_optimizer(self, optimizer, use_fp8=False):
-        zero_stage = self.zero_optimization_stage()
-        timers = self.timers if self.wall_clock_breakdown() else None
+        """Config zero optimizer.
 
-        if optimizer is None:
-            optimizer = DummyOptim(list(self.module.parameters()))
+        Args:
+            optimizer (torch.optim.Optimizer): basic optimizer.
+            use_fp8 (bool, optional): whether to use fp8 optimizer. Defaults to False.
 
-        if self.zero_legacy_stage1():
-            raise Exception(
-                "The deprecated version of ZeRO Stage 1 is not supported in deepspeed >= 0.5.9. Please downgrade to a version less than 0.5.9 if you need to use this deprecated version of ZeRO."
-            )
-
-        if zero_stage <= ZeroStageEnum.gradients:
-            overlap_comm = self.zero_overlap_comm()
-            contiguous_gradients = self.zero_contiguous_gradients()
-            round_robin_gradients = self.zero_round_robin_gradients()
-            assert not isinstance(optimizer, DummyOptim), "zero stage {} requires an optimizer".format(zero_stage)
-
-            log_dist('Creating fp16 ZeRO stage {} optimizer'.format(zero_stage), ranks=[0])
-            # Overlap and contiguous grads are meaningless in stage 1 and are ignored
-            if zero_stage == ZeroStageEnum.optimizer_states:
-                overlap_comm = False
-                round_robin_gradients = False
-
-            if isinstance(self.module, PipelineModule):
-                if overlap_comm:
-                    logger.warning("Pipeline parallelism does not support overlapped communication, will be disabled.")
-                    overlap_comm = False
-            if use_fp8:
-                raise NotImplementedError('fp8 ZeRO is not supported yet')
-            else:
-                zero_t = DeepSpeedZeroOptimizer
-            optimizer = zero_t(
-                optimizer,
-                self.param_names,
-                timers=timers,
-                static_loss_scale=self.loss_scale(),
-                dynamic_loss_scale=self.dynamic_loss_scale(),
-                dynamic_loss_args=self.dynamic_loss_scale_args(),
-                clip_grad=self.gradient_clipping(),
-                contiguous_gradients=contiguous_gradients,
-                reduce_bucket_size=self.zero_reduce_bucket_size(),
-                allgather_bucket_size=self.zero_allgather_bucket_size(),
-                dp_process_group=self.data_parallel_group,
-                expert_parallel_group=self.expert_parallel_group if self.has_moe_layers else None,
-                expert_data_parallel_group=self.expert_data_parallel_group if self.has_moe_layers else None,
-                reduce_scatter=self.zero_reduce_scatter(),
-                overlap_comm=overlap_comm,
-                cpu_offload=self.zero_cpu_offload(),
-                mpu=self.mpu,
-                postscale_gradients=self.postscale_gradients(),
-                gradient_predivide_factor=self.gradient_predivide_factor(),
-                gradient_accumulation_steps=self.gradient_accumulation_steps(),
-                ignore_unused_parameters=self.zero_ignore_unused_parameters(),
-                partition_grads=zero_stage == ZeroStageEnum.gradients,
-                round_robin_gradients=round_robin_gradients,
-                has_moe_layers=self.has_moe_layers,
-                fp16_master_weights_and_gradients=self.fp16_master_weights_and_gradients(),
-                communication_data_type=self.communication_data_type,
-                elastic_checkpoint=self.zero_elastic_checkpoint()
-            )
-
-        elif zero_stage == ZeroStageEnum.weights:
-            assert not self.has_moe_layers, "MoE not supported with Stage 3"
-            if isinstance(optimizer, DummyOptim):
-                log_dist("Creating ZeRO Offload", ranks=[0])
-                optimizer = DeepSpeedZeRoOffload(
-                    self.module,
-                    timers=timers,
-                    ds_config=self.config,
-                    overlap_comm=self.zero_overlap_comm(),
-                    prefetch_bucket_size=self.zero_prefetch_bucket_size(),
-                    max_reuse_distance=self.zero_max_reuse_distance(),
-                    max_live_parameters=self.zero_max_live_parameters(),
-                    param_persistence_threshold=self.zero_param_persistence_threshold(),
-                    model_persistence_threshold=self.zero_model_persistence_threshold(),
-                    offload_param_config=self.zero_offload_param(),
-                    mpu=self.mpu
-                )
-            else:
-                log_dist('Creating fp16 ZeRO stage {} optimizer'.format(zero_stage), ranks=[0])
-                from deepspeed.runtime.zero.stage3 import DeepSpeedZeroOptimizer_Stage3
-                optimizer = DeepSpeedZeroOptimizer_Stage3(
-                    self.module,
-                    optimizer,
-                    timers=timers,
-                    ds_config=self.config,
-                    static_loss_scale=self.loss_scale(),
-                    dynamic_loss_scale=self.dynamic_loss_scale(),
-                    dynamic_loss_args=self.dynamic_loss_scale_args(),
-                    clip_grad=self.gradient_clipping(),
-                    contiguous_gradients=self.zero_contiguous_gradients(),
-                    reduce_bucket_size=self.zero_reduce_bucket_size(),
-                    prefetch_bucket_size=self.zero_prefetch_bucket_size(),
-                    max_reuse_distance=self.zero_max_reuse_distance(),
-                    max_live_parameters=self.zero_max_live_parameters(),
-                    param_persistence_threshold=self.zero_param_persistence_threshold(),
-                    model_persistence_threshold=self.zero_model_persistence_threshold(),
-                    dp_process_group=self.data_parallel_group,
-                    reduce_scatter=self.zero_reduce_scatter(),
-                    overlap_comm=self.zero_overlap_comm(),
-                    offload_optimizer_config=self.zero_offload_optimizer(),
-                    offload_param_config=self.zero_offload_param(),
-                    sub_group_size=self.zero_sub_group_size(),
-                    mpu=self.mpu,
-                    postscale_gradients=self.postscale_gradients(),
-                    gradient_predivide_factor=self.gradient_predivide_factor(),
-                    gradient_accumulation_steps=self.gradient_accumulation_steps(),
-                    aio_config=self.aio_config(),
-                    communication_data_type=self.communication_data_type
-                )
-
-        else:
-            raise NotImplementedError("ZeRO stage {} not implemented".format(zero_stage))
-
-        return optimizer
+        Returns:
+            ZeROOptimizer: zero optimizer.
+        """
+        if use_fp8:
+            raise NotImplementedError('fp8 ZeRO is not supported yet')
+        return super()._configure_zero_optimizer(optimizer)
 
     @instrument_w_nvtx
-    def backward(self, loss, allreduce_gradients=True, release_loss=False, retain_graph=False, scale_wrt_gas=True):
-        r"""Execute backward pass on the loss
+    def backward(
+        self,
+        loss,    # noqa: C901
+        allreduce_gradients=True,
+        release_loss=False,
+        retain_graph=False,
+        scale_wrt_gas=True
+    ):
+        """Execute backward pass on the loss
+
         Arguments:
             loss: Torch tensor on which to execute backward propagation
-            allreduce_gradients: is deprecated, ignored, and will soon be removed'
-            retain_graph: bool, default: false
-                forward on user defined choice of retain_graph
+            allreduce_gradients: is deprecated, ignored, and will soon be removed
+            retain_graph: bool, default: false. forward on user defined choice of retain_graph
         """
 
         see_memory_usage("Engine before backward", force=self.memory_breakdown())
@@ -403,7 +323,7 @@ class MSAMPDeepSpeedEngine(_origin_DeepSpeedEngine):
         if self.zero_optimization():
             self.optimizer.is_gradient_accumulation_boundary = self.is_gradient_accumulation_boundary()
             self.optimizer.backward(loss, retain_graph=retain_graph)
-        elif isinstance(self.optimizer, FP8_Optimizer):
+        elif isinstance(self.optimizer, FP8Optimizer):
             self.optimizer.backward(loss, retain_graph=retain_graph)
         elif self.amp_enabled():
             # AMP requires delaying unscale when inside gradient accumulation boundaries
@@ -445,19 +365,24 @@ class MSAMPDeepSpeedEngine(_origin_DeepSpeedEngine):
         return loss
 
     def fp8_allreduce_bucket(self, bucket, dp_group):
-        # TODO: assert dp_group == global_dp_group
-        # in msamp, a.data = b.data. It is not a copy!
+        """All reduce bucket of ScalingTensor.
+
+        Args:
+            bucket (list of ScalingTensor): bucket of ScalingTensor.
+            dp_group: data parallel group.
+        """
         if self.gradient_average:
             TensorDist.all_reduce_avg(bucket)
         else:
             TensorDist.all_reduce_sum(bucket)
 
-    def allreduce_gradients(self, bucket_size=MEMORY_OPT_ALLREDUCE_SIZE):
-        from msamp.nn import model_state
-        model_state.ready_to_all_reduce_grads = False
-        return super().allreduce_gradients(bucket_size)
-
     def allreduce_and_copy(self, small_bucket, dp_group):
+        """All reudce tensors after flatten and copy to original tensors.
+
+        Args:
+            small_bucket (list of torch.Tensor or ScalingTensor): bucket of tensors.
+            dp_group: data parallel group.
+        """
         if len(small_bucket) == 0:
             return
         if isinstance(small_bucket[0], ScalingTensor):
@@ -467,37 +392,3 @@ class MSAMPDeepSpeedEngine(_origin_DeepSpeedEngine):
         allreduced = self.allreduce_bucket(small_bucket, dp_group)
         for buf, synced in zip(small_bucket, self.unflatten(allreduced, small_bucket)):
             buf.copy_(synced)
-
-    def _get_gradients_for_reduction(self):
-        non_expert_grads = []
-        expert_grads = {}
-        if self.has_moe_layers:
-            for key in self.expert_data_parallel_group.keys():
-                expert_grads[key] = []
-
-        for param_name, param in self.module.named_parameters():
-            if param.grad is None:
-                # In cases where there is an imbalance of empty grads across
-                # ranks we must create empty grads, this will ensure that every
-                # rank is reducing the same size. In some cases it may make
-                # sense in the future to support the ability to average not
-                # w.r.t. world size but with a different value.
-                if isinstance(param, ScalingTensor):
-                    param.grad = ScalingTensor(
-                        torch.zeros(param.size(), dtype=torch.uint8, device=param.device),
-                        ScalingMeta(Dtypes.kfloat_8e4m3)
-                    )
-                else:
-                    param.grad = torch.zeros(param.size(), dtype=param.dtype, device=param.device)
-
-            grad_data = param.grad.data
-            if param_name in self.sparse_tensor_module_names or grad_data.is_sparse:
-                # Call param.grad without data to avoid problem with setting of updated grads
-                grad_data = SparseTensor(param.grad)
-
-            if is_moe_param(param):
-                expert_grads[param.group_name].append(grad_data)
-            else:
-                non_expert_grads.append(grad_data)
-
-        return non_expert_grads, expert_grads
