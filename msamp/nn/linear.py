@@ -101,7 +101,39 @@ class LinearReplacer:
             )
         fp8_linear.weight.copy_(weight)
 
+        # set custom attributes
+        pairs_list = [(fp8_linear, linear), (fp8_linear.weight, linear.weight)]
+        if linear.bias is not None:
+            pairs_list.append((fp8_linear.bias, linear.bias))
+        for new_inst, old_inst in pairs_list:
+            # get custom attributes
+            _, custom_attrs = LinearReplacer._compare_attrs(type(old_inst), old_inst)
+            for attr in custom_attrs:
+                if not hasattr(new_inst, attr):
+                    setattr(new_inst, attr, getattr(old_inst, attr))
+
         return fp8_linear
+
+    @staticmethod
+    def _compare_attrs(x, y):
+        """Compare the attributes and methods of x and y.
+
+        Args:
+            x (type or object): The first object to compare.
+            y (type or object): The second object to compare.
+
+        Returns:
+            tuple (set, set): The attributes and methods that x has but y doesn't, and vice versa.
+        """
+        # Get the list of all attributes and methods of x and y
+        x_attrs, y_attrs = dir(x), dir(y)
+        # Convert these two lists into set types
+        x_set, y_set = set(x_attrs), set(y_attrs)
+        # Use the difference operation to find out the different attributes and methods of x and y
+        x_diff_y = x_set.difference(y_set)    # Attributes and methods that x has but y doesn't
+        y_diff_x = y_set.difference(x_set)    # Attributes and methods that y has but x doesn't
+        # Return the result
+        return x_diff_y, y_diff_x
 
     @classmethod
     def _replace(cls, model, weight_qtype):
