@@ -20,6 +20,7 @@ from msamp.optim.optimizer import LBOptimizer
 from msamp.deepspeed.runtime.fp8.fused_optimizer import FP8Optimizer
 from msamp.deepspeed.runtime.config import MSAMP_ADAM_OPTIMIZER, MSAMP_ADAMW_OPTIMIZER
 
+
 def split_half_float_double_sparse(tensors):
     """Split tensors into buckets of the same type.
 
@@ -355,7 +356,7 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
         if allreduce_gradients and self.enable_backward_allreduce:
             # Traditional code path that allreduces the module parameter grads
             # It will not call optimizer.all_reduce_grads so we set ready_to_all_reduce_grads to False.
-            # In optimizer.step, ready_to_all_reduce_grads is supposed to be False. 
+            # In optimizer.step, ready_to_all_reduce_grads is supposed to be False.
             model_state.ready_to_all_reduce_grads = False
             self.allreduce_gradients()
 
