@@ -39,6 +39,8 @@ classifiers=[
 dependencies = [
     "torch",
     "colorlog>=6.7.0",
+    "deepspeed>=0.9.2",
+    "mpi4py",
 ]
 dynamic = ["version"]
 
@@ -51,8 +53,6 @@ test = [
     "pytest-cov>=4.0.0",
     "pytest>=7.2.0",
     "yapf>=0.32.0",
-    "deepspeed>=0.9.2",
-    "mpi4py",
 ]
 
 [project.urls]

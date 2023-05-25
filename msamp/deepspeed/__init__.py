@@ -6,7 +6,6 @@ from typing import Optional, Union
 
 import torch
 from torch.optim import Optimizer
-
 from deepspeed import __version__, __git_hash__, __git_branch__, log_dist, logger,  get_accelerator, \
                       DeepSpeedOptimizerCallable, DeepSpeedSchedulerCallable, DeepSpeedConfig, \
                       DeepSpeedHybridEngine, _LRScheduler, zero, PipelineModule, PipelineEngine
