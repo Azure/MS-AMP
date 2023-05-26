@@ -11,7 +11,8 @@ from deepspeed.runtime.engine import SparseTensor, ZERO_OPTIMIZATION, AMP, amp, 
                                      FP16, BFLOAT16, ADAGRAD_OPTIMIZER, ADAM_OPTIMIZER, ADAMW_OPTIMIZER, \
                                      TORCH_ADAM_PARAM, ADAM_W_MODE, ADAM_W_MODE_DEFAULT, LAMB_OPTIMIZER, \
                                      ONEBIT_ADAM_OPTIMIZER, logger, ZERO_ONE_ADAM_OPTIMIZER, ONEBIT_LAMB_OPTIMIZER, \
-                                     DeepSpeedEngine, instrument_w_nvtx, log_dist, see_memory_usage, DummyOptim
+                                     DeepSpeedEngine, instrument_w_nvtx, log_dist, see_memory_usage, DummyOptim, \
+                                     PipelineModule, ZeroStageEnum
 from msamp.deepspeed.runtime.zero.fp8_stage_1_and_2 import FP8DeepSpeedZeroOptimizer
 
 from msamp.common.tensor import ScalingTensor, TensorDist

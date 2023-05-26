@@ -21,7 +21,8 @@ from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 from packaging import version as pkg_version
 from collections import OrderedDict, defaultdict
 
-from deepspeed.runtime.zero.stage_1_and_2 import *, _get_padded_tensor
+from deepspeed.runtime.zero.stage_1_and_2 import *
+from deepspeed.runtime.zero.stage_1_and_2 import _get_padded_tensor
 _original_DeepSpeedZeroOptimizer = DeepSpeedZeroOptimizer
 
 SINGLE_PARTITION_OF_FP8_GROUPS = "single_partition_of_fp8_groups"
