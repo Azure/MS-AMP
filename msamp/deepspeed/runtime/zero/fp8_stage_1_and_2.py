@@ -470,16 +470,16 @@ class FP8DeepSpeedZeroOptimizer(_original_DeepSpeedZeroOptimizer):
             # fallback to FP16 communication
             meta = ScalingMeta(Dtypes.kfloat8_e4m3)
             def _fp8_to_fp16(tensor):
+                return TransformerEngineWrapper.cast_from_fp8(tensor.view(1, -1),
+                                                              meta.scale_inv,
+                                                              meta.qtype,
+                                                              Dtypes.kfloat16).view_as(tensor)
+            def _fp16_to_fp8(tensor):
                 return TransformerEngineWrapper.cast_to_fp8(tensor.view(1, -1),
                                                             meta.scale,
                                                             meta.amax[0],
                                                             meta.scale_inv,
                                                             meta.qtype).view_as(tensor)
-            def _fp16_to_fp8(tensor):
-                return TransformerEngineWrapper.cast_from_fp8(tensor.view(1, -1),
-                                                              meta.scale_inv,
-                                                              meta.qtype,
-                                                              Dtypes.kfloat16).view_as(tensor)
             async_handles = []
             grad_slice_pairs = []
             for i, (dst, bucket_offset, numel) in enumerate(rank_and_offsets):
