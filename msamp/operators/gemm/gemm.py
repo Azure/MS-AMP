@@ -129,9 +129,9 @@ class Gemm:
                 b_meta.qtype,
                 False,    # transb
                 out,
-                cls._empty_tensor,  # scale
+                cls._empty_tensor,    # scale
                 out_qtype,
-                cls._empty_tensor,  # amax
+                cls._empty_tensor,    # amax
                 bias,
                 Dtypes.dtype_to_qtype[bias.dtype],
                 cls._empty_tensor,
@@ -154,9 +154,9 @@ class Gemm:
                 out_qtype,
                 False,
                 out,
-                cls._empty_tensor,  # out_scale
+                cls._empty_tensor,    # out_scale
                 out_qtype,
-                cls._empty_tensor,  # amax
+                cls._empty_tensor,    # amax
                 bias,
                 Dtypes.dtype_to_qtype[bias.dtype],
                 cls._empty_tensor,
