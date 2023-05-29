@@ -115,34 +115,10 @@ class Gemm:
                 out = F.pad(out, (0, pM, 0, pN))
             assert out.is_cuda and out.is_contiguous()
 
-        out_scale = torch.ones_like(a_meta.scale)
-        out_max = torch.ones_like(a_meta.amax)
         bias = (bias if bias is not None else cls._empty_tensor)
 
         # here out is padded, and src_out is the original one.
         if Device.is_fp8_supported():
-            """
-            void te_gemm(at::Tensor A,
-             at::Tensor A_scale_inverse,
-             transformer_engine::DType A_type,
-             bool transa,
-             at::Tensor B,
-             at::Tensor B_scale_inverse,
-             transformer_engine::DType B_type,
-             bool transb,
-             at::Tensor D,
-             at::Tensor D_scale,
-             transformer_engine::DType D_type,
-             at::Tensor D_amax,
-             at::Tensor bias,
-             transformer_engine::DType bias_type,
-             at::Tensor pre_gelu_out,
-             bool grad,
-             at::Tensor workspace,
-             size_t workspaceSize,
-             bool accumulate,
-             bool use_split_accumulator
-            """
             tew.te_gemm(
                 mat_a.value,
                 a_meta.scale_inv,
@@ -153,9 +129,9 @@ class Gemm:
                 b_meta.qtype,
                 False,    # transb
                 out,
-                out_scale,    # scale
+                cls._empty_tensor,  # scale
                 out_qtype,
-                out_max,
+                cls._empty_tensor,  # amax
                 bias,
                 Dtypes.dtype_to_qtype[bias.dtype],
                 cls._empty_tensor,
@@ -178,8 +154,11 @@ class Gemm:
                 out_qtype,
                 False,
                 out,
+                cls._empty_tensor,  # out_scale
                 out_qtype,
-                bias if bias is not None else cls._empty_tensor,
+                cls._empty_tensor,  # amax
+                bias,
+                Dtypes.dtype_to_qtype[bias.dtype],
                 cls._empty_tensor,
                 False,    # grad
                 workspace,
