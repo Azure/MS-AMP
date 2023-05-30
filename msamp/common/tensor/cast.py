@@ -53,6 +53,8 @@ class TypeCast:
             meta.qtype,
         )
 
+        # scale_inv will not be set to inverse of scale in transformer-engine v0.7.
+        meta.scale_inv.data.copy_(torch.reciprocal(meta.scale))    # scale_inv = 1 / scale
         shape = input.shape
         return input_fp8.view(shape)
 

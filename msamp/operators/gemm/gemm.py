@@ -115,6 +115,8 @@ class Gemm:
                 out = F.pad(out, (0, pM, 0, pN))
             assert out.is_cuda and out.is_contiguous()
 
+        bias = (bias if bias is not None else cls._empty_tensor)
+
         # here out is padded, and src_out is the original one.
         if Device.is_fp8_supported():
             tew.te_gemm(
@@ -127,8 +129,11 @@ class Gemm:
                 b_meta.qtype,
                 False,    # transb
                 out,
+                cls._empty_tensor,    # scale
                 out_qtype,
-                bias if bias is not None else cls._empty_tensor,
+                cls._empty_tensor,    # amax
+                bias,
+                Dtypes.dtype_to_qtype[bias.dtype],
                 cls._empty_tensor,
                 False,    # grad
                 workspace,
@@ -149,8 +154,11 @@ class Gemm:
                 out_qtype,
                 False,
                 out,
+                cls._empty_tensor,    # out_scale
                 out_qtype,
-                bias if bias is not None else cls._empty_tensor,
+                cls._empty_tensor,    # amax
+                bias,
+                Dtypes.dtype_to_qtype[bias.dtype],
                 cls._empty_tensor,
                 False,    # grad
                 workspace,
