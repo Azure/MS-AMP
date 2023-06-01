@@ -138,7 +138,7 @@ class TransformerEngineWrapper:
 
     @staticmethod
     def fp8_fused_cast_transpose(input: torch.Tensor, qtype: QType,
-                                 meta: ScalingMeta) -> Tuple[ScalingTensor, ScalingTensor]:
+                                 meta: ScalingMeta) -> Tuple[torch.Tensor, torch.Tensor]:
         """Fused cast and transpose for input tensor.
 
         Args:
@@ -147,7 +147,7 @@ class TransformerEngineWrapper:
             meta (ScalingMeta): scaling meta.
 
         Returns:
-            ScalingTensor, ScalingTensor: casted and transposed scaling tensor.
+            torch.Tensor, torch.Tensor: casted and transposed tensors.
         """
         with PaddingTensor(input) as pad_input:
             out_cast = torch.empty_like(pad_input.val, dtype=torch.uint8)
@@ -159,7 +159,7 @@ class TransformerEngineWrapper:
             if pad_input.require_pad:
                 out_cast = out_cast[:input.shape[0], :input.shape[1]]
                 out_t = out_t[:input.shape[1], :input.shape[0]]
-        return ScalingTensor(out_cast, meta), ScalingTensor(out_t.contiguous(), meta)
+        return out_cast, out_t
 
     @staticmethod
     def fp8_transpose(input: ScalingTensor) -> ScalingTensor:

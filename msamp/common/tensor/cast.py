@@ -14,13 +14,14 @@ from msamp.common.utils import TransformerEngineWrapper
 class TypeCast:
     """Type cast helper class."""
     @staticmethod
-    def cast_to_fp8(input, meta, sync=False):
+    def cast_to_fp8(input, meta, sync=False, fuse_transpose=False):
         """Cast pytorch tensor to fp8.
 
         Args:
             input (torch.Tensor): Input tensor to cast whose dtype should not be torch.uint8/torch.int8.
             meta (ScalingMeta): Scaling meta data used for cast.
             sync (bool, optional): Sync or not. Defaults to False.
+            fuse_transpose (bool, optional): Whether fused with transpose. Defaults to False.
 
         Return:
             torch.Tensor: tensor whose dtype is torch.uint8.
@@ -45,13 +46,18 @@ class TypeCast:
                 dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX)
         if in_time or sync:
             meta.reset_scaling_factor()
-        input_fp8 = TransformerEngineWrapper.cast_to_fp8(
-            input.view(1, -1),
-            meta.scale,
-            arg_amax,
-            meta.scale_inv,
-            meta.qtype,
-        )
+        if fuse_transpose:
+            input_fp8, input_fp8_t = TransformerEngineWrapper.fp8_fused_cast_transpose(input, meta.qtype, meta)
+            meta.scale_inv.data.copy_(torch.reciprocal(meta.scale))
+            return input_fp8, input_fp8_t
+        else:
+            input_fp8 = TransformerEngineWrapper.cast_to_fp8(
+                input.view(1, -1),
+                meta.scale,
+                arg_amax,
+                meta.scale_inv,
+                meta.qtype,
+            )
 
         # scale_inv will not be set to inverse of scale in transformer-engine v0.7.
         meta.scale_inv.data.copy_(torch.reciprocal(meta.scale))    # scale_inv = 1 / scale
