@@ -4,12 +4,14 @@
 """Tests for adamw optimizer."""
 
 import copy
+import itertools
 import unittest
 import torch
 
 from msamp.common.dtype import Dtypes
+from msamp.common.tensor import TensorDist
 from msamp.optim import LBAdamW, LBAdam, LBAdamWBase, DSAdam
-from msamp.nn import LinearReplacer
+from msamp.nn import LinearReplacer, model_state
 from tests.helper import decorator
 
 
@@ -71,6 +73,33 @@ class LBAdamwTestCase(unittest.TestCase):
             opt2.zero_grad()
 
         self.assertTrue(torch.allclose(model1.weight, model2.weight.float(), 0, diff))
+
+    def test_all_reduce_grads(self):
+        """Test the function `all_reduce_grads`."""
+        input = torch.randn(4, 4, device='cuda')
+        model1 = torch.nn.Linear(4, 4).cuda()
+        model2 = torch.nn.Linear(4, 4).cuda()
+        model1 = LinearReplacer.replace(model1, Dtypes.kfloat16)
+        model2 = LinearReplacer.replace(model2, Dtypes.kfloat16)
+        opt = LBAdamW(list(model1.parameters()) + list(model2.parameters()))
+        loss = (model1(input) + model2(input)).sum()
+        loss.backward()
+        old_all_reduce_avg = TensorDist.all_reduce_avg
+        num_grads = 0
+
+        def debug_all_reduce_avg(grads):
+            nonlocal num_grads
+            num_grads += len(grads)
+            return old_all_reduce_avg(grads)
+
+        TensorDist.all_reduce_avg = debug_all_reduce_avg
+        opt.all_reduce_grads(model1)
+        self.assertEqual(num_grads, 1)
+        self.assertFalse(model_state.ready_to_all_reduce_grads)
+        opt.all_reduce_grads(model2)
+        self.assertEqual(num_grads, 2)
+        self.assertFalse(model_state.ready_to_all_reduce_grads)
+        TensorDist.all_reduce_avg = old_all_reduce_avg
 
     def check_optimizer_state_dict(self, lbadam_class):
         """Save and load state dict of lbadam_class optimizer and check if the value is excepted.
@@ -148,10 +177,24 @@ class LBAdamwTestCase(unittest.TestCase):
 
         self.assertTrue(torch.equal(model1.weight.value, model2.weight.value))
 
+    def test_lb_adamw_base_state_dtypes(self):
+        """Check the dtype of LBAdamWBase optimizer state."""
+        dtypes = [torch.uint8, torch.int8, torch.float16]
+        linear = torch.nn.Linear(4, 8).cuda()
+        model = LinearReplacer.replace(linear, Dtypes.kfloat16)
+        x = torch.randn((4, 4), device='cuda', dtype=torch.float32)
+        pairs = list(itertools.product(dtypes, dtypes)) + [[torch.float32, torch.float32]]
+        for exp_avg_dtype, exp_avg_sq_dtype in pairs:
+            with self.subTest(exp_avg_dtype=exp_avg_dtype, exp_avg_sq_dtype=exp_avg_sq_dtype):
+                y = model(x)
+                y.sum().backward()
+                opt = LBAdamWBase(model.parameters(), exp_avg_dtype=exp_avg_dtype, exp_avg_sq_dtype=exp_avg_sq_dtype)
+                opt.step()
+                opt.zero_grad(set_to_none=True)
+
     @decorator.cuda_test
     def test_historical_window_quantization(self):
         """Test historical window quantization."""
-        from msamp.optim import LBAdamW
         linear = torch.nn.Linear(4, 8).cuda()
         model = LinearReplacer.replace(linear, Dtypes.kfloat16)
         opt = LBAdamW(model.parameters())

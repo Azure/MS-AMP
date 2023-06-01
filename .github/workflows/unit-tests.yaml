@@ -8,10 +8,22 @@ on:
 
 jobs:
   unit-tests:
-    name: Build and run unit tests
+    name: Build and test with torch-${{ matrix.torch }}
     runs-on: [self-hosted, linux, x64, gpu]
+    strategy:
+      matrix:
+        include:
+        # 1.13.0a0+d0d6b1f
+        - torch: "1.13"
+          nvcr: 22.09-py3
+        # 1.14.0a0+410ce96
+        - torch: "1.14"
+          nvcr: 22.12-py3
+        # 2.1.0a0+fe05266f
+        - torch: "2.1"
+          nvcr: 23.04-py3
     container:
-      image: superbench/dev:cuda11.8
+      image: nvcr.io/nvidia/pytorch:${{ matrix.nvcr }}
       options: --privileged --ipc=host --gpus=all
     steps:
     - name: Checkout msamp

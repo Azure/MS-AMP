@@ -4,18 +4,17 @@
 """linear module in MS-AMP."""
 
 import torch
+import torch.nn.functional as F
 
 from msamp.common.dtype import Dtypes
 from msamp.common.tensor import ScalingTensor, ScalingMeta, TensorDist
 from msamp.nn import ScalingParameter, ScalingModule, model_state
-from msamp.operators.gemm import Gemm
-from msamp.common.utils import DistUtil, TransformerEngineWrapper
 
 
 class FP8Linear(ScalingModule):
     """Linear layer with FP8 support."""
     DEFAULT_WINDOW_SIZE = 16
-    EMPTY_GRAD_TENSOR = torch.nn.Parameter(torch.tensor([]))
+    DEFAULT_WGRAD_WINDOW_SIZE = 1
 
     def __init__(self, in_features, out_features, use_bias=True, weight_qtype=Dtypes.kfloat16):
         """Constructor.
@@ -42,9 +41,10 @@ class FP8Linear(ScalingModule):
 
         self.scaling_metas = dict(
             input=ScalingMeta(Dtypes.kfloat8_e4m3, window_size=FP8Linear.DEFAULT_WINDOW_SIZE),
-            wgrad=ScalingMeta(Dtypes.kfloat8_e4m3, window_size=1),
+            wgrad=ScalingMeta(Dtypes.kfloat8_e4m3, window_size=FP8Linear.DEFAULT_WGRAD_WINDOW_SIZE),
             ograd=ScalingMeta(Dtypes.kfloat8_e5m2, window_size=FP8Linear.DEFAULT_WINDOW_SIZE)
         )
+        self.weight._scaling_metas = self.scaling_metas
 
     def forward(self, input):
         """Forward function.
@@ -55,126 +55,13 @@ class FP8Linear(ScalingModule):
         Returns:
             torch.Tensor: Output tensor.
         """
-        model_state.ready_to_scale_tensor = True
-        shape = input.shape
-
-        if len(shape) != 2:
-            dim = shape[-1]
-            input = input.reshape(-1, dim)
-
-        output_dtype = torch.get_autocast_gpu_dtype() if torch.is_autocast_enabled() else input.dtype
-        out = _FP8GemmFunction.apply(
-            input, self.weight, self.scaling_metas, FP8Linear.EMPTY_GRAD_TENSOR.type(output_dtype)
-        )
-        if self.bias is not None:
-            out = out + self.bias.type(output_dtype).view(1, -1)
-
-        if len(shape) != 2:
-            out = out.view(shape[:-1] + (-1, ))
-        return out
+        return F.linear(input, self.weight, bias=self.bias)
 
     def extra_repr(self):
         """Return the extra representation of this module."""
         return 'in_features={}, out_features={}, bias={}'.format(
             self.in_features, self.out_features, self.bias is not None
         )
-
-
-class _FP8GemmFunction(torch.autograd.Function):
-    """A function provides fp8 gemm forward and backward computations."""
-    @staticmethod
-    def forward(ctx, input, weight, metas, dtype_holder):
-        """Forward function.
-
-        Args:
-            ctx: Context to store arbitrary data which can be retrieved during the backward pass.
-            input (torch.Tensor): Input tensor.
-            weight (ScalingParameter): Weight tensor.
-            metas (dict): Scaling meta of input, weight and output.
-            dtype_holder (torch.Tensor): A tensor to hold the output dtype. The required_grad of this tensor
-                should be if input.required_grad is False.
-        """
-        ctx.metas = metas
-        model_state.check_metas_in_flat(metas)
-        input_meta = metas['input']
-        input_fp8 = input.cast(Dtypes.kfloat8_e4m3, meta=input_meta)
-        weight_fp8 = weight.cast(Dtypes.kfloat8_e4m3)
-
-        ctx.input_fp8 = input_fp8
-        ctx.input_fp8.requires_grad = input.requires_grad
-        ctx.weight_fp8 = weight_fp8
-        ctx.weight = weight
-
-        output_dtype = dtype_holder.dtype
-        output_qtype = Dtypes.dtype_to_qtype[output_dtype]
-
-        ctx.output_dtype = output_dtype
-        ctx.output_qtype = output_qtype
-
-        out = Gemm.fp8_gemm(weight_fp8, input_fp8, output_qtype, use_split_accumulator=False)
-        return out
-
-    @staticmethod
-    def backward(ctx, output_grad):
-        """Backward function.
-
-        Args:
-            ctx: Context to get the data stored in forward pass.
-            output_grad (torch.Tensor): Output gradient tensor.
-
-        Returns:
-            tuple (torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor): The gradients of the arguments
-                in forward function. None if no gradient.
-        """
-        # pytorch has a bug that output_grad.strides is 0. Use .contiguous() to fix it.
-        output_grad = output_grad.contiguous()
-
-        # We assign gradients to x.grad directly.
-        metas = ctx.metas
-        ograd_meta = metas['ograd']
-        wgrad_meta = metas['wgrad']
-        ograd_fp8, ograd_fp8_t = TransformerEngineWrapper.fp8_fused_cast_transpose(
-            output_grad, Dtypes.kfloat8_e5m2, ograd_meta
-        )
-
-        if ctx.input_fp8.requires_grad:
-            weight_fp8_t = TransformerEngineWrapper.fp8_transpose(ctx.weight_fp8)
-            input_grad = Gemm.fp8_gemm(weight_fp8_t, ograd_fp8, ctx.output_qtype, use_split_accumulator=True)
-        else:
-            input_grad = None
-
-        if ctx.weight.requires_grad:
-            input_fp8_t = TransformerEngineWrapper.fp8_transpose(ctx.input_fp8)
-            wgrad_qtype = ctx.output_qtype
-            # compute weight gradient
-            if ctx.weight.grad is None:
-                wgrad = Gemm.fp8_gemm(
-                    input_fp8_t,
-                    ograd_fp8_t,
-                    wgrad_qtype,
-                    use_split_accumulator=True,
-                )
-            else:
-                # gradient accumulation, old_wgrad is FP32 or FP16 without tensor scaling.
-                old_wgrad = ctx.weight.grad.to(ctx.output_dtype)
-                wgrad = Gemm.fp8_gemm(
-                    input_fp8_t,
-                    ograd_fp8_t,
-                    wgrad_qtype,
-                    accumulate=True,
-                    out=old_wgrad,
-                    use_split_accumulator=True,
-                )
-                del old_wgrad
-
-            # wgrad above this line is torch.Tensor w/o tensor scaling
-            wgrad = wgrad.cast(Dtypes.kfloat8_e4m3, meta=wgrad_meta, sync=True)
-            if DistUtil.get_world_size() > 1:
-                model_state.ready_to_all_reduce_grads = True
-
-            ctx.weight.backward_grad_update(wgrad)
-
-        return input_grad, None, None, None
 
 
 class LinearReplacer:
@@ -214,7 +101,39 @@ class LinearReplacer:
             )
         fp8_linear.weight.copy_(weight)
 
+        # set custom attributes
+        pairs_list = [(fp8_linear, linear), (fp8_linear.weight, linear.weight)]
+        if linear.bias is not None:
+            pairs_list.append((fp8_linear.bias, linear.bias))
+        for new_inst, old_inst in pairs_list:
+            # get custom attributes
+            _, custom_attrs = LinearReplacer._compare_attrs(type(old_inst), old_inst)
+            for attr in custom_attrs:
+                if not hasattr(new_inst, attr):
+                    setattr(new_inst, attr, getattr(old_inst, attr))
+
         return fp8_linear
+
+    @staticmethod
+    def _compare_attrs(x, y):
+        """Compare the attributes and methods of x and y.
+
+        Args:
+            x (type or object): The first object to compare.
+            y (type or object): The second object to compare.
+
+        Returns:
+            tuple (set, set): The attributes and methods that x has but y doesn't, and vice versa.
+        """
+        # Get the list of all attributes and methods of x and y
+        x_attrs, y_attrs = dir(x), dir(y)
+        # Convert these two lists into set types
+        x_set, y_set = set(x_attrs), set(y_attrs)
+        # Use the difference operation to find out the different attributes and methods of x and y
+        x_diff_y = x_set.difference(y_set)    # Attributes and methods that x has but y doesn't
+        y_diff_x = y_set.difference(x_set)    # Attributes and methods that y has but x doesn't
+        # Return the result
+        return x_diff_y, y_diff_x
 
     @classmethod
     def _replace(cls, model, weight_qtype):
@@ -260,19 +179,9 @@ class LinearReplacer:
         for k, p in fp8_named_weights:
             p._param_name = k
 
-        # register functions
-        get_fp8_wgrads_name = 'get_fp8_wgrads'
-        if hasattr(model, get_fp8_wgrads_name):
-            raise ValueError(f'`{get_fp8_wgrads_name}` is already in model')
-
         # DDP ignores the FP8 weights, and the optimizer provides a function `optimizer.all_reduce_grads(model)`
         # to sync them.
         torch.nn.parallel.DistributedDataParallel._set_params_and_buffers_to_ignore_for_model(model, fp8_names)
-
-        def get_fp8_wgrads():
-            return [p.grad for p in fp8_weights]
-
-        setattr(model, get_fp8_wgrads_name, get_fp8_wgrads)
 
         model_state.register_scaling_metas(model)
         return model

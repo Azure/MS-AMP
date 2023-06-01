@@ -88,6 +88,9 @@ class LinearTestCase(unittest.TestCase):
         self.assertEqual(parameters['weight']._param_name, 'weight')
         self.assertTrue('weight' in parameters)
         self.assertTrue('bias' in parameters)
+        self.assertTrue(isinstance(model.weight, ScalingTensor))
+        self.assertTrue(torch.allclose(model.weight.float(), linear.weight, rtol=2e-4, atol=1e-3))
+        self.assertTrue((linear.bias == model.bias).all())
 
     @decorator.cuda_test
     def test_meta_mem_immutable(self):
@@ -116,6 +119,28 @@ class LinearTestCase(unittest.TestCase):
         self.assertEqual(model(input.half()).dtype, torch.float16)
 
     @decorator.cuda_test
+    def test_linear_custom_attrs(self):
+        """Test custom attrs of FP8Linear."""
+        linear = torch.nn.Linear(4, 8).cuda()
+        linear_attr_abc = 123
+        weight_attr_abc = 42
+        bias_attr_abc = 100
+        linear.abc = linear_attr_abc
+        linear.weight.abc = weight_attr_abc
+        linear.bias.abc = bias_attr_abc
+        model = LinearReplacer.replace(linear, Dtypes.kfloat16)
+        # model
+        self.assertFalse(model is linear)
+        self.assertTrue(hasattr(model, 'abc'))
+        self.assertEqual(model.abc, linear_attr_abc)
+        # model.weight
+        self.assertTrue(hasattr(model.weight, 'abc'))
+        self.assertEqual(model.weight.abc, weight_attr_abc)
+        # model.bias
+        self.assertTrue(hasattr(model.bias, 'abc'))
+        self.assertEqual(model.bias.abc, bias_attr_abc)
+
+    @decorator.cuda_test
     def test_state_dict(self):
         """Test state dict of FP8Linear."""
         input = torch.randn((4, 4), device='cuda')
@@ -133,16 +158,3 @@ class LinearTestCase(unittest.TestCase):
         output1 = model1(input)
         output2 = model2(input)
         self.assertTrue(torch.equal(output1, output2))
-
-    @decorator.cuda_test
-    def test_get_fp8_wgrads(self):
-        """Test get_fp8_wgrads of FP8Linear."""
-        linear = torch.nn.Linear(4, 8).cuda()
-        model = LinearReplacer.replace(linear, Dtypes.kfloat16)
-        input = torch.randn((4, 4), device='cuda')
-        output = model(input)
-        output.sum().backward()
-
-        wgrads = model.get_fp8_wgrads()
-        self.assertTrue(len(wgrads) == 1)
-        self.assertEqual(wgrads[0], model.weight.grad)

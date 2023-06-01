@@ -3,6 +3,7 @@
 
 """DistOp module."""
 
+from torch.distributed import ReduceOp as TorchReduceOp
 from msamp.common.utils import DistUtil
 from msamp.common.dtype import Dtypes
 import msamp_dist_op
@@ -17,6 +18,13 @@ class DistOp:
         Dtypes.kbfloat16: 9,
         Dtypes.kfloat8_e4m3: 10,
         Dtypes.kfloat8_e5m2: 11,
+    }
+    _torch_reduce_op_to_nccl_reduce_op = {
+        TorchReduceOp.SUM: 0,    # ncclSum,
+        TorchReduceOp.PRODUCT: 1,    # ncclProd,
+        TorchReduceOp.MIN: 2,    # ncclMin,
+        TorchReduceOp.MAX: 3,    # ncclMax,
+        TorchReduceOp.AVG: 4,    # ncclAvg,
     }
 
     @classmethod
@@ -37,6 +45,20 @@ class DistOp:
         return cls._comm
 
     @classmethod
+    def _get_nccl_reduce_op(cls, op):
+        """Get the nccl reduce op.
+
+        Args:
+            op (int): one of the values from torch.distributed.ReduceOp enum.
+
+        Return:
+            int: The nccl reduce op.
+        """
+        if op not in cls._torch_reduce_op_to_nccl_reduce_op:
+            raise ValueError('Unsupported reduce op: {}'.format(op))
+        return cls._torch_reduce_op_to_nccl_reduce_op[op]
+
+    @classmethod
     def reduce(cls, tensor, dst, qtype, op):
         """Function of reduce.
 
@@ -46,7 +68,9 @@ class DistOp:
             qtype (Dtypes.QType): the data type.
             op (int): one of the values from torch.distributed.ReduceOp enum.
         """
-        msamp_dist_op.reduce(tensor, tensor, dst, op, cls._get_global_comm(), cls._qtype_to_nccltype[qtype])
+        msamp_dist_op.reduce(
+            tensor, tensor, dst, cls._get_nccl_reduce_op(op), cls._get_global_comm(), cls._qtype_to_nccltype[qtype]
+        )
 
     @classmethod
     def all_reduce(cls, tensor, qtype, op):
@@ -57,4 +81,6 @@ class DistOp:
             qtype (Dtypes.QType): the data type.
             op (int): one of the values from torch.distributed.ReduceOp enum.
         """
-        msamp_dist_op.all_reduce([tensor], [tensor], op, [cls._get_global_comm()], cls._qtype_to_nccltype[qtype])
+        msamp_dist_op.all_reduce(
+            [tensor], [tensor], cls._get_nccl_reduce_op(op), [cls._get_global_comm()], cls._qtype_to_nccltype[qtype]
+        )
