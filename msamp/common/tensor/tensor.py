@@ -250,8 +250,7 @@ class ScalingTensor:
         raise TypeError(f'Unsupported Cast: {self.meta.qtype} -> {qtype}')
 
     def fp8_transpose(self):
-        """FP8 scaling tensor transpose.
-        """
+        """FP8 scaling tensor transpose."""
         if not Dtypes.is_fp8_qtype(self.meta.qtype):
             raise TypeError(f'Unsupported FP8 transpose type: {self.meta.qtype}')
         return TransformerEngineWrapper.fp8_transpose(self)
@@ -698,6 +697,7 @@ class TorchOverider:
         """Fused cast and transpose pytorch native tensor to ScalingTensors.
 
         Args:
+            self (torch.Tensor): input tensor.
             qtype (QType): qtype to cast.
             meta (ScalingMeta): scaling meta.
             sync (bool): whether to synchronize the cast operation.
