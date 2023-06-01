@@ -153,7 +153,7 @@ class TransformerEngineWrapper:
             out_cast = torch.empty_like(pad_input.val, dtype=torch.uint8)
             out_t = torch.empty(out_cast.shape[1], out_cast.shape[0], device='cuda', dtype=torch.uint8)
             tex.fused_cast_transpose(
-                pad_input.val, meta.scale, meta.amax, 1.0 / meta.scale, out_cast, out_t,
+                pad_input.val, meta.scale, meta.amax, meta.scale_inv, out_cast, out_t,
                 TransformerEngineWrapper._to_te_dtype(qtype)
             )
             if pad_input.require_pad:

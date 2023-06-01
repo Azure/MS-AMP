@@ -33,10 +33,7 @@ class TypeCast:
         in_time = meta.is_in_time_scaling()
         if in_time:
             meta.amax[0] = input.abs().max()
-            # create a temporary tensor to avoid cast_to_fp8 to modify meta.amax[0]
-            arg_amax = torch.zeros_like(meta.amax[0])
-        else:
-            arg_amax = meta.amax[0]
+        sync_amax = None
         if sync:
             # convert NAN to INF since NCCL-ReduceMax ignores NAN
             # notice: nan and posinf must be INF
@@ -44,25 +41,29 @@ class TypeCast:
             world_size = DistUtil.get_world_size()
             if world_size > 1:
                 dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX)
+                sync_amax = meta.amax[0].clone()
         if in_time or sync:
             meta.reset_scaling_factor()
         if fuse_transpose:
             input_fp8, input_fp8_t = TransformerEngineWrapper.fp8_fused_cast_transpose(input, meta.qtype, meta)
             meta.scale_inv.data.copy_(torch.reciprocal(meta.scale))
+            if sync_amax is not None:
+                meta.amax[0].copy_(sync_amax)
             return input_fp8, input_fp8_t
         else:
             input_fp8 = TransformerEngineWrapper.cast_to_fp8(
                 input.view(1, -1),
                 meta.scale,
-                arg_amax,
+                meta.amax[0],
                 meta.scale_inv,
                 meta.qtype,
             )
+            # scale_inv will not be set to inverse of scale in transformer-engine v0.7.
+            meta.scale_inv.data.copy_(torch.reciprocal(meta.scale))    # scale_inv = 1 / scale
+            if sync_amax is not None:
+                meta.amax[0].copy_(sync_amax)
 
-        # scale_inv will not be set to inverse of scale in transformer-engine v0.7.
-        meta.scale_inv.data.copy_(torch.reciprocal(meta.scale))    # scale_inv = 1 / scale
-        shape = input.shape
-        return input_fp8.view(shape)
+        return input_fp8.view_as(input)
 
     @staticmethod
     def cast_to_fp16(input, meta, sync=False):
