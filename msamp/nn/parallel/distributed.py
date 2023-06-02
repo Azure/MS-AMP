@@ -154,7 +154,7 @@ class _DDPSink(torch.autograd.Function):
     def forward(ctx, reducer, *inputs):
         ctx.set_materialize_grads(False)
         ctx.reducer = reducer
-        reducer.scaling_tensor_reducer.reset_buckets()
+        reducer.reset_buckets()
         return inputs
     @staticmethod
     def backward(ctx, *grad_outputs):
