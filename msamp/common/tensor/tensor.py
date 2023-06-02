@@ -685,7 +685,7 @@ class TorchOverider:
             meta = ScalingMeta(qtype)
         if Dtypes.is_fp8_qtype(qtype):
             return ScalingTensor(TypeCast.cast_to_fp8(self, meta, sync=sync), meta=meta)
-        elif qtype == Dtypes.kfloat16:
+        elif qtype in [Dtypes.kfloat16, Dtypes.kbfloat16]:
             return ScalingTensor(TypeCast.cast_to_fp16(self, meta, sync=sync), meta=meta)
         elif qtype == Dtypes.kfloat32:
             return ScalingTensor(self, meta=meta)
