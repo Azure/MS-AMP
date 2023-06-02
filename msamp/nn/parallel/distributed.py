@@ -129,6 +129,7 @@ class ScalingTensorReducer:
                 meta.scale_inv,
                 meta.qtype,
             )
+            meta.scale_inv.data.copy_(torch.reciprocal(meta.scale))
             grads[i] = None
             params[i].grad = None
             fp8_grads.append(fp8_grad)
