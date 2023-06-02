@@ -24,9 +24,21 @@ class ScalingTensorReducer:
         self._build_buckets(parameters)
         self._register_backward_hooks()
         self.bucket_unreduced_param_ids = dict()
+        self.dist_handles = []
 
     def get_param_id(self, param):
         return self.param_to_id[param]
+
+    def reset_buckets(self):
+        self.wait()
+        if len(self.bucket_unreduced_param_ids) > 0:
+            raise RuntimeError("some gradients are not reduced: {}".format(list(self.bucket_unreduced_param_ids.keys())))
+        self.bucket_unreduced_param_ids = {k: set(v) for k, v in self.bucket_to_param_ids.items()}
+
+    def wait(self):
+        for handle in self.dist_handles:
+            handle.wait()
+        self.dist_handles = []
 
     def _build_buckets(self, parameters):
         bucket_bytes = 0
@@ -54,11 +66,6 @@ class ScalingTensorReducer:
         self.param_id_to_bucket_id = param_id_to_bucket_id
         self.bucket_to_param_ids = bucket_to_param_ids
         self.bucket_to_range = bucket_to_range
-
-    def reset_buckets(self):
-        if len(self.bucket_unreduced_param_ids) > 0:
-            raise RuntimeError("some gradients are not reduced: {}".format(list(self.bucket_unreduced_param_ids.keys())))
-        self.bucket_unreduced_param_ids = {k: set(v) for k, v in self.bucket_to_param_ids.items()}
 
     def _register_backward_hooks(self):
         for p in self.parameters:
@@ -128,8 +135,13 @@ class ScalingTensorReducer:
 
         # step 5: allreduce the gradients
         flat_fp8_grads = _flatten_dense_tensors(fp8_grads)
-        assert DistOp.is_nccl_hack()
-        dist.all_reduce(flat_fp8_grads, op=dist.ReduceOp.SUM, group=self.process_group)
+        # [TODO] support native distributed API with FP8 support
+        # handle = dist.all_reduce(flat_fp8_grads, op=dist.ReduceOp.SUM, group=self.process_group, async_op=True)
+        # self.dist_handles.append(handle)
+        if dist.get_world_size() == dist.get_world_size(self.process_group):
+            DistOp.all_reduce(flat_fp8_grads, qtype=wgrad_qtype, op=dist.ReduceOp.SUM)
+        else:
+            raise RuntimeError("msamp.nn.parallel.DistributedDataParallel only supports `self.process_group is None`")
         for i, q in enumerate(_unflatten_dense_tensors(flat_fp8_grads, fp8_grads)):
             grad = ScalingTensor(q, metas[i])
             # average by data-parallel world size
@@ -137,14 +149,27 @@ class ScalingTensorReducer:
             params[i].grad = grad
 
 
+class _DDPSink(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, reducer, *inputs):
+        ctx.set_materialize_grads(False)
+        ctx.reducer = reducer
+        reducer.scaling_tensor_reducer.reset_buckets()
+        return inputs
+    @staticmethod
+    def backward(ctx, *grad_outputs):
+        ctx.reducer.wait()
+        return (None, *grad_outputs)
+
+
 class DistributedDataParallel(torch.nn.parallel.DistributedDataParallel):
     def __init__(self, module, **kwargs):
         super().__init__(module, **kwargs)
-        scaling_params = [p for p in self.parameters() if p.requires_grad if isinstance(p, ScalingTensor)]
+        scaling_params = [p for p in self.parameters() if p.requires_grad and isinstance(p, ScalingTensor)]
         self.scaling_tensor_reducer = ScalingTensorReducer(scaling_params, self.process_group, self.bucket_bytes_cap)
     def forward(self, *inputs, **kwargs):
         if torch.is_grad_enabled():
-            self.scaling_tensor_reducer.reset_buckets()
+            inputs = _DDPSink.apply(self.scaling_tensor_reducer, *inputs)
         out = super().forward(*inputs, **kwargs)
         return out
 
