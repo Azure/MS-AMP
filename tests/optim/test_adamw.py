@@ -68,7 +68,6 @@ class LBAdamwTestCase(unittest.TestCase):
         for _ in range(4):
             output = model2(input)
             output.sum().backward()
-            opt2.all_reduce_grads(model2)
             opt2.step()
             opt2.zero_grad()
 
@@ -93,12 +92,8 @@ class LBAdamwTestCase(unittest.TestCase):
             return old_all_reduce_avg(grads)
 
         TensorDist.all_reduce_avg = debug_all_reduce_avg
-        opt.all_reduce_grads(model1)
         self.assertEqual(num_grads, 1)
-        self.assertFalse(model_state.ready_to_all_reduce_grads)
-        opt.all_reduce_grads(model2)
         self.assertEqual(num_grads, 2)
-        self.assertFalse(model_state.ready_to_all_reduce_grads)
         TensorDist.all_reduce_avg = old_all_reduce_avg
 
     def check_optimizer_state_dict(self, lbadam_class):
@@ -119,7 +114,6 @@ class LBAdamwTestCase(unittest.TestCase):
             output = model1(input)
             opt1.zero_grad()
             output.sum().backward()
-            opt1.all_reduce_grads(model1)
             opt1.step()
 
         state_dict1 = opt1.state_dict()
@@ -150,7 +144,6 @@ class LBAdamwTestCase(unittest.TestCase):
         state_dict2 = copy.deepcopy(state_dict1)
         opt1.zero_grad()
         model1(input).sum().backward()
-        opt1.all_reduce_grads(model1)
         opt1.step()
 
         # Build model2 and update 4 times.
@@ -163,7 +156,6 @@ class LBAdamwTestCase(unittest.TestCase):
             output = model2(input)
             opt2.zero_grad()
             output.sum().backward()
-            opt2.all_reduce_grads(model2)
             opt2.step()
 
         # Load state dict to op2 and check if the weight is same as model1 after update weigth once.
@@ -172,7 +164,6 @@ class LBAdamwTestCase(unittest.TestCase):
 
         opt2.zero_grad()
         model2(input).sum().backward()
-        opt2.all_reduce_grads(model2)
         opt2.step()
 
         self.assertTrue(torch.equal(model1.weight.value, model2.weight.value))
@@ -208,5 +199,4 @@ class LBAdamwTestCase(unittest.TestCase):
             y = model(x)
             self.assertTrue((model.scaling_metas['input'].amax.max() == max(windows)).all())
             y.sum().backward()
-            opt.all_reduce_grads(model)
             opt.step()

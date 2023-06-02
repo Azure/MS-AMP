@@ -355,9 +355,6 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
 
         if allreduce_gradients and self.enable_backward_allreduce:
             # Traditional code path that allreduces the module parameter grads
-            # It will not call optimizer.all_reduce_grads so we set ready_to_all_reduce_grads to False.
-            # In optimizer.step, ready_to_all_reduce_grads is supposed to be False.
-            model_state.ready_to_all_reduce_grads = False
             self.allreduce_gradients()
 
         self._stop_timers(self.engine_timers.backward_reduce_timers)

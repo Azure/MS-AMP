@@ -98,11 +98,8 @@ class _FP8GemmFunction(torch.autograd.Function):
                 )
                 del old_wgrad
 
-            # wgrad above this line is torch.Tensor w/o tensor scaling
-            wgrad = wgrad.cast(Dtypes.kfloat8_e4m3, meta=wgrad_meta, sync=True)
-            if DistUtil.get_world_size() > 1:
-                model_state.ready_to_all_reduce_grads = True
-
+            # set meta for wgrad
+            wgrad.meta = wgrad_meta
             ctx.weight.backward_grad_update(wgrad)
 
         return input_grad, None, None, None

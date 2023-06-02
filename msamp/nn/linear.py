@@ -179,9 +179,8 @@ class LinearReplacer:
         for k, p in fp8_named_weights:
             p._param_name = k
 
-        # DDP ignores the FP8 weights, and the optimizer provides a function `optimizer.all_reduce_grads(model)`
-        # to sync them.
+        # the native DDP ignores the FP8 weights,
+        # and msamp.nn.parallel.distributed.DistributedDataParallel handles them.
         torch.nn.parallel.DistributedDataParallel._set_params_and_buffers_to_ignore_for_model(model, fp8_names)
-
         model_state.register_scaling_metas(model)
         return model
