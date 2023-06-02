@@ -62,8 +62,7 @@ class TypeCast:
             meta.scale_inv.data.copy_(torch.reciprocal(meta.scale))    # scale_inv = 1 / scale
             if sync_amax is not None:
                 meta.amax[0].copy_(sync_amax)
-
-        return input_fp8.view_as(input)
+            return input_fp8.view_as(input)
 
     @staticmethod
     def cast_to_fp16(input, meta, sync=False):
