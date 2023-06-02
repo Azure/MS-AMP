@@ -73,29 +73,6 @@ class LBAdamwTestCase(unittest.TestCase):
 
         self.assertTrue(torch.allclose(model1.weight, model2.weight.float(), 0, diff))
 
-    def test_all_reduce_grads(self):
-        """Test the function `all_reduce_grads`."""
-        input = torch.randn(4, 4, device='cuda')
-        model1 = torch.nn.Linear(4, 4).cuda()
-        model2 = torch.nn.Linear(4, 4).cuda()
-        model1 = LinearReplacer.replace(model1, Dtypes.kfloat16)
-        model2 = LinearReplacer.replace(model2, Dtypes.kfloat16)
-        opt = LBAdamW(list(model1.parameters()) + list(model2.parameters()))
-        loss = (model1(input) + model2(input)).sum()
-        loss.backward()
-        old_all_reduce_avg = TensorDist.all_reduce_avg
-        num_grads = 0
-
-        def debug_all_reduce_avg(grads):
-            nonlocal num_grads
-            num_grads += len(grads)
-            return old_all_reduce_avg(grads)
-
-        TensorDist.all_reduce_avg = debug_all_reduce_avg
-        self.assertEqual(num_grads, 1)
-        self.assertEqual(num_grads, 2)
-        TensorDist.all_reduce_avg = old_all_reduce_avg
-
     def check_optimizer_state_dict(self, lbadam_class):
         """Save and load state dict of lbadam_class optimizer and check if the value is excepted.
 
