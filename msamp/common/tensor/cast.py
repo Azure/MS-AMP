@@ -77,7 +77,6 @@ class TypeCast:
             torch.Tensor: tensor whose dtype is torch.float16.
         """
         meta.amax[0] = input.abs().max()
-        in_time = meta.is_in_time_scaling()
         if sync:
             # convert NAN to INF since NCCL-ReduceMax ignores NAN
             # notice: nan and posinf must be INF
@@ -85,13 +84,16 @@ class TypeCast:
             world_size = DistUtil.get_world_size()
             if world_size > 1:
                 dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX)
-        if in_time or sync:
-            # notice: we scale the tensor with qtype FP8-E4M3.
-            meta.reset_scaling_factor(qtype=Dtypes.kfloat8_e4m3)
-        meta.scale.clamp_(max=Floating.qfp_max[meta.qtype])
+        meta.reset_scaling_factor()
 
         meta.scale_inv.data.copy_(torch.reciprocal(meta.scale))    # scale_inv = 1 / scale
-        input_fp16 = (input * meta.scale).to(torch.float16)
+        dtype = Dtypes.get_dtype_from_qtype(meta.qtype)
+        assert dtype in [torch.float16, torch.bfloat16, torch.float32]
+        if input.dtype == dtype:
+            input_fp16 = input.clone()
+        else:
+            input_fp16 = input.to(dtype)
+        input_fp16.mul_(meta.scale)
         return input_fp16
 
     @staticmethod
@@ -111,13 +113,12 @@ class TypeCast:
         if input.dtype != torch.uint8:
             raise ValueError('The dtype of input tensor is not torch.uint8.')
 
-        shape = input.shape
         return TransformerEngineWrapper.cast_from_fp8(
             input.view(1, -1),
             meta.scale_inv,
             meta.qtype,
             otype,
-        ).view(shape)
+        ).view_as(input)
 
     @staticmethod
     def cast_from_fp16(input, meta, otype):

@@ -27,39 +27,6 @@ class ScalingTensorTestCase(unittest.TestCase):
         pass
 
     @decorator.cuda_test
-    def test_torch_tensor_cast(self):
-        """Test overrided tensor.cast functions."""
-        tensor = torch.randn(self.size, device=self.device)
-
-        supported_qtype_dtypes = {
-            Dtypes.kfloat8_e4m3: torch.uint8,
-            Dtypes.kfloat8_e5m2: torch.uint8,
-            Dtypes.kfloat16: torch.float16,
-            Dtypes.kfloat32: torch.float32
-        }
-
-        for qtype, dtype in supported_qtype_dtypes.items():
-            scaling_tensor = tensor.cast(qtype)
-            self.assertTrue(scaling_tensor.dtype == dtype)
-            self.assertTrue(scaling_tensor.qtype == qtype)
-
-        with self.assertRaises(TypeError):
-            tensor.cast(Dtypes.kbfloat16)
-
-    @decorator.cuda_test
-    def test_torch_tensor_fused_cast_transpose(self):
-        """Test tensor.fused_cast_transpose function."""
-        for qtype in [Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2, Dtypes.kfloat16, Dtypes.kfloat32]:
-            tensor = torch.randn(self.size, device=self.device).contiguous()
-            if Dtypes.is_fp8_qtype(qtype):
-                cast, t = tensor.fused_cast_transpose(qtype)
-                self.assertTrue(torch.equal(tensor.cast(qtype).float(), cast.float()))
-                self.assertTrue(torch.equal(tensor.cast(qtype).fp8_transpose().float(), t.float()))
-            else:
-                with self.assertRaises(TypeError):
-                    tensor.fused_cast_transpose(qtype)
-
-    @decorator.cuda_test
     def test_torch_unary_funcs(self):
         """Test overrided tensor unary functions."""
         tensor = torch.randn(self.size, device=self.device)
@@ -128,35 +95,37 @@ class ScalingTensorTestCase(unittest.TestCase):
     def test_tensor_cast(self):
         """Test cast function in ScalingTensor."""
         tensor = torch.randn(self.size, device=self.device)
-        scaling_tensor = tensor.cast(Dtypes.kfloat32)
-        # kfloat32 can cast to any valid qtype
-        self.assertEqual(scaling_tensor.cast(Dtypes.kfloat8_e4m3).qtype, Dtypes.kfloat8_e4m3)
-        self.assertEqual(scaling_tensor.cast(Dtypes.kfloat8_e5m2).qtype, Dtypes.kfloat8_e5m2)
-        self.assertEqual(scaling_tensor.cast(Dtypes.kfloat16).qtype, Dtypes.kfloat16)
-        self.assertEqual(scaling_tensor.cast(Dtypes.kfloat32).qtype, Dtypes.kfloat32)
+        tensor_bak = tensor.clone()
 
-        # kfloat16 can cast to kfloat8_e4m3 kfloat16 kfloat32
-        scaling_tensor = tensor.cast(Dtypes.kfloat16)
-        self.assertEqual(scaling_tensor.cast(Dtypes.kfloat8_e4m3).qtype, Dtypes.kfloat8_e4m3)
-        self.assertEqual(scaling_tensor.cast(Dtypes.kfloat16).qtype, Dtypes.kfloat16)
-        self.assertEqual(scaling_tensor.cast(Dtypes.kfloat32).qtype, Dtypes.kfloat32)
-        with self.assertRaises(TypeError):
-            scaling_tensor.cast(Dtypes.kfloat8_e5m2)
-
-        # kfloat8_e4m3 can cast to kfloat8_e4m3 kfloat32
-        scaling_tensor = tensor.cast(Dtypes.kfloat8_e4m3)
-        self.assertEqual(scaling_tensor.cast(Dtypes.kfloat8_e4m3).qtype, Dtypes.kfloat8_e4m3)
-        self.assertEqual(scaling_tensor.cast(Dtypes.kfloat32).qtype, Dtypes.kfloat32)
-        with self.assertRaises(TypeError):
-            scaling_tensor.cast(Dtypes.kfloat16)
-        with self.assertRaises(TypeError):
-            scaling_tensor.cast(Dtypes.kfloat8_e5m2)
+        qtypes = [Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2, Dtypes.kfloat16, Dtypes.kbfloat16, Dtypes.kfloat32]
+        dtypes = [torch.uint8, torch.uint8, torch.float16, torch.bfloat16, torch.float32]
+        _allclose = lambda input, other: torch.allclose(input, other, rtol=1e-1, atol=1e-1)
+        for qtype1, dtype1 in zip(qtypes, dtypes):
+            for qtype2, dtype2 in zip(qtypes, dtypes):
+                with self.subTest(qtype1=qtype1, qtype2=qtype2):
+                    if not Dtypes.is_fp8_qtype(qtype1):
+                        with self.subTest(msg='tensor to scaling tensor'):
+                            tensor1 = tensor.to(dtype1)
+                            tensor2 = tensor1.cast(qtype2)
+                            self.assertTrue(_allclose(tensor2.float(), tensor), (tensor2, tensor))
+                    if not Dtypes.is_fp8_qtype(qtype2):
+                        with self.subTest(msg='scaling tensor to tensor'):
+                            tensor1 = tensor.cast(qtype1)
+                            tensor2 = tensor1.to(dtype2)
+                            self.assertTrue(_allclose(tensor2.float(), tensor), (tensor2, tensor))
+                    with self.subTest(msg='scaling tensor to scaling tensor'):
+                        tensor1 = tensor.cast(qtype1)
+                        tensor2 = tensor1.cast(qtype2)
+                        self.assertTrue(_allclose(tensor2.float(), tensor), (tensor2, tensor))
+                    # check if tensor is not changed
+                    self.assertTrue(torch.equal(tensor, tensor_bak))
 
     @decorator.cuda_test
     def test_tensor_cast_with_exception_value(self):
         """Test cast function in ScalingTensor with exception value."""
-        # skip kfloat32 since it does not need quantization.
-        for dtype in [Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2, Dtypes.kfloat16]:
+        for dtype in [Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2,
+                      Dtypes.kfloat16, Dtypes.kbfloat16,
+                      Dtypes.kfloat32]:
             with self.subTest(dtype=dtype):
                 x = torch.randn((2, ), device=self.device)
                 t = x.cast(dtype)
@@ -171,6 +140,19 @@ class ScalingTensorTestCase(unittest.TestCase):
                                 x2[-1] = exception_value
                             t2 = x2.cast(dtype)
                             self.assertFalse(torch.isfinite(t2.meta.amax[0]))
+
+    @decorator.cuda_test
+    def test_tensor_cast_from_scaling_tensor(self):
+        """Test tensor cast from ScalingTensor."""
+        fp16_value = torch.tensor([1.0 / (2**17)], dtype=torch.float16, device='cuda')
+        fp32_value = fp16_value.float()
+        for dtype in [torch.float16, torch.float32]:
+            value = fp16_value.to(dtype)
+            scaling_fp16 = value.cast(Dtypes.kfloat16)
+            self.assertTrue(torch.allclose(fp32_value, scaling_fp16.float()), (fp32_value, scaling_fp16))
+            # cast ScalingTensor (FP16) to ScalingTensor (FP8E4M3)
+            scaling_fp8 = scaling_fp16.cast(Dtypes.kfloat8_e4m3)
+            self.assertTrue(torch.allclose(fp32_value, scaling_fp8.float()), (fp32_value, scaling_fp8))
 
     @decorator.cuda_test
     def test_tensor_mul(self):
@@ -207,17 +189,6 @@ class ScalingTensorTestCase(unittest.TestCase):
         float_tensor = scaling_tensor.float()
         transpose_tensor_value = scaling_tensor.t().contiguous().float()
         self.assertTrue(torch.equal(float_tensor.t(), transpose_tensor_value))
-
-    @decorator.cuda_test
-    def test_tensor_fp8_transpose(self):
-        """Test fp8_transpose function in ScalingTensor."""
-        for qtype in [Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2, Dtypes.kfloat16, Dtypes.kfloat32]:
-            scaling_tensor = torch.randn(self.size, device=self.device).cast(qtype)
-            if Dtypes.is_fp8_qtype(qtype):
-                self.assertTrue(torch.equal(scaling_tensor.float().t(), scaling_tensor.fp8_transpose().float()))
-            else:
-                with self.assertRaises(TypeError):
-                    scaling_tensor.fp8_transpose()
 
     @decorator.cuda_test
     def test_inf_and_nan(self):

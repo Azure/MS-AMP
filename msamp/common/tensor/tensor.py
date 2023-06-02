@@ -219,35 +219,34 @@ class ScalingTensor:
     def cast(self, qtype):
         """Cast the ScalingTensor by qtype.
 
-        Currently only supports:
-        Dtypes.kfloat32 -> Dtypes.kfloat8_e4m3 | Dtypes.kfloat8_e5m2 | Dtypes.kfloat16 | Dtypes.kfloat32
-        Dtypes.kfloat16 -> Dtypes.kfloat16 | Dtypes.kfloat8_e4m3 | Dtypes.kfloat32
-        Dtypes.kfloat8_e4m3 -> Dtypes.kfloat8_e4m3 | Dtypes.kfloat32
-        Dtypes.kfloat8_e5m2 -> Dtypes.kfloat8_e5m2 | Dtypes.kfloat32
-
         Args:
             qtype (Dtypes.QType): the qtype to cast.
 
         Return:
             ScalingTensor: a ScalingTensor with desired qtype.
         """
-        if self.meta.qtype == Dtypes.kfloat32:
-            return self.float().cast(qtype)
-
         if qtype == self.meta.qtype:
             return self
 
-        if qtype == Dtypes.kfloat8_e4m3:
-            if self.meta.qtype == Dtypes.kfloat16:
-                # identity cast
-                identity_meta = ScalingMeta(Dtypes.kfloat8_e4m3, window_size=1)
-                value = TypeCast.cast_to_fp8(self.value, meta=identity_meta)
-                meta = self.meta.clone()
-                meta.qtype = qtype
-                return ScalingTensor(value, meta=meta)
-        elif qtype == Dtypes.kfloat32:
-            return self.float().cast(Dtypes.kfloat32)
-        raise TypeError(f'Unsupported Cast: {self.meta.qtype} -> {qtype}')
+        if Dtypes.is_fp8_qtype(self.meta.qtype):
+            return self.float().cast(qtype)
+
+        # Cast ScalingTensor to ScalingTensor with another data type
+        old_amax = self.meta.amax[0]
+        meta = ScalingMeta(qtype=qtype, amax=self.meta.amax.clone(), window_size=self.meta.window_size)
+        # re-compute scaling factor
+        meta.reset_scaling_factor()
+        # unscale it since self.value has been scaled by `self.scale`
+        scale_inv = torch.reciprocal(meta.scale)
+        meta.scale.mul_(self.meta.scale_inv)
+        with ScalingMeta.in_time_scaling_context(enabled=False):
+            if Dtypes.is_fp8_qtype(meta.qtype):
+                value = TypeCast.cast_to_fp8(self.value, meta)
+            else:
+                value = TypeCast.cast_to_fp16(self.value, meta)
+            meta.amax[0] = old_amax
+            meta.scale_inv.fill_(scale_inv)
+        return ScalingTensor(value, meta=meta)
 
     def fp8_transpose(self):
         """FP8 scaling tensor transpose."""
