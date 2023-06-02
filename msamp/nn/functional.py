@@ -66,17 +66,16 @@ class _FP8GemmFunction(torch.autograd.Function):
         metas = ctx.metas
         ograd_meta = metas['ograd']
         wgrad_meta = metas['wgrad']
-        ograd_fp8 = output_grad.cast(Dtypes.kfloat8_e5m2, meta=ograd_meta)
+        ograd_fp8, ograd_fp8_t = output_grad.fused_cast_transpose(Dtypes.kfloat8_e5m2, meta=ograd_meta)
 
         if ctx.input_fp8.requires_grad:
-            weight_fp8_t = ctx.weight_fp8.t().contiguous()
+            weight_fp8_t = ctx.weight_fp8.fp8_transpose()
             input_grad = Gemm.fp8_gemm(weight_fp8_t, ograd_fp8, ctx.output_qtype, use_split_accumulator=True)
         else:
             input_grad = None
 
         if ctx.weight.requires_grad:
-            ograd_fp8_t = ograd_fp8.t().contiguous()
-            input_fp8_t = ctx.input_fp8.t().contiguous()
+            input_fp8_t = ctx.input_fp8.fp8_transpose()
             wgrad_qtype = ctx.output_qtype
             # compute weight gradient
             if ctx.weight.grad is None:

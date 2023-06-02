@@ -9,6 +9,7 @@ from msamp.common.tensor import ScalingMeta
 from msamp.common.tensor import HookManager
 from msamp.common.dtype import Dtypes
 from msamp.common.tensor import TypeCast
+from msamp.common.utils import TransformerEngineWrapper
 
 
 class ScalingTensor:
@@ -247,6 +248,12 @@ class ScalingTensor:
         elif qtype == Dtypes.kfloat32:
             return self.float().cast(Dtypes.kfloat32)
         raise TypeError(f'Unsupported Cast: {self.meta.qtype} -> {qtype}')
+
+    def fp8_transpose(self):
+        """FP8 scaling tensor transpose."""
+        if not Dtypes.is_fp8_qtype(self.meta.qtype):
+            raise TypeError(f'Unsupported FP8 transpose type: {self.meta.qtype}')
+        return TransformerEngineWrapper.fp8_transpose(self)
 
     def t(self):
         """Transpose tensor.
@@ -638,6 +645,7 @@ class TorchOverider:
     def override(cls):
         """Override torch attributes and functions."""
         torch.Tensor.cast = cls._cast_to_scalingtensor
+        torch.Tensor.fused_cast_transpose = cls._fused_cast_transpose_to_scalingtensors
         torch.Tensor.qtype = property(lambda self: Dtypes.dtype_to_qtype[self.dtype])
         cls._override_unary_func()
         torch.is_floating_point = cls._get_wrapper_for_scalingtensor(
@@ -682,6 +690,28 @@ class TorchOverider:
             return ScalingTensor(TypeCast.cast_to_fp16(self, meta, sync=sync), meta=meta)
         elif qtype == Dtypes.kfloat32:
             return ScalingTensor(self, meta=meta)
+        raise TypeError(f'Unsupported Cast: {self.dtype} -> {qtype}')
+
+    @staticmethod
+    def _fused_cast_transpose_to_scalingtensors(self, qtype, meta=None, sync=False):
+        """Fused cast and transpose pytorch native tensor to ScalingTensors.
+
+        Args:
+            self (torch.Tensor): input tensor.
+            qtype (QType): qtype to cast.
+            meta (ScalingMeta): scaling meta.
+            sync (bool): whether to synchronize the cast operation.
+
+        Return:
+            ScalingTensor, ScalingTensor: casted and transposed scaling tensors.
+        """
+        self = self.contiguous()
+        if meta is None:
+            # default window size: 1
+            meta = ScalingMeta(qtype)
+        if Dtypes.is_fp8_qtype(qtype):
+            cast, t = TypeCast.cast_to_fp8(self, meta, sync=sync, fuse_transpose=True)
+            return ScalingTensor(cast.contiguous(), meta=meta), ScalingTensor(t.contiguous(), meta=meta)
         raise TypeError(f'Unsupported Cast: {self.dtype} -> {qtype}')
 
     @staticmethod
