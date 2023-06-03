@@ -245,7 +245,7 @@ class ScalingTensor:
             else:
                 value = TypeCast.cast_to_fp16(self.value, meta)
             meta.amax[0] = old_amax
-            meta.scale_inv.fill_(scale_inv)
+            meta.scale_inv.copy_(scale_inv)
         return ScalingTensor(value, meta=meta)
 
     def fp8_transpose(self):
