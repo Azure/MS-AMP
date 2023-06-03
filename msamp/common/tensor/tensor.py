@@ -83,7 +83,7 @@ class ScalingTensor:
         self.meta = meta
 
         if Dtypes.get_dtype_from_qtype(meta.qtype) != value.dtype:
-            raise TypeError(f'Type mismatch, value.type is {value.type}, meta.type is {meta.type}')
+            raise TypeError(f'Type mismatch, value.qtype is {value.qtype}, meta.qtype is {meta.qtype}')
         self._requires_grad = False
 
     @property
@@ -210,7 +210,7 @@ class ScalingTensor:
         """
         if Dtypes.is_fp8_qtype(self.meta.qtype):
             return TypeCast.cast_from_fp8
-        elif self.meta.qtype == Dtypes.kfloat16:
+        elif self.meta.qtype in [Dtypes.kfloat16, Dtypes.kbfloat16]:
             return TypeCast.cast_from_fp16
         elif self.meta.qtype == Dtypes.kfloat32:
             return TypeCast.cast_from_fp32
@@ -666,9 +666,8 @@ class TorchOverider:
         """Cast pytorch native tensor to ScalingTensor.
 
         Support below casts:
-        torch.float32 -> Dtypes.kfloat8_e4m3 | Dtypes.kfloat8_e5m2 | Dtypes.kfloat16 | Dtypes.kfloat32
-        torch.float16 -> Dtypes.kfloat8_e4m3 | Dtypes.kfloat8_e5m2 | Dtypes.kfloat16
-        torch.bfloat16 -> Dtypes.kfloat8_e4m3 | Dtypes.kfloat8_e5m2 | Dtypes.kfloat16
+        torch.float32 | torch.float16 | torch.bfloat16 ->
+            Dtypes.kfloat8_e4m3 | Dtypes.kfloat8_e5m2 | Dtypes.kfloat16 | Dtypes.kbfloat16 | Dtypes.kfloat32
 
         Args:
             self (torch.Tensor): tensor to cast.
@@ -685,11 +684,7 @@ class TorchOverider:
             meta = ScalingMeta(qtype)
         if Dtypes.is_fp8_qtype(qtype):
             return ScalingTensor(TypeCast.cast_to_fp8(self, meta, sync=sync), meta=meta)
-        elif qtype in [Dtypes.kfloat16, Dtypes.kbfloat16]:
-            return ScalingTensor(TypeCast.cast_to_fp16(self, meta, sync=sync), meta=meta)
-        elif qtype == Dtypes.kfloat32:
-            return ScalingTensor(self, meta=meta)
-        raise TypeError(f'Unsupported Cast: {self.dtype} -> {qtype}')
+        return ScalingTensor(TypeCast.cast_to_fp16(self, meta, sync=sync), meta=meta)
 
     @staticmethod
     def _fused_cast_transpose_to_scalingtensors(self, qtype, meta=None, sync=False):

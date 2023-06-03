@@ -93,7 +93,9 @@ class TypeCast:
             input_fp16 = input.clone()
         else:
             input_fp16 = input.to(dtype)
-        input_fp16.mul_(meta.scale)
+        # reshape scale to the tensor with the shape of (1,)
+        # to avoid overflow when scale is larger than the maximum of qtype
+        input_fp16.mul_(meta.scale.view((1,)))
         return input_fp16
 
     @staticmethod
