@@ -6,7 +6,7 @@
 import torch
 import torch.distributed as dist
 
-from msamp.common.dtype import Dtypes, Floating
+from msamp.common.dtype import Dtypes
 from msamp.common.utils import DistUtil
 from msamp.common.utils import TransformerEngineWrapper
 
@@ -90,7 +90,7 @@ class TypeCast:
         dtype = Dtypes.get_dtype_from_qtype(meta.qtype)
         # reshape scale to the tensor with the shape of (1,)
         # to avoid overflow when scale is larger than the maximum of qtype
-        return (input * meta.scale.view((1,))).to(dtype)
+        return (input * meta.scale.view((1, ))).to(dtype)
 
     @staticmethod
     def cast_from_fp8(input, meta, otype):
@@ -129,6 +129,6 @@ class TypeCast:
             torch.Tensor: tensor whose type is otype.
         """
         dtype = Dtypes.get_dtype_from_qtype(otype)
-        return (input * meta.scale_inv.view((1,))).to(dtype)
+        return (input * meta.scale_inv.view((1, ))).to(dtype)
 
     cast_from_fp32 = cast_from_fp16

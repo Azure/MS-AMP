@@ -72,6 +72,7 @@ class ScalingMeta:
     @staticmethod
     def in_time_scaling_context(enabled):
         """A context manager to set in_time_scaling flag.
+
         Args:
             bool: in_time_scaling flag.
 

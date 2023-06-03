@@ -99,7 +99,10 @@ class ScalingTensorTestCase(unittest.TestCase):
 
         qtypes = [Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2, Dtypes.kfloat16, Dtypes.kbfloat16, Dtypes.kfloat32]
         dtypes = [torch.uint8, torch.uint8, torch.float16, torch.bfloat16, torch.float32]
-        _allclose = lambda input, other: torch.allclose(input, other, rtol=1e-1, atol=1e-1)
+
+        def _allclose(input, other):
+            return torch.allclose(input, other, rtol=1e-1, atol=1e-1)
+
         for qtype1, dtype1 in zip(qtypes, dtypes):
             for qtype2, dtype2 in zip(qtypes, dtypes):
                 with self.subTest(qtype1=qtype1, qtype2=qtype2):
@@ -123,9 +126,7 @@ class ScalingTensorTestCase(unittest.TestCase):
     @decorator.cuda_test
     def test_tensor_cast_with_exception_value(self):
         """Test cast function in ScalingTensor with exception value."""
-        for dtype in [Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2,
-                      Dtypes.kfloat16, Dtypes.kbfloat16,
-                      Dtypes.kfloat32]:
+        for dtype in [Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2, Dtypes.kfloat16, Dtypes.kbfloat16, Dtypes.kfloat32]:
             with self.subTest(dtype=dtype):
                 x = torch.randn((2, ), device=self.device)
                 t = x.cast(dtype)
