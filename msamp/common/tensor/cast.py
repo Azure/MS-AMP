@@ -88,15 +88,9 @@ class TypeCast:
 
         meta.scale_inv.data.copy_(torch.reciprocal(meta.scale))    # scale_inv = 1 / scale
         dtype = Dtypes.get_dtype_from_qtype(meta.qtype)
-        assert dtype in [torch.float16, torch.bfloat16, torch.float32]
-        if input.dtype == dtype:
-            input_fp16 = input.clone()
-        else:
-            input_fp16 = input.to(dtype)
         # reshape scale to the tensor with the shape of (1,)
         # to avoid overflow when scale is larger than the maximum of qtype
-        input_fp16.mul_(meta.scale.view((1,)))
-        return input_fp16
+        return (input * meta.scale.view((1,))).to(dtype)
 
     @staticmethod
     def cast_from_fp8(input, meta, otype):
@@ -135,13 +129,6 @@ class TypeCast:
             torch.Tensor: tensor whose type is otype.
         """
         dtype = Dtypes.get_dtype_from_qtype(otype)
-        if input.dtype == dtype:
-            # return a copy
-            input = input.clone()
-        else:
-            input = input.to(dtype)
-        if meta.scale_inv != 1:
-            input.mul_(meta.scale_inv)
-        return input
+        return (input * meta.scale_inv.view((1,))).to(dtype)
 
     cast_from_fp32 = cast_from_fp16
