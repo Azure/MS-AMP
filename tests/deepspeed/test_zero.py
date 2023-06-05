@@ -22,34 +22,51 @@ class FP8DeepSpeedZeroOptimizerTestCase(unittest.TestCase):
     def tearDown(self):
         """Hook method for deconstructing the test fixture after testing it."""
         pass
+    
+    def _backward(self, ds_config):
+        model = nn.Linear(4, 4, device='cuda')
+        model = LinearReplacer.replace(model, Dtypes.kfloat16)
+        optimizer = LBAdam(list(model.parameters()))
+        model, _, _, _ = deepspeed.initialize(model=model, optimizer=optimizer, config=ds_config)
 
-    def test_fp8_deepspeed_zero_optimizer(self):
-        """Test fp8 deepspeed zero optimizer."""
+        inputs = []
+        num_inputs = 10
+        for _ in range(num_inputs):
+            inputs.append(torch.rand(4, 4, device='cuda'))
+        
+        losses = []
+        epoches = 10
+        for _ in range(epoches):
+            total_loss = 0
+            for i in range(num_inputs):
+                output = model(inputs[i])
+                loss = output.sum()
+                model.backward(loss)
+                total_loss += loss.item()
+                model.step()
+            avg_loss = total_loss / 10
+            losses.append(avg_loss)
+
+        for i in range(epoches):
+            if i > 0:
+                assert losses[i] < losses[i - 1]
+
+    def test_stage1(self):
+        """Test fp8 deepspeed zero-stage1."""
         config = {
             'train_batch_size': 1,
             'zero_optimization': {
                 'stage': 1,
             }
         }
-        model = nn.Linear(4, 4, device='cuda')
-        model = LinearReplacer.replace(model, Dtypes.kfloat16)
-        optimizer = LBAdam(list(model.parameters()))
-        model, optimizer, _, _ = deepspeed.initialize(model=model, optimizer=optimizer, config=config)
+        self._backward(config)
 
-        inputs = []
-        num_inputs = 10
-        for _ in range(num_inputs):
-            inputs.append(torch.rand(4, 4, device='cuda'))
-
-        losses = []
-        epoches = 10
-        for _ in range(epoches):
-            loss = 0
-            for i in range(num_inputs):
-                output = model(inputs[i])
-                loss += output.sum()
-                model.backward(loss)
-                model.step()
-            loss /= 10
-            losses.append(loss)
-
+    def test_stage2(self):
+        """Test fp8 deepspeed zero-stage2."""
+        config = {
+            'train_batch_size': 1,
+            'zero_optimization': {
+                'stage': 2,
+            }
+        }
+        self._backward(config)

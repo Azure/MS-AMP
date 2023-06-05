@@ -39,7 +39,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
             **kwargs: Arbitrary keyword arguments.
         """
         self.fp8_param_groups = []
-        for pg in self.optimizer.param_groups:
+        for pg in init_optimizer.param_groups:
             fp8_params = []
             hp_params = []
             for p in pg['params']:
@@ -52,10 +52,10 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
             self.fp8_param_groups.append(fp8_params)
             pg['params'] = hp_params
 
-        assert len(self.fp8_param_groups) == len(self.optimizer.param_groups)
+        assert len(self.fp8_param_groups) == len(init_optimizer.param_groups)
 
         super().__init__(init_optimizer, *args, **kwargs)
-        
+
         self.fp8_initialize_structures()
 
         partition_id = dist.get_rank(group=self.dp_process_group)
@@ -248,7 +248,6 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
         self.fp8_total_grads_in_partition = {} # {group_id => {partiton_id => total_params}}
         self.fp8_averaged_gradients = {}
         self.fp8_groups_flat = [] # flat list of fp8 groups.
-        self.fp8_param_groups = []
         self.fp8_master_param_groups = []
         self.fp8_param_id = {} # {id => index}
         self.fp8_parallel_partitioned_groups = [] # 2-depth list, group, params.
@@ -285,7 +284,6 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
         self.reduce_ipg_grads()
         self.report_ipg_memory_usage('In ipg_epilogue after reduce_ipg_grads', 0)
         self.fp8_reduce_ipg_grads()
-
         model_state.ready_to_all_reduce_grads = False
 
         # if dist.get_rank() == 0:
@@ -556,14 +554,12 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
 
         with torch.cuda.stream(stream):
             for _, param, param_id in self.fp8_params_in_ipg_bucket:
-
                 assert self.fp8_params_already_reduced[param_id] == False, \
                     f"The parameter {param_id} has already been reduced. \
                     Gradient computed twice for this partition. \
                     Multiple gradient reduction is currently not supported"
 
                 self.fp8_params_already_reduced[param_id] = True
-
                 if self.partition_gradients:
                     if not self.fp8_is_param_in_current_partition[param_id]:
                         if self.overlap_comm and self.contiguous_gradients is False:
@@ -681,6 +677,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
 
         see_memory_usage('After norm before optimizer')
         # Step 2:- run optimizer and upscaling simultaneously
+
         assert len(self.bit16_groups) == len(self.fp8_param_groups)
         for i, group in enumerate(self.bit16_groups):
             self.start_timers([OPTIMIZER_GRADIENTS])
@@ -880,7 +877,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
         """
         if isinstance(x, ScalingTensor):
             return x.has_inf_or_nan()
-        return super()._has_inf_or_nan(x, j)
+        return DeepSpeedZeroOptimizer._has_inf_or_nan(x, j)
 
     def backward(self, loss, retain_graph=False):
         """Backward function.
