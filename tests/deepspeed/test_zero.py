@@ -12,6 +12,7 @@ from msamp.common.dtype.dtypes import Dtypes
 from msamp.nn import LinearReplacer
 from msamp.optim import LBAdam
 
+
 class FP8DeepSpeedZeroOptimizerTestCase(unittest.TestCase):
     """Test Fp8DeepSpeedZeroOptimizer."""
     def setUp(self):
@@ -22,7 +23,7 @@ class FP8DeepSpeedZeroOptimizerTestCase(unittest.TestCase):
     def tearDown(self):
         """Hook method for deconstructing the test fixture after testing it."""
         pass
-    
+
     def _backward(self, ds_config):
         model = nn.Linear(4, 4, device='cuda')
         model = LinearReplacer.replace(model, Dtypes.kfloat16)
@@ -33,7 +34,7 @@ class FP8DeepSpeedZeroOptimizerTestCase(unittest.TestCase):
         num_inputs = 10
         for _ in range(num_inputs):
             inputs.append(torch.rand(4, 4, device='cuda'))
-        
+
         losses = []
         epoches = 10
         for _ in range(epoches):

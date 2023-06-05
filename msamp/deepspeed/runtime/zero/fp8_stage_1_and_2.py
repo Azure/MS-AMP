@@ -7,10 +7,8 @@
 from itertools import chain
 
 import torch
-from torch._six import inf
 from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 from deepspeed import comm as dist
-
 
 from msamp.common.tensor import ScalingTensor, ScalingMeta
 from msamp.common.dtype import Dtypes
@@ -18,8 +16,7 @@ from msamp.nn import model_state
 from msamp.common.utils import TransformerEngineWrapper
 
 from deepspeed.runtime.zero.stage_1_and_2 import all_gather_dp_groups, DeepSpeedZeroOptimizer, \
-    get_accelerator, move_to_cpu, logger, PIPE_REPLICATED, see_memory_usage
-
+    get_accelerator, move_to_cpu, logger, see_memory_usage
 
 SINGLE_PARTITION_OF_FP8_GROUPS = 'single_partition_of_fp8_groups'
 
@@ -30,9 +27,9 @@ WEIGHT_QTYPE = Dtypes.kfloat8_e4m3
 
 class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
     """DeepSpeedZeroOptimizer with MS-AMP support."""
-    def __init__(self, init_optimizer, *args, **kwargs):
+    def __init__(self, init_optimizer, *args, **kwargs):    # noqa: C901
         """Constructor.
-        
+
         Args:
             init_optimizer (torch.optim.optimizer): existing optimizer to be converted to ZeRO.
             *args: Variable length argument list.
@@ -60,7 +57,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
 
         partition_id = dist.get_rank(group=self.dp_process_group)
         partition_size = dist.get_world_size(group=self.dp_process_group)
-        fp8_mems = [0] * partition_size  # record the memory usage of each partition.
+        fp8_mems = [0] * partition_size    # record the memory usage of each partition.
 
         # partition fp8 params.
         for group_id, (fp8_params, hp_pg) in enumerate(zip(self.fp8_param_groups, self.optimizer.param_groups)):
@@ -77,7 +74,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
             self.fp8_param_to_partition_ids[group_id] = {}
 
             fp8_part_master_params = []
-            params_partitions = [list() for _ in range(partition_size)]  # params in each partiton.
+            params_partitions = [list() for _ in range(partition_size)]    # params in each partiton.
             for p, _ in fp8_params_with_size:
                 target_rank = fp8_mems.index(min(fp8_mems))
                 fp8_mems[target_rank] += p.numel()
@@ -131,10 +128,10 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
         if self.partition_gradients or self.overlap_comm:
             self.fp8_create_reduce_and_remove_grad_hooks()
         self.fp8_reset_partition_gradient_structures()
-    
+
     def _pad_and_flat(self, values_partitions, group_fp8_mems, group_id):
         """Pad and flat values_partitions.
-        
+
         Args:
             values_partitions (list[list[torch.Tensor]]): parameters in each partiton.
             group_fp8_mems (list[int]): fp8 memory size of each partition.
@@ -158,9 +155,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
             paddings.append(pad)
             if pad > 0:
                 values_partitions[pi].append(ref_value.new_empty((pad, )))
-        logger.info(
-            f'[DeepSpeed ZeRO for MSAMP] group: {group_id}, partitions: {group_fp8_mems}, paddings: {paddings}'
-        )
+        logger.info(f'[DeepSpeed ZeRO for MSAMP] group: {group_id}, partitions: {group_fp8_mems}, paddings: {paddings}')
 
         # the number of elements in each partition is the same.
         values = list(chain(*values_partitions))
@@ -192,6 +187,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
                 self.fp8_is_param_in_current_partition[self.get_fp8_param_id(param)] = False
 
     def initialize_optimizer_states(self):
+        """There is no need to initialize optimizer states for fp8."""
         return
 
     def reduce_gradients(self, pipeline_parallel=False):
@@ -236,22 +232,22 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
         self.fp8_params_already_reduced = []
         self.fp8_grads_in_ipg_bucket = []
         self.fp8_params_in_ipg_bucket = []
-        self.fp8_param_to_partition_ids = {} # {group_id => {param_id => partition_id}}
+        self.fp8_param_to_partition_ids = {}
         self.fp8_params_in_partition = []
         self.fp8_params_not_in_partition = []
         self.fp8_is_param_in_current_partition = {}
         self.fp8_previous_reduced_grads = None
         self.fp8_is_partition_reduced = {}
         self.fp8_is_grad_computed = {}
-        self.fp8_param_dict = {} # {index => param}
+        self.fp8_param_dict = {}
         self.fp8_remaining_grads_in_partition = {}
-        self.fp8_total_grads_in_partition = {} # {group_id => {partiton_id => total_params}}
+        self.fp8_total_grads_in_partition = {}
         self.fp8_averaged_gradients = {}
-        self.fp8_groups_flat = [] # flat list of fp8 groups.
+        self.fp8_groups_flat = []
         self.fp8_master_param_groups = []
-        self.fp8_param_id = {} # {id => index}
-        self.fp8_parallel_partitioned_groups = [] # 2-depth list, group, params.
-        self.fp8_params_partitions_groups = [] # 3-depth list, group, partition, params.
+        self.fp8_param_id = {}
+        self.fp8_parallel_partitioned_groups = []
+        self.fp8_params_partitions_groups = []
 
         # initialize self.fp8_param_id, fp8_param_dict and fp8_params_already_reduced.
         count = 0
@@ -276,9 +272,10 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
                 self.fp8_is_grad_computed[i][partition_id] = {}
                 self.fp8_is_partition_reduced[i][partition_id] = False
 
-    def independent_gradient_partition_epilogue(self):
-        """Epilogue for igp: reduce the gradients in buckect, clear gradient and status. 
-           It will be called in model.backward().
+    def independent_gradient_partition_epilogue(self):    # noqa: C901
+        """Epilogue for igp.
+
+        reduce the gradients in buckect, clear gradient and status. It will be called in model.backward().
         """
         self.report_ipg_memory_usage('In ipg_epilogue before reduce_ipg_grads', 0)
         self.reduce_ipg_grads()
@@ -301,8 +298,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
 
         if self.cpu_offload is False:
             for i, _ in enumerate(self.bit16_groups):
-
-                if not i in self.averaged_gradients or self.averaged_gradients[i] is None:
+                if i not in self.averaged_gradients or self.averaged_gradients[i] is None:
                     self.averaged_gradients[i] = self.get_flat_partition(
                         self.params_in_partition[i],
                         self.first_offset[i],
@@ -326,7 +322,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
 
             # accumulate fp8 gradients in partition.
             for i, _ in enumerate(self.fp8_param_groups):
-                if not i in self.fp8_averaged_gradients or self.fp8_averaged_gradients[i] is None:
+                if i not in self.fp8_averaged_gradients or self.fp8_averaged_gradients[i] is None:
                     self.fp8_averaged_gradients[i] = self.fp8_get_flat_partition(self.fp8_params_in_partition[i])
                 else:
                     avg_new = self.fp8_get_flat_partition(self.fp8_params_in_partition[i])
@@ -340,11 +336,13 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
         # All gradients required by the step
         # are in self.averaged_gradients
         self.zero_grad()
-        see_memory_usage(f"End ipg_epilogue")
+        see_memory_usage('End ipg_epilogue')
 
     def fp8_reset_partition_gradient_structures(self):
-        """Resets all partition to no reduced, sets remaining grads to the total number of grads in each partition,
-        sets is grad computed to false for all grads in partition
+        """Resets all partition to no reduced.
+
+        Sets remaining grads to the total number of grads in each partition, sets is grad computed to false for
+        all grads in partition
         """
         for i, _ in enumerate(self.fp8_param_groups):
             total_partitions = dist.get_world_size(group=self.real_dp_process_group[i])
@@ -361,6 +359,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
         for i, param_group in enumerate(self.fp8_param_groups):
             for param in param_group:
                 if param.requires_grad:
+
                     def wrapper(param, i):
                         def reduce_partition_and_remove_grads(*notneeded):
                             self.fp8_reduce_ready_partitions_and_remove_grads(param, i)
@@ -371,10 +370,10 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
 
     def get_fp8_param_id(self, param):
         """Returns the id of the fp8 param.
-        
+
         Args:
             param: The parameter to get the id for.
-        
+
         Returns:
             The id of the parameter.
         """
@@ -395,10 +394,10 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
                 self.fp8_ipg_index = 1 - self.fp8_ipg_index
 
         param_id = self.get_fp8_param_id(param)
-        assert self.fp8_params_already_reduced[param_id] == False, \
-            f"The FP8 parameter {param_id} has already been reduced. \
+        assert not self.fp8_params_already_reduced[param_id], \
+            'The FP8 parameter {param_id} has already been reduced. \
             Gradient computed twice for this partition. \
-            Multiple gradient reduction is currently not supported"
+            Multiple gradient reduction is currently not supported'
 
         if param.numel() > self.reduce_bucket_size:
             self.fp8_extra_large_param_to_reduce = param
@@ -417,17 +416,14 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
 
         self.fp8_elements_in_ipg_bucket += param.numel()
 
-        assert param.grad is not None, f"rank {dist.get_rank()} - Invalid to reduce Param {param_id} with None gradient"
+        assert param.grad is not None, f'rank {dist.get_rank()} - Invalid to reduce Param {param_id} with None gradient'
 
         self.fp8_grads_in_ipg_bucket.append(param.grad)
         self.fp8_params_in_ipg_bucket.append((i, param, param_id))
 
-    def fp8_gradient_reduction_w_predivide(self, tensor):
-        raise NotImplementedError()
-
     def fp8_average_tensor(self, tensor):
         """Reduce the average value of each fp8 gradient in the bucket to the it's partition asynchronously.
-        
+
         Args:
             tensor (torch.Tensor): The tensor to reduce.
         """
@@ -439,8 +435,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
 
         with torch.cuda.stream(stream):
             if not self.reduce_scatter:
-                self.fp8_gradient_reduction_w_predivide(tensor)
-                return
+                raise NotImplementedError('Reduce scatter is not implemented for fp8')
 
             process_group = self.dp_process_group
             rank_and_offsets = []
@@ -454,7 +449,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
                 partition_ids = self.fp8_param_to_partition_ids[i][param_id]
                 assert all(
                     [p_id < partition_size for p_id in partition_ids]
-                ), f"world size {partition_size} and p_ids: {partition_ids}"
+                ), f'world size {partition_size} and p_ids: {partition_ids}'
                 assert len(partition_ids) == 1
                 param_partition_id = partition_ids[0]
                 numel = param.numel()
@@ -497,9 +492,9 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
 
     def fp8_copy_grads_in_partition(self, param):
         """Copy the gradient of the param to a buffer belong's to it's partition.
-        
+
         Args:
-            tensor (ScalingTensor): The tensor to reduce.
+            param (torch.nn.Parameter): The parameter to copy the gradient from.
         """
         assert not self.cpu_offload
         if self.fp8_grads_in_partition is None:
@@ -526,15 +521,18 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
         grad.data = new_grad_tensor.data.view(grad.shape)
         self.fp8_grads_in_partition_offset += param.numel()
 
-    def fp8_reduce_ipg_grads(self):
-        """Reduce the gradients in the bucket, copy the reduced gradients to the partition buffers and remove the other gradients."""
+    def fp8_reduce_ipg_grads(self):    # noqa: C901
+        """Reduce the gradients in the bucket.
+
+        Reduce gradients, copy the reduced gradients to the partition buffers and remove the other gradients.
+        """
         if self.contiguous_gradients:
             if self.fp8_extra_large_param_to_reduce is not None:
                 assert len(self.fp8_params_in_ipg_bucket) == 1, "more than 1 param in ipg bucket, this shouldn't happen"
                 _, _, param_id = self.fp8_params_in_ipg_bucket[0]
                 assert self.get_fp8_param_id(
                     self.fp8_extra_large_param_to_reduce
-                ) == param_id, "param in ipg bucket does not match extra-large param"
+                ) == param_id, 'param in ipg bucket does not match extra-large param'
                 self.fp8_average_tensor(self.fp8_extra_large_param_to_reduce.grad.view(-1))
                 self.fp8_extra_large_param_to_reduce = None
             else:
@@ -554,10 +552,10 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
 
         with torch.cuda.stream(stream):
             for _, param, param_id in self.fp8_params_in_ipg_bucket:
-                assert self.fp8_params_already_reduced[param_id] == False, \
-                    f"The parameter {param_id} has already been reduced. \
+                assert not self.fp8_params_already_reduced[param_id], \
+                    f'The parameter {param_id} has already been reduced. \
                     Gradient computed twice for this partition. \
-                    Multiple gradient reduction is currently not supported"
+                    Multiple gradient reduction is currently not supported'
 
                 self.fp8_params_already_reduced[param_id] = True
                 if self.partition_gradients:
@@ -583,7 +581,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
 
     def fp8_reduce_ready_partitions_and_remove_grads(self, param, i):
         """Reduce gradients and remove grads in parameters.
-        
+
         Args:
             param (ScalingTensor): The parameter tensor.
             i (int): The index of the parameter group.
@@ -599,9 +597,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
             self.fp8_previous_reduced_grads = None
 
     def zero_grad(self, set_grads_to_None=True):
-        """
-        Zero FP16 and FP8 parameter grads.
-        """
+        """Zero FP16 and FP8 parameter grads."""
         # FP32 grad should never exist.
         # For speed, set model fp16 grad to None by default
         for group in self.bit16_groups + self.fp8_param_groups:
@@ -615,10 +611,10 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
 
     def fp8_get_flat_partition(self, tensor_list):
         """Get list of gradient from a list of ScalingTensors. Using zero to initialize if grad is None.
-        
+
         Args:
             tensor_list (list): list of tensors.
-        
+
         Returns:
             list: list of gradients.
         """
@@ -632,13 +628,11 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
             flat_tensor_list.append(tensor.grad)
         return flat_tensor_list
 
-    def step(self, closure=None):
-        """
-        Not supporting closure.
-        """
+    def step(self, closure=None):    # noqa C901
+        """Performs a single optimization step. closure is not supported."""
         self.micro_step_id = -1
 
-        see_memory_usage("In step before checking overflow")
+        see_memory_usage('In step before checking overflow')
 
         # First compute norm for all group so we know if there is overflow
         self.check_overflow()
@@ -690,7 +684,8 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
                 self.free_grad_in_param_list(self.fp8_params_not_in_partition[i])
 
                 # create a flat gradients for parameters updated by this process
-                # If we are last partition, ensure we have same size grads and partition size, if not pad with zero tensors
+                # If we are last partition, ensure we have same size grads and partition size,
+                # if not pad with zero tensors
                 if partition_id == dist.get_world_size(group=self.real_dp_process_group[i]) - 1:
                     single_grad_partition = self.flatten_dense_tensors_aligned(
                         self.averaged_gradients[i], int(self.partition_size[i])
@@ -703,7 +698,8 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
                         single_grad_partition.numel(), self.partition_size[i], i, partition_id)
 
                 self.single_partition_of_fp32_groups[i].grad = single_grad_partition
-                # release all the gradient since we have already created a necessary copy in dp_grad_partition(ZeRO stage2)
+                # release all the gradient since we have already created a necessary copy in
+                # dp_grad_partition(ZeRO stage2)
                 self.free_grad_in_param_list(self.params_in_partition[i])
                 self.averaged_gradients[i] = None
 
@@ -786,7 +782,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
         return
 
     def all_gather_fp8_metas(self):
-        # all gather meta.scale
+        """All gather fp8 meta data."""
         # step 1. flat all meta.scale
         scale_invs_parallel_partitioned_groups = []
         scale_invs_groups = []
@@ -827,7 +823,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
 
     def has_overflow_partitioned_grads_serial(self):
         """Check if there is overflow in any accumulated gradient.
-        
+
         Returns:
             bool: Whether or not there is overflow in any accumulated grad.
         """
@@ -841,11 +837,19 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
         return False
 
     def has_overflow(self, partition_gradients=True):
+        """Check if there is overflow in any accumulated gradient.
+
+        Args:
+            partition_gradients (bool, optional): Whether or not to partition gradients. Defaults to True.
+
+        Returns:
+            bool: Whether or not there is overflow.
+        """
         if partition_gradients:
             overflow = self.local_overflow if self.cpu_offload else self.has_overflow_partitioned_grads_serial()
             overflow_gpu = get_accelerator().ByteTensor([overflow])
-            '''This will capture overflow across all data parallel and expert parallel process
-            Since expert parallel process are a subset of data parallel process'''
+            # This will capture overflow across all data parallel and expert parallel process
+            # Since expert parallel process are a subset of data parallel process.
             dist.all_reduce(overflow_gpu, op=dist.ReduceOp.MAX, group=self.dp_process_group)
 
         else:
@@ -863,15 +867,15 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
 
         overflow = overflow_gpu[0].item()
         return bool(overflow)
-        
+
     @staticmethod
     def _has_inf_or_nan(x, j=None):
         """Check for inf/nan in a tensor or ScalingTensor.
-        
+
         Args:
             x (torch.Tensor or ScalingTensor): tensor to check for inf/nan.
             j (int, optional): index of the tensor in the bucket. Defaults to None.
-        
+
         Returns:
             bool: True if the tensor has inf/nan, False otherwise.
         """
@@ -885,11 +889,13 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
         :attr:`backward` performs the following steps:
         1. fp32_loss = loss.float()
         2. scaled_loss = fp32_loss*loss_scale
-        3. scaled_loss.backward(), which accumulates scaled gradients into the ``.grad`` attributes of the model's fp16 leaves
+        3. scaled_loss.backward(), which accumulates scaled gradients into the ``.grad`` attributes of the
+           model's fp16 leaves
 
         Args:
             loss (torch.Tensor): loss tensor to perform backward pass on.
-            retain_graph (bool, optional): If ``True``, graph is retained for another backward pass. Defaults to ``False``.
+            retain_graph (bool, optional): If ``True``, graph is retained for another backward pass.
+                                           Defaults to ``False``.
         """
         if self.contiguous_gradients:
             self.fp8_ipg_buffer = []
@@ -910,7 +916,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
                 self.fp8_ipg_buffer.append(fp8_buf_1)
 
             self.fp8_ipg_index = 0
-        
+
         super().backward(loss.float(), retain_graph=retain_graph)
 
     def _fp8_get_groups(self, groups_with_padding):
@@ -922,7 +928,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
                 new_group.append(p.detach())
             groups_without_padding.append(new_group)
         return groups_without_padding
-    
+
     def state_dict(self):
         """Get state dict.
 
