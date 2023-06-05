@@ -12,9 +12,7 @@ from deepspeed.runtime.engine import SparseTensor, ZERO_OPTIMIZATION, AMP, amp, 
                                      TORCH_ADAM_PARAM, ADAM_W_MODE, ADAM_W_MODE_DEFAULT, LAMB_OPTIMIZER, \
                                      ONEBIT_ADAM_OPTIMIZER, logger, ZERO_ONE_ADAM_OPTIMIZER, ONEBIT_LAMB_OPTIMIZER, \
                                      DeepSpeedEngine, instrument_w_nvtx, log_dist, see_memory_usage, DummyOptim, \
-                                     DeepSpeedZeroOptimizer, DeepSpeedZeRoOffload, \
-                                     PipelineModule, ZeroStageEnum
-from msamp.deepspeed.runtime.zero.fp8_stage_1_and_2 import FP8DeepSpeedZeroOptimizer
+                                     DeepSpeedZeroOptimizer, DeepSpeedZeRoOffload, PipelineModule, ZeroStageEnum
 
 from msamp.common.tensor import ScalingTensor, TensorDist
 from msamp.nn import model_state
@@ -22,6 +20,7 @@ from msamp.optim import LBAdam as MSAMP_Adam, LBAdamW as MSAMP_AdamW, DSAdam
 from msamp.optim.optimizer import LBOptimizer
 from msamp.deepspeed.runtime.fp8.fused_optimizer import FP8Optimizer
 from msamp.deepspeed.runtime.config import MSAMP_ADAM_OPTIMIZER, MSAMP_ADAMW_OPTIMIZER
+from msamp.deepspeed.runtime.zero.fp8_stage_1_and_2 import FP8DeepSpeedZeroOptimizer
 
 
 def split_half_float_double_sparse(tensors):

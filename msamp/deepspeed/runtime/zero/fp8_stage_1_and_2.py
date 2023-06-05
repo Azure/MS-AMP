@@ -136,7 +136,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
         """Pad and flat values_partitions.
         
         Args:
-            values_partitions (list[list[torch.Tensor]]): 2-depth list, group, params.
+            values_partitions (list[list[torch.Tensor]]): parameters in each partiton.
             group_fp8_mems (list[int]): fp8 memory size of each partition.
             group_id (int): group id.
 
@@ -146,9 +146,10 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
         partition_size = dist.get_world_size(group=self.dp_process_group)
         ref_value = values_partitions[0][0]
         dtype = ref_value.dtype
-        assert all(v.dtype == dtype for v in chain(*values_partitions)), \
-            set(chain(*[[v.dtype for v in vs] for vs in values_partitions]))
+        assert all(v.dtype == dtype for v in chain(*values_partitions))
+
         align = self.fp8_nccl_start_alignment_factor
+        max_flat_numels = max(group_fp8_mems)
         max_flat_numels = (max_flat_numels + align - 1) // align * align
         # Padding for Alignment
         paddings = []
