@@ -913,6 +913,16 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
         
         super().backward(loss.float(), retain_graph=retain_graph)
 
+    def _fp8_get_groups(self, groups_with_padding):
+        groups_without_padding = []
+        for _, group in enumerate(groups_with_padding):
+            new_group = []
+            for p in group:
+                # shallow copy
+                new_group.append(p.detach())
+            groups_without_padding.append(new_group)
+        return groups_without_padding
+    
     def state_dict(self):
         """Get state dict.
 
@@ -926,7 +936,9 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
             torch.save(checkpoint, "saved.pth")
         """
         state_dict = super().state_dict()
-        state_dict[SINGLE_PARTITION_OF_FP8_GROUPS] = self.fp8_master_param_groups
+        # MSAMP
+        fp8_groups = self._fp8_get_groups(self.fp8_master_param_groups)
+        state_dict[SINGLE_PARTITION_OF_FP8_GROUPS] = fp8_groups
         return state_dict
 
     def _load_legacy_checkpoint(self, state_dict_list, load_optimizer_states=True, load_from_fp32_weights=False):
