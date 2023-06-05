@@ -12,6 +12,8 @@ from msamp.common.dtype.dtypes import Dtypes
 from msamp.nn import LinearReplacer
 from msamp.optim import LBAdam
 
+from tests.helper import decorator
+
 
 class FP8DeepSpeedZeroOptimizerTestCase(unittest.TestCase):
     """Test Fp8DeepSpeedZeroOptimizer."""
@@ -52,6 +54,7 @@ class FP8DeepSpeedZeroOptimizerTestCase(unittest.TestCase):
             if i > 0:
                 assert losses[i] < losses[i - 1]
 
+    @decorator.cuda_test
     def test_stage1(self):
         """Test fp8 deepspeed zero-stage1."""
         config = {
@@ -62,6 +65,7 @@ class FP8DeepSpeedZeroOptimizerTestCase(unittest.TestCase):
         }
         self._backward(config)
 
+    @decorator.cuda_test
     def test_stage2(self):
         """Test fp8 deepspeed zero-stage2."""
         config = {
