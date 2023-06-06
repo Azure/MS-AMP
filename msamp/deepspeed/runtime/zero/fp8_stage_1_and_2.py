@@ -9,14 +9,12 @@ from itertools import chain
 import torch
 from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 from deepspeed import comm as dist
-
+from deepspeed.runtime.zero.stage_1_and_2 import all_gather_dp_groups, DeepSpeedZeroOptimizer, \
+    get_accelerator, move_to_cpu, logger, see_memory_usage
 from msamp.common.tensor import ScalingTensor, ScalingMeta
 from msamp.common.dtype import Dtypes
 from msamp.nn import model_state
 from msamp.common.utils import TransformerEngineWrapper
-
-from deepspeed.runtime.zero.stage_1_and_2 import all_gather_dp_groups, DeepSpeedZeroOptimizer, \
-    get_accelerator, move_to_cpu, logger, see_memory_usage
 
 SINGLE_PARTITION_OF_FP8_GROUPS = 'single_partition_of_fp8_groups'
 
