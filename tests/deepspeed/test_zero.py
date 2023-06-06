@@ -26,7 +26,7 @@ class FP8DeepSpeedZeroOptimizerTestCase(unittest.TestCase):
         """Hook method for deconstructing the test fixture after testing it."""
         pass
 
-    def _backward(self, ds_config):
+    def _check_zero(self, ds_config):
         model = nn.Linear(4, 4, device='cuda')
         model = LinearReplacer.replace(model, Dtypes.kfloat16)
         optimizer = LBAdam(list(model.parameters()))
@@ -63,7 +63,7 @@ class FP8DeepSpeedZeroOptimizerTestCase(unittest.TestCase):
                 'stage': 1,
             }
         }
-        self._backward(config)
+        self._check_zero(config)
 
     @decorator.cuda_test
     def test_stage2(self):
@@ -74,4 +74,4 @@ class FP8DeepSpeedZeroOptimizerTestCase(unittest.TestCase):
                 'stage': 2,
             }
         }
-        self._backward(config)
+        self._check_zero(config)
