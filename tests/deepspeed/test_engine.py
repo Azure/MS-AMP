@@ -102,7 +102,11 @@ class DeepSpeedEngineTestCase(unittest.TestCase):
         config = {
             'train_batch_size': 1,
             'optimizer': {
-                'type': 'msamp_adam',
+                'type': 'adam',
+            },
+            'msamp': {
+                'enabled': True,
+                'opt_level': 'O2'
             }
         }
         model4, _, _, _ = deepspeed.initialize(model=model, config=config)
@@ -114,11 +118,15 @@ class DeepSpeedEngineTestCase(unittest.TestCase):
         config = {
             'train_batch_size': 1,
             'optimizer': {
-                'type': 'msamp_adam',
+                'type': 'adam',
                 'params': {
                     'torch_adam': True,
                     'adam_w_mode': False,
                 }
+            },
+            'msamp': {
+                'enabled': True,
+                'opt_level': 'O2'
             }
         }
 
@@ -131,10 +139,14 @@ class DeepSpeedEngineTestCase(unittest.TestCase):
         config = {
             'train_batch_size': 1,
             'optimizer': {
-                'type': 'msamp_adamw',
+                'type': 'adamw',
                 'params': {
                     'torch_adam': True,
                 }
+            },
+            'msamp': {
+                'enabled': True,
+                'opt_level': 'O2'
             }
         }
 
@@ -147,13 +159,21 @@ class DeepSpeedEngineTestCase(unittest.TestCase):
     def test_backward(self):
         """Test backward method."""
         model = nn.Linear(4, 4, device='cuda')
-        model = LinearReplacer.replace(model, Dtypes.kfloat16)
-        optimizer = LBAdamW(list(model.parameters()))
 
         config = {
             'train_batch_size': 1,
+            'optimizer': {
+                'type': 'adamw',
+                'params': {
+                    'torch_adam': True,
+                }
+            },
+            'msamp': {
+                'enabled': True,
+                'opt_level': 'O2'
+            }
         }
-        model, optimizer, _, _ = deepspeed.initialize(model=model, optimizer=optimizer, config=config)
+        model, _, _, _ = deepspeed.initialize(model=model, config=config)
 
         inputs = []
         num_inputs = 10
@@ -163,14 +183,14 @@ class DeepSpeedEngineTestCase(unittest.TestCase):
         losses = []
         epoches = 10
         for _ in range(epoches):
-            loss = 0
+            total_loss = 0
             for i in range(num_inputs):
                 output = model(inputs[i])
-                loss += output.sum()
+                loss = output.sum()
+                total_loss += loss.item()
                 model.backward(loss)
                 model.step()
-            loss /= 10
-            losses.append(loss)
+            losses.append(total_loss / 10)
 
         for i in range(epoches):
             if i > 0:

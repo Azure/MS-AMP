@@ -6,6 +6,7 @@
 """DeepSpeedEngine in MS-AMP."""
 
 import torch
+
 import deepspeed
 from deepspeed.runtime.engine import SparseTensor, ZERO_OPTIMIZATION, AMP, amp, \
                                      FP16, BFLOAT16, ADAGRAD_OPTIMIZER, ADAM_OPTIMIZER, ADAMW_OPTIMIZER, \
@@ -13,7 +14,9 @@ from deepspeed.runtime.engine import SparseTensor, ZERO_OPTIMIZATION, AMP, amp, 
                                      ONEBIT_ADAM_OPTIMIZER, logger, ZERO_ONE_ADAM_OPTIMIZER, ONEBIT_LAMB_OPTIMIZER, \
                                      DeepSpeedEngine, instrument_w_nvtx, log_dist, see_memory_usage, DummyOptim, \
                                      DeepSpeedZeroOptimizer, DeepSpeedZeRoOffload, PipelineModule, ZeroStageEnum
+from deepspeed.ops.adam import FusedAdam
 
+from msamp import initialize as msamp_initialize
 from msamp.common.tensor import ScalingTensor, TensorDist
 from msamp.nn import model_state
 from msamp.optim import LBAdam as MSAMP_Adam, LBAdamW as MSAMP_AdamW, DSAdam
@@ -22,6 +25,7 @@ from msamp.deepspeed.runtime.fp8.fused_optimizer import FP8Optimizer
 from msamp.deepspeed.runtime.config import MSAMP_ADAM_OPTIMIZER, MSAMP_ADAMW_OPTIMIZER
 from msamp.deepspeed.runtime.zero import utils    # noqa: F401
 from msamp.deepspeed.runtime.zero.fp8_stage_1_and_2 import FP8DeepSpeedZeroOptimizer
+from msamp.deepspeed.runtime.config import FP8
 
 
 def split_half_float_double_sparse(tensors):
@@ -78,19 +82,23 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
             basic_optimizer = self._configure_basic_optimizer(model_parameters)
             log_dist(f'Using DeepSpeed Optimizer param name {self.optimizer_name()} as basic optimizer', ranks=[0])
 
+        if self.msamp_enabled():
+            optlevel = self.msamp_optlevel()
+            if optlevel == 'O3':
+                # O3 is for ZeRO and need to cast to O2 for MS-AMP.
+                optlevel = 'O2'
+            model, basic_optimizer = msamp_initialize(self.module, basic_optimizer, optlevel)
+            self._set_client_model(model)
+
         self._check_for_duplicates(basic_optimizer)
 
         self.basic_optimizer = basic_optimizer
         log_dist('DeepSpeed Basic Optimizer = {}'.format(basic_optimizer.__class__.__name__), ranks=[0])
 
         optimizer_wrapper = self._do_optimizer_sanity_check(basic_optimizer)
-        use_fp8 = False
-        if isinstance(basic_optimizer, LBOptimizer):
-            use_fp8 = True
-
         if optimizer_wrapper == ZERO_OPTIMIZATION:
-            self.optimizer = self._configure_zero_optimizer(basic_optimizer, use_fp8=use_fp8)
-        elif use_fp8:
+            self.optimizer = self._configure_zero_optimizer(basic_optimizer)
+        elif optimizer_wrapper == FP8:
             self.optimizer = self._configure_fp8_optimizer(basic_optimizer, optimizer_wrapper)
         elif optimizer_wrapper == AMP:
             amp_params = self.amp_params()
@@ -111,106 +119,11 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
         self.compression_scheduler = self._configure_compression_scheduler()
         self.quantizer = self._configure_quantization()
 
-    def _configure_basic_optimizer(self, model_parameters):    # noqa: C901
-        """Config basic optimizer.
-
-        Args:
-            model_parameters (list): list of model parameters.
-
-        Returns:
-            torch.optim.Optimizer: basic optimizer.
-        """
-        optimizer_parameters = self.optimizer_params()
-        if optimizer_parameters is None:
-            optimizer_parameters = {}
-        # print(optimizer_parameters.keys())
-        if 'max_grad_norm' in optimizer_parameters.keys():
-            raise ValueError(
-                "'max_grad_norm' is not supported as an optimizer parameter, please switch to using the deepspeed \
-                  parameter 'gradient_clipping' see: https://www.deepspeed.ai/docs/config-json/#gradient-clipping  \
-                  for more details"
-            )
-
-        if self.optimizer_name() in [ADAGRAD_OPTIMIZER, ADAM_OPTIMIZER, ADAMW_OPTIMIZER]:
-            torch_adam = optimizer_parameters.pop(TORCH_ADAM_PARAM, False)
-            adam_w_mode = optimizer_parameters.pop(ADAM_W_MODE, ADAM_W_MODE_DEFAULT)
-
-            # Optimizer name of Adam forces AdamW logic unless adam_w_mode is explicitly set
-            effective_adam_w_mode = self.optimizer_name() == ADAMW_OPTIMIZER or adam_w_mode
-
-            if torch_adam:
-                if not effective_adam_w_mode:
-                    optimizer = torch.optim.Adam(model_parameters, **optimizer_parameters)
-                else:
-                    optimizer = torch.optim.AdamW(model_parameters, **optimizer_parameters)
-            else:
-                if self.zero_use_cpu_optimizer():
-                    if self.optimizer_name() == ADAGRAD_OPTIMIZER:
-                        from deepspeed.ops.adagrad import DeepSpeedCPUAdagrad
-                        optimizer = DeepSpeedCPUAdagrad(model_parameters, **optimizer_parameters)
-                    else:
-                        from deepspeed.ops.adam import DeepSpeedCPUAdam
-                        optimizer = DeepSpeedCPUAdam(
-                            model_parameters, **optimizer_parameters, adamw_mode=effective_adam_w_mode
-                        )
-                else:
-                    from deepspeed.ops.adam import FusedAdam
-
-                    optimizer = FusedAdam(
-                        model_parameters,
-                        **optimizer_parameters,
-                        adam_w_mode=effective_adam_w_mode,
-                    )
-
-        elif self.optimizer_name() in [MSAMP_ADAM_OPTIMIZER, MSAMP_ADAMW_OPTIMIZER]:
-            torch_adam = optimizer_parameters.pop(TORCH_ADAM_PARAM, False)
-            adam_w_mode = optimizer_parameters.pop(ADAM_W_MODE, ADAM_W_MODE_DEFAULT)
-            effective_adam_w_mode = self.optimizer_name() == MSAMP_ADAMW_OPTIMIZER or adam_w_mode
-
-            if torch_adam:
-                if not effective_adam_w_mode:
-                    optimizer = MSAMP_Adam(model_parameters, **optimizer_parameters)
-                else:
-                    optimizer = MSAMP_AdamW(model_parameters, **optimizer_parameters)
-            else:
-                if self.zero_use_cpu_optimizer():
-                    raise NotImplementedError('Not implemented on ZeRO CPU Optimizer')
-                else:
-                    optimizer = DSAdam(
-                        model_parameters,
-                        **optimizer_parameters,
-                        adam_w_mode=effective_adam_w_mode,
-                    )
-
-        elif self.optimizer_name() == LAMB_OPTIMIZER:
-            from deepspeed.ops.lamb import FusedLamb
-
-            optimizer = FusedLamb(model_parameters, **optimizer_parameters)
-        elif self.optimizer_name() == ONEBIT_ADAM_OPTIMIZER:
-            assert not self.zero_optimization(), '1bit-Adam is not compatible with ZeRO'
-            from deepspeed.runtime.fp16.onebit.adam import OnebitAdam
-
-            optimizer = OnebitAdam(model_parameters, self, **optimizer_parameters)
-            if not self.fp16_enabled():
-                logger.warning('Currently the convergence of 1-bit Adam is only verified under FP16')
-        elif self.optimizer_name() == ZERO_ONE_ADAM_OPTIMIZER:
-            assert not self.zero_optimization(), '0/1 Adam is not compatible with ZeRO'
-            from deepspeed.runtime.fp16.onebit.zoadam import ZeroOneAdam
-
-            optimizer = ZeroOneAdam(model_parameters, self, **optimizer_parameters)
-            if not self.fp16_enabled():
-                logger.warning('Currently the convergence of 0/1 Adam is only verified under FP16')
-        elif self.optimizer_name() == ONEBIT_LAMB_OPTIMIZER:
-            assert not self.zero_optimization(), '1bit-Lamb is not compatible with ZeRO'
-            from deepspeed.runtime.fp16.onebit.lamb import OnebitLamb
-
-            optimizer = OnebitLamb(model_parameters, self, **optimizer_parameters)
-            if not self.fp16_enabled():
-                logger.warning('Currently the convergence of 1-bit Lamb is only verified under FP16')
-        else:
-            torch_optimizer = getattr(torch.optim, self.optimizer_name())
-            optimizer = torch_optimizer(model_parameters, **optimizer_parameters)
-        return optimizer
+    def _do_optimizer_sanity_check(self, basic_optimizer):
+        """Check if optimizer is supported and return the wrapper type."""
+        if isinstance(basic_optimizer, LBOptimizer):
+            return FP8
+        return super()._do_optimizer_sanity_check(basic_optimizer)
 
     def _configure_fp8_optimizer(self, optimizer, optimizer_wrapper):
         """Configure fp8 optimizer.
@@ -261,7 +174,7 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
 
         return optimizer
 
-    def _configure_zero_optimizer(self, optimizer, use_fp8=False):
+    def _configure_zero_optimizer(self, optimizer):
         """Config zero optimizer.
 
         Args:
@@ -300,7 +213,7 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
                 if overlap_comm:
                     logger.warning('Pipeline parallelism does not support overlapped communication, will be disabled.')
                     overlap_comm = False
-            zero_t = DeepSpeedZeroOptimizer if not use_fp8 else FP8DeepSpeedZeroOptimizer
+            zero_t = DeepSpeedZeroOptimizer if not self.msamp_enabled() else FP8DeepSpeedZeroOptimizer
             optimizer = zero_t(
                 optimizer,
                 self.param_names,
@@ -514,3 +427,11 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
         allreduced = self.allreduce_bucket(small_bucket, dp_group)
         for buf, synced in zip(small_bucket, self.unflatten(allreduced, small_bucket)):
             buf.copy_(synced)
+
+    def msamp_enabled(self):
+        """Whether amp is enabled."""
+        return self._config.msamp_enabled
+
+    def msamp_optlevel(self):
+        """Return the opt level of MS-AMP."""
+        return self._config.msamp_optlevel

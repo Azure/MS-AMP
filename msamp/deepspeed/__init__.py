@@ -12,8 +12,8 @@ from deepspeed import __version__, __git_hash__, __git_branch__, log_dist, logge
                       DeepSpeedOptimizerCallable, DeepSpeedSchedulerCallable, DeepSpeedConfig, \
                       DeepSpeedHybridEngine, _LRScheduler, zero, PipelineModule, PipelineEngine
 
+from msamp.deepspeed.runtime.config import MSAMPDeepSpeedConfig
 from msamp.deepspeed.runtime.engine import MSAMPDeepSpeedEngine
-
 
 def initialize(
     args=None,
@@ -114,7 +114,7 @@ def initialize(
     assert config is not None, 'DeepSpeed requires --deepspeed_config to specify configuration file'
 
     if not isinstance(model, PipelineModule):
-        config_class = DeepSpeedConfig(config, mpu)
+        config_class = MSAMPDeepSpeedConfig(config, mpu)
         if config_class.hybrid_engine.enabled:
             engine = DeepSpeedHybridEngine(
                 args=args,

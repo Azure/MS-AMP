@@ -4,10 +4,11 @@
 """MS-AMP Python module."""
 
 import torch
+from deepspeed.ops.adam import FusedAdam
 
 from msamp.nn import clip_grad_norm_
 from msamp.nn import LinearReplacer
-from msamp.optim import LBAdam, LBAdamW
+from msamp.optim import LBAdam, LBAdamW, DSAdam
 
 opt_levels = ['O1', 'O2']
 
@@ -38,7 +39,7 @@ def initialize(model, optimizer=None, opt_level='O1'):    # noqa: C901
         # default optimizer.
         optimizer = torch.optim.AdamW(model.parameters())
 
-    if not isinstance(optimizer, (torch.optim.AdamW, torch.optim.Adam)):
+    if not isinstance(optimizer, (torch.optim.AdamW, torch.optim.Adam, FusedAdam)):
         raise ValueError('Optimizer {} is not supported in optimization level {}'.format(optimizer, opt_level))
 
     # We record the index of parameters in the original optimizer and fill new optimizer's parameter groups
@@ -86,6 +87,8 @@ def initialize(model, optimizer=None, opt_level='O1'):    # noqa: C901
         cast_optimizer = LBAdam(optimizer.param_groups, **default_args)
     elif isinstance(optimizer, torch.optim.AdamW):
         cast_optimizer = LBAdamW(optimizer.param_groups, **default_args)
+    elif isinstance(optimizer, FusedAdam):
+        cast_optimizer = DSAdam(optimizer.param_groups, **default_args)
 
     return cast_model, cast_optimizer
 
