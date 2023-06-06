@@ -11,7 +11,6 @@ from msamp import deepspeed
 from msamp.common.dtype.dtypes import Dtypes
 from msamp.nn import LinearReplacer
 from msamp.optim import LBAdam
-
 from tests.helper import decorator
 
 
