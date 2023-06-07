@@ -22,35 +22,17 @@ def add_argument():
 
     # data
     # cuda
-    parser.add_argument('--with_cuda',
-                        default=False,
-                        action='store_true',
-                        help="use CPU in case there\'s no GPU support")
-    parser.add_argument('--use_ema',
-                        default=False,
-                        action='store_true',
-                        help='whether use exponential moving average')
+    parser.add_argument(
+        '--with_cuda', default=False, action='store_true', help="use CPU in case there\'s no GPU support"
+    )
+    parser.add_argument('--use_ema', default=False, action='store_true', help='whether use exponential moving average')
 
     # train
-    parser.add_argument('-b',
-                        '--batch_size',
-                        default=32,
-                        type=int,
-                        help='mini-batch size (default: 32)')
-    parser.add_argument('-e',
-                        '--epochs',
-                        default=30,
-                        type=int,
-                        help='number of total epochs (default: 30)')
-    parser.add_argument('--local_rank',
-                        type=int,
-                        default=-1,
-                        help='local rank passed from distributed launcher')
+    parser.add_argument('-b', '--batch_size', default=32, type=int, help='mini-batch size (default: 32)')
+    parser.add_argument('-e', '--epochs', default=30, type=int, help='number of total epochs (default: 30)')
+    parser.add_argument('--local_rank', type=int, default=-1, help='local rank passed from distributed launcher')
 
-    parser.add_argument('--log-interval',
-                        type=int,
-                        default=200,
-                        help='output logging information at a given interval')
+    parser.add_argument('--log-interval', type=int, default=200, help='output logging information at a given interval')
 
     # Include DeepSpeed configuration arguments
     parser = deepspeed.add_config_arguments(parser)
@@ -69,40 +51,24 @@ deepspeed.init_distributed()
 #     If running on Windows and you get a BrokenPipeError, try setting
 #     the num_worker of torch.utils.data.DataLoader() to 0.
 
-transform = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-])
+transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
 if torch.distributed.get_rank() != 0:
     # might be downloading cifar data, let rank 0 download first
     torch.distributed.barrier()
 
-trainset = torchvision.datasets.CIFAR10(root='./data',
-                                        train=True,
-                                        download=True,
-                                        transform=transform)
+trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
 
 if torch.distributed.get_rank() == 0:
     # cifar data is downloaded, indicate other ranks can proceed
     torch.distributed.barrier()
 
-trainloader = torch.utils.data.DataLoader(trainset,
-                                          batch_size=16,
-                                          shuffle=True,
-                                          num_workers=2)
+trainloader = torch.utils.data.DataLoader(trainset, batch_size=16, shuffle=True, num_workers=2)
 
-testset = torchvision.datasets.CIFAR10(root='./data',
-                                       train=False,
-                                       download=True,
-                                       transform=transform)
-testloader = torch.utils.data.DataLoader(testset,
-                                         batch_size=4,
-                                         shuffle=False,
-                                         num_workers=2)
+testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
+testloader = torch.utils.data.DataLoader(testset, batch_size=4, shuffle=False, num_workers=2)
 
-classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse',
-           'ship', 'truck')
+classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
 ########################################################################
 # Let us show some of the training images, for fun.
@@ -112,7 +78,7 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse',
 
 def imshow(img):
     """Show image."""
-    img = img / 2 + 0.5  # unnormalize
+    img = img / 2 + 0.5    # unnormalize
     npimg = img.numpy()
     plt.imshow(np.transpose(npimg, (1, 2, 0)))
     plt.show()
@@ -161,13 +127,11 @@ class Net(nn.Module):
 
 net = Net()
 
-
 # Initialize DeepSpeed to use the following features
 # 1) Distributed model
 # 2) Distributed data loader
 # 3) DeepSpeed optimizer
-model_engine, optimizer, trainloader, __ = deepspeed.initialize(
-    args=args, model=net, training_data=trainset)
+model_engine, optimizer, trainloader, __ = deepspeed.initialize(args=args, model=net, training_data=trainset)
 
 print(f'model: {model_engine.module}')
 fp16 = model_engine.fp16_enabled()
@@ -191,13 +155,12 @@ criterion = nn.CrossEntropyLoss()
 # We simply have to loop over our data iterator, and feed the inputs to the
 # network and optimize.
 
-for epoch in range(2):  # loop over the dataset multiple times
+for epoch in range(2):    # loop over the dataset multiple times
 
     running_loss = 0.0
     for i, data in enumerate(trainloader):
         # get the inputs; data is a list of [inputs, labels]
-        inputs, labels = data[0].to(model_engine.local_rank), data[1].to(
-            model_engine.local_rank)
+        inputs, labels = data[0].to(model_engine.local_rank), data[1].to(model_engine.local_rank)
         if fp16:
             inputs = inputs.half()
         outputs = model_engine(inputs)
@@ -208,11 +171,8 @@ for epoch in range(2):  # loop over the dataset multiple times
 
         # print statistics
         running_loss += loss.item()
-        if i % args.log_interval == (
-                args.log_interval -
-                1):  # print every log_interval mini-batches
-            print('[%d, %5d] loss: %.3f' %
-                  (epoch + 1, i + 1, running_loss / args.log_interval))
+        if i % args.log_interval == (args.log_interval - 1):    # print every log_interval mini-batches
+            print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / args.log_interval))
             running_loss = 0.0
 
 print('Finished Training')
@@ -267,11 +227,9 @@ with torch.no_grad():
         outputs = net(images.to(model_engine.local_rank))
         _, predicted = torch.max(outputs.data, 1)
         total += labels.size(0)
-        correct += (predicted == labels.to(
-            model_engine.local_rank)).sum().item()
+        correct += (predicted == labels.to(model_engine.local_rank)).sum().item()
 
-print('Accuracy of the network on the 10000 test images: %d %%' %
-      (100 * correct / total))
+print('Accuracy of the network on the 10000 test images: %d %%' % (100 * correct / total))
 
 ########################################################################
 # That looks way better than chance, which is 10% accuracy (randomly picking
@@ -297,5 +255,4 @@ with torch.no_grad():
             class_total[label] += 1
 
 for i in range(10):
-    print('Accuracy of %5s : %2d %%' %
-          (classes[i], 100 * class_correct[i] / class_total[i]))
+    print('Accuracy of %5s : %2d %%' % (classes[i], 100 * class_correct[i] / class_total[i]))

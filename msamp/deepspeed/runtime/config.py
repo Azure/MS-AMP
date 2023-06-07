@@ -7,7 +7,6 @@ from deepspeed.runtime.config import DeepSpeedConfig
 from deepspeed.runtime.config_utils import get_scalar_param
 from deepspeed.runtime.zero.config import ZeroStageEnum
 
-
 MSAMP = 'msamp'
 MSAMP_ENABLED = 'enabled'
 MSAMP_ENABLED_DEFAULT = False

@@ -15,6 +15,7 @@ from deepspeed import __version__, __git_hash__, __git_branch__, log_dist, logge
 from msamp.deepspeed.runtime.config import MSAMPDeepSpeedConfig
 from msamp.deepspeed.runtime.engine import MSAMPDeepSpeedEngine
 
+
 def initialize(
     args=None,
     model: torch.nn.Module = None,

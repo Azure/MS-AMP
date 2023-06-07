@@ -149,7 +149,7 @@ def main():
     use_cuda = not args.no_cuda and torch.cuda.is_available()
 
     args.local_rank = int(os.environ.get('LOCAL_RANK', '0'))
-    
+
     torch.cuda.set_device(args.local_rank)
     dist.init_process_group(backend='nccl', init_method='env://')
 
