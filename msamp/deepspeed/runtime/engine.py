@@ -89,6 +89,7 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
             model, basic_optimizer = msamp_initialize(self.module, basic_optimizer, optlevel)
             self._set_client_model(model)
 
+
         self._check_for_duplicates(basic_optimizer)
 
         self.basic_optimizer = basic_optimizer
@@ -99,6 +100,7 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
             self.optimizer = self._configure_zero_optimizer(basic_optimizer)
         elif optimizer_wrapper == FP8:
             self.optimizer = self._configure_fp8_optimizer(basic_optimizer, optimizer_wrapper)
+
         elif optimizer_wrapper == AMP:
             amp_params = self.amp_params()
             log_dist(f'Initializing AMP with these params: {amp_params}', ranks=[0])
@@ -138,7 +140,7 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
         dynamic_loss_args = self.dynamic_loss_scale_args()
         clip_grad = self.gradient_clipping()
 
-        if optimizer_wrapper == FP16 and self.dynamic_loss_scale():
+        if self.dynamic_loss_scale():
             log_dist('Creating fp8 optimizer with dynamic loss scale', ranks=[0])
             timers = self.timers if self.wall_clock_breakdown() else None
             optimizer = FP8Optimizer(

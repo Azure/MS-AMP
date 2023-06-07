@@ -16,7 +16,7 @@ class FP8Linear(ScalingModule):
     DEFAULT_WINDOW_SIZE = 16
     DEFAULT_WGRAD_WINDOW_SIZE = 1
 
-    def __init__(self, in_features, out_features, use_bias=True, weight_qtype=Dtypes.kfloat16):
+    def __init__(self, in_features, out_features, use_bias=True, weight_qtype=Dtypes.kfloat16, bias_type=torch.float32):
         """Constructor.
 
         Args:
@@ -35,7 +35,7 @@ class FP8Linear(ScalingModule):
         self.weight = ScalingParameter(ScalingTensor(tensor, meta=ScalingMeta(weight_qtype, window_size=1)))
 
         if use_bias:
-            self.bias = torch.nn.Parameter(torch.empty(out_features, ))
+            self.bias = torch.nn.Parameter(torch.empty(out_features, dtype=bias_type))
         else:
             self.register_parameter('bias', None)
 
@@ -80,11 +80,12 @@ class LinearReplacer:
         """
         if not isinstance(linear, torch.nn.Linear):
             raise TypeError('type of m must be torch.nn.Linear')
-
+        bias_dtype = linear.bias.dtype if linear.bias is not None else torch.float32
         fp8_linear = FP8Linear(
             in_features=linear.in_features,
             out_features=linear.out_features,
             use_bias=linear.bias is not None,
+            bias_type=bias_dtype
         ).cuda()
 
         linear = linear.cuda()
