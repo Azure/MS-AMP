@@ -3,6 +3,7 @@
 
 """MS-AMP adamw module."""
 
+import math
 from typing import Dict, List, Union
 
 import torch
@@ -161,14 +162,6 @@ class LBAdamW(LBAdamWBase):
         if amsgrad:
             raise ValueError('Only amsgrad=False is supported for now.')
 
-        _grads = [grad.float() if not maximize else -grad.float() for grad in grads]
-        _params = [param.float() for param in params]
-        if weight_decay != 0:
-            if self.use_adam:
-                torch._foreach_add_(_grads, _params, alpha=weight_decay)
-            else:
-                torch._foreach_mul_(_params, 1 - lr * weight_decay)
-
         if len(exp_avgs) > 0 and exp_avgs[0]['state'].dtype != torch.float32:
             _exp_avg_amaxs = [exp_avg['amax'] for exp_avg in exp_avgs]
             _exp_avg_sq_amaxs = [exp_avg_sq['amax'] for exp_avg_sq in exp_avg_sqs]
@@ -177,14 +170,28 @@ class LBAdamW(LBAdamWBase):
             torch._foreach_zero_(_exp_avg_amaxs)
             torch._foreach_zero_(_exp_avg_sq_amaxs)
 
-            for i in range(len(_params)):
-                assert _params[i].is_contiguous()
-                assert _grads[i].is_contiguous()
+            for i, param in enumerate(params):
+                param, grad = param.float(), grads[i].float() if not maximize else -grads[i].float()
+
+                # Perform stepweight decay
+                # FP32/16 Tensor * float
+                if weight_decay != 0:
+                    if self.use_adam:
+                        grad = grad.add(param, alpha=weight_decay)
+                    else:
+                        param.mul_(1 - lr * weight_decay)
+
+                assert param.is_contiguous()
+                assert grad.is_contiguous()
+
                 msamp_adamw.adamw_fp8_stage1_compute(
-                    _params[i], _grads[i], exp_avgs[i]['state'], _exp_avg_inv_factors[i], _exp_avg_amaxs[i], beta1,
+                    param, grad, exp_avgs[i]['state'], _exp_avg_inv_factors[i], _exp_avg_amaxs[i], beta1,
                     exp_avg_sqs[i]['state'], _exp_avg_sq_inv_factors[i], _exp_avg_sq_amaxs[i], beta2, eps,
                     state_steps[i], lr, self.bias_correction
                 )
+                if isinstance(params[i], ScalingTensor):
+                    params[i].copy_(param.cast(params[i].qtype, meta=params[i].meta))
+
             if self.tensor_scale:
                 amaxs, sq_amaxs = torch.cat(_exp_avg_amaxs), torch.cat(_exp_avg_sq_amaxs)
                 ones = amaxs.new_ones((1, ))
@@ -194,44 +201,40 @@ class LBAdamW(LBAdamWBase):
                 _new_exp_avg_sq_factors = ScalingMeta.compute_scaling_factor(
                     sq_amaxs, ones, Floating.fp_maxs[exp_avg_sqs[0]['state'].dtype], 0
                 ).tolist()
-            for i in range(len(_params)):
+
+            for i, param in enumerate(params):
+                grad = grads[i].float() if not maximize else -grads[i].float()
                 exp_avgs[i]['factor'] = _new_exp_avg_factors[i] if self.tensor_scale else 1.0
                 exp_avg_sqs[i]['factor'] = _new_exp_avg_sq_factors[i] if self.tensor_scale else 1.0
                 # update state
                 msamp_adamw.adamw_fp8_stage2_compute(
-                    _grads[i], exp_avgs[i]['state'], _exp_avg_inv_factors[i], exp_avgs[i]['factor'], beta1,
+                    grad, exp_avgs[i]['state'], _exp_avg_inv_factors[i], exp_avgs[i]['factor'], beta1,
                     exp_avg_sqs[i]['state'], _exp_avg_sq_inv_factors[i], exp_avg_sqs[i]['factor'], beta2,
                     state_steps[i], self.bias_correction
                 )
-                if isinstance(params[i], ScalingTensor):
-                    params[i].copy_(_params[i].cast(params[i].qtype, meta=params[i].meta))
         else:
-            # Refer to _multi_tensor_adamw in torch.optim.adamw
-            # https://github.com/pytorch/pytorch/blob/v2.0.0/torch/optim/adamw.py#L445
+            # float
+            for i, param in enumerate(params):
+                param, grad = param.float(), grads[i].float() if not maximize else -grads[i].float()
+                exp_avg_value, exp_avg_sq_value = exp_avgs[i]['state'], exp_avg_sqs[i]['state']
 
-            # Decay the first and second moment running average coefficient
-            torch._foreach_mul_(exp_avgs, beta1)
-            torch._foreach_add_(exp_avgs, _grads, alpha=1 - beta1)
-            torch._foreach_mul_(exp_avg_sqs, beta2)
-            torch._foreach_addcmul_(exp_avg_sqs, _grads, _grads, 1 - beta2)
+                if self.bias_correction:
+                    bias_correction1 = 1 - beta1**state_steps[i]
+                    bias_correction2 = 1 - beta2**state_steps[i]
+                else:
+                    bias_correction1 = bias_correction2 = 1.0
 
-            if self.bias_correction:
-                bias_correction1 = torch._foreach_pow(beta1, state_steps)
-                bias_correction2 = torch._foreach_pow(beta2, state_steps)
-                torch._foreach_sub_(bias_correction1, 1)
-                torch._foreach_sub_(bias_correction2, 1)
-                torch._foreach_neg_(bias_correction1)
-                torch._foreach_neg_(bias_correction2)
-            else:
-                bias_correction1 = bias_correction2 = [torch.ones((1, )) for _ in range(len(state_steps))]
-            step_size = torch._foreach_div(bias_correction1, lr)
-            torch._foreach_reciprocal_(step_size)
-            torch._foreach_neg_(step_size)
+                step_size = lr / bias_correction1
 
-            # sqrt(exp_avg_sq / bias_correction2) + eps
-            bias_correction2_sqrt = torch._foreach_sqrt(bias_correction2)
-            exp_avg_sq_sqrt = torch._foreach_sqrt(exp_avg_sqs)
-            torch._foreach_div_(exp_avg_sq_sqrt, bias_correction2_sqrt)
-            denom = torch._foreach_add(exp_avg_sq_sqrt, eps)
+                # Decay the first and second moment running average coefficient
+                # exp_avg = beta1 * exp_avg  + (1 - beta1) * grad
+                exp_avg_value.mul_(beta1).add_(grad, alpha=1 - beta1)
+                # exp_avg_sq = beta2 * exp_avg_sq + (1 - beta2) * (grad ** 2)
+                # exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
+                exp_avg_sq_value.mul_(beta2).add_(torch.square(grad), alpha=1 - beta2)
+                # sqrt(exp_avg_sq / bias_correction2) + eps
+                denom = (exp_avg_sq_value.sqrt() / math.sqrt(bias_correction2)).add_(eps)
 
-            torch._foreach_addcdiv_(_params, exp_avgs, denom, step_size)
+                # param = param - step_size * (exp_avg / denom)
+                # param.addcdiv_(exp_avg, denom, value=-step_size)
+                param.add_(exp_avg_value / denom, alpha=-step_size)
