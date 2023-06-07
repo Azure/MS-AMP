@@ -15,7 +15,6 @@ from msamp.common.dtype.dtypes import Dtypes
 from msamp.optim import LBAdam, LBAdamW, DSAdam
 from msamp.deepspeed.runtime.engine import split_half_float_double_sparse
 from msamp.deepspeed.runtime.fp8.fused_optimizer import FP8Optimizer
-from msamp.nn import LinearReplacer
 from tests.helper import decorator
 
 

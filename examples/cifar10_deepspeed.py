@@ -1,22 +1,31 @@
-"""The deepspeed cifar10 exampe using MS-AMP. It is adapted fromhttps://github.com/microsoft/DeepSpeedExamples/blob/master/training/cifar/cifar10_deepspeed.py."""
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
 
+"""The deepspeed cifar10 exampe using MS-AMP, it is adapted from official deepspeed example."""
+
+import argparse
+
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torchvision
+import torch.nn as nn
+import torch.nn.functional as F
 import torchvision.transforms as transforms
-import argparse
+
 from msamp import deepspeed
 
 
 def add_argument():
-
+    """Add arguments."""
     parser = argparse.ArgumentParser(description='CIFAR')
 
-    #data
+    # data
     # cuda
     parser.add_argument('--with_cuda',
                         default=False,
                         action='store_true',
-                        help='use CPU in case there\'s no GPU support')
+                        help="use CPU in case there\'s no GPU support")
     parser.add_argument('--use_ema',
                         default=False,
                         action='store_true',
@@ -41,7 +50,7 @@ def add_argument():
     parser.add_argument('--log-interval',
                         type=int,
                         default=200,
-                        help="output logging information at a given interval")
+                        help='output logging information at a given interval')
 
     # Include DeepSpeed configuration arguments
     parser = deepspeed.add_config_arguments(parser)
@@ -98,17 +107,16 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse',
 ########################################################################
 # Let us show some of the training images, for fun.
 
-import matplotlib.pyplot as plt
-import numpy as np
-
 # functions to show an image
 
 
 def imshow(img):
+    """Show image."""
     img = img / 2 + 0.5  # unnormalize
     npimg = img.numpy()
     plt.imshow(np.transpose(npimg, (1, 2, 0)))
     plt.show()
+
 
 # get some random training images
 dataiter = iter(trainloader)
@@ -125,14 +133,13 @@ print(' '.join('%5s' % classes[labels[j]] for j in range(4)))
 # Copy the neural network from the Neural Networks section before and modify it to
 # take 3-channel images (instead of 1-channel images as it was defined).
 
-import torch.nn as nn
-import torch.nn.functional as F
-
 args = add_argument()
 
 
 class Net(nn.Module):
+    """Define a Convolutional Neural Network."""
     def __init__(self):
+        """Constructor."""
         super(Net, self).__init__()
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
@@ -142,6 +149,7 @@ class Net(nn.Module):
         self.fc3 = nn.Linear(84, 10)
 
     def forward(self, x):
+        """Forward computation."""
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
         x = x.view(-1, 16 * 5 * 5)
@@ -165,17 +173,15 @@ print(f'model: {model_engine.module}')
 fp16 = model_engine.fp16_enabled()
 print(f'fp16={fp16}')
 
-#device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-#net.to(device)
+# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+# net.to(device)
 ########################################################################
 # 3. Define a Loss function and optimizer
 # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 # Let's use a Classification Cross-Entropy loss and SGD with momentum.
 
-import torch.optim as optim
-
 criterion = nn.CrossEntropyLoss()
-#optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+# optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
 ########################################################################
 # 4. Train the network

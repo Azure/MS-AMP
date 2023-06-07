@@ -19,7 +19,6 @@ from deepspeed.ops.adam import FusedAdam
 from msamp import initialize as msamp_initialize
 from msamp.common.tensor import ScalingTensor, TensorDist
 from msamp.nn import model_state
-from msamp.optim import LBAdam as MSAMP_Adam, LBAdamW as MSAMP_AdamW, DSAdam
 from msamp.optim.optimizer import LBOptimizer
 from msamp.deepspeed.runtime.fp8.fused_optimizer import FP8Optimizer
 from msamp.deepspeed.runtime.config import MSAMP_ADAM_OPTIMIZER, MSAMP_ADAMW_OPTIMIZER
