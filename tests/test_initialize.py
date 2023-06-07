@@ -4,11 +4,13 @@
 """Tests for msamp.initialize."""
 
 import unittest
+
 import torch
+from deepspeed.ops.adam import FusedAdam
 
 import msamp
 from msamp.nn.linear import FP8Linear
-from msamp.optim import LBAdamW, LBAdam
+from msamp.optim import LBAdamW, LBAdam, DSAdam
 from tests.helper import decorator
 
 
@@ -50,3 +52,10 @@ class InitializeTestCase(unittest.TestCase):
             model, optimizer = msamp.initialize(model, optimizer, opt_level)
             assert isinstance(model, FP8Linear)
             assert isinstance(optimizer, LBAdamW)
+
+        for opt_level in ['O1', 'O2']:
+            model = torch.nn.Linear(4, 4)
+            optimizer = FusedAdam(model.parameters())
+            model, optimizer = msamp.initialize(model, optimizer, opt_level)
+            assert isinstance(model, FP8Linear)
+            assert isinstance(optimizer, DSAdam)

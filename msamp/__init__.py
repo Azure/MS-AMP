@@ -88,7 +88,8 @@ def initialize(model, optimizer=None, opt_level='O1'):    # noqa: C901
     elif isinstance(optimizer, torch.optim.AdamW):
         cast_optimizer = LBAdamW(optimizer.param_groups, **default_args)
     elif isinstance(optimizer, FusedAdam):
-        cast_optimizer = DSAdam(optimizer.param_groups, **default_args)
+        adam_w_mode = optimizer.adam_w_mode
+        cast_optimizer = DSAdam(optimizer.param_groups, **default_args, adam_w_mode=adam_w_mode)
 
     return cast_model, cast_optimizer
 
