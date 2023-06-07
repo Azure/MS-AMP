@@ -47,6 +47,19 @@ class ScalingTensorTestCase(unittest.TestCase):
             tensor.cast(Dtypes.kbfloat16)
 
     @decorator.cuda_test
+    def test_torch_tensor_fused_cast_transpose(self):
+        """Test tensor.fused_cast_transpose function."""
+        for qtype in [Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2, Dtypes.kfloat16, Dtypes.kfloat32]:
+            tensor = torch.randn(self.size, device=self.device).contiguous()
+            if Dtypes.is_fp8_qtype(qtype):
+                cast, t = tensor.fused_cast_transpose(qtype)
+                self.assertTrue(torch.equal(tensor.cast(qtype).float(), cast.float()))
+                self.assertTrue(torch.equal(tensor.cast(qtype).fp8_transpose().float(), t.float()))
+            else:
+                with self.assertRaises(TypeError):
+                    tensor.fused_cast_transpose(qtype)
+
+    @decorator.cuda_test
     def test_torch_unary_funcs(self):
         """Test overrided tensor unary functions."""
         tensor = torch.randn(self.size, device=self.device)
@@ -69,11 +82,13 @@ class ScalingTensorTestCase(unittest.TestCase):
         meta = ScalingMeta(Dtypes.kfloat8_e4m3)
         scaling_tensor = ScalingTensor(TypeCast.cast_to_fp8(tensor, meta), meta=meta)
 
+        self.assertEqual(scaling_tensor.data_ptr(), scaling_tensor.value.data_ptr())
         self.assertTrue(scaling_tensor.grad is None)
         self.assertTrue(scaling_tensor.is_cuda)
         self.assertEqual(scaling_tensor.shape, self.size)
         self.assertEqual(scaling_tensor.size(), self.size)
         self.assertEqual(scaling_tensor.numel(), self.size[0] * self.size[1])
+        self.assertEqual(scaling_tensor.nelement(), self.size[0] * self.size[1])
         self.assertEqual(scaling_tensor.device, tensor.device)
         self.assertEqual(scaling_tensor.dtype, torch.uint8)
         self.assertEqual(scaling_tensor.type(), 'msamp.common.tensor.tensor.ScalingTensor')
@@ -138,6 +153,26 @@ class ScalingTensorTestCase(unittest.TestCase):
             scaling_tensor.cast(Dtypes.kfloat8_e5m2)
 
     @decorator.cuda_test
+    def test_tensor_cast_with_exception_value(self):
+        """Test cast function in ScalingTensor with exception value."""
+        # skip kfloat32 since it does not need quantization.
+        for dtype in [Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2, Dtypes.kfloat16]:
+            with self.subTest(dtype=dtype):
+                x = torch.randn((2, ), device=self.device)
+                t = x.cast(dtype)
+                self.assertTrue(torch.isfinite(t.meta.amax[0]))
+                for exception_value in [float('nan'), float('inf'), float('-inf')]:
+                    for full in [True, False]:
+                        with self.subTest(exception_value=exception_value, full=full):
+                            x2 = x.clone()
+                            if full:
+                                x2.fill_(exception_value)
+                            else:
+                                x2[-1] = exception_value
+                            t2 = x2.cast(dtype)
+                            self.assertFalse(torch.isfinite(t2.meta.amax[0]))
+
+    @decorator.cuda_test
     def test_tensor_mul(self):
         """Test mul function in ScalingTensor."""
         tensor = torch.randn(self.size, device=self.device)
@@ -172,6 +207,17 @@ class ScalingTensorTestCase(unittest.TestCase):
         float_tensor = scaling_tensor.float()
         transpose_tensor_value = scaling_tensor.t().contiguous().float()
         self.assertTrue(torch.equal(float_tensor.t(), transpose_tensor_value))
+
+    @decorator.cuda_test
+    def test_tensor_fp8_transpose(self):
+        """Test fp8_transpose function in ScalingTensor."""
+        for qtype in [Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2, Dtypes.kfloat16, Dtypes.kfloat32]:
+            scaling_tensor = torch.randn(self.size, device=self.device).cast(qtype)
+            if Dtypes.is_fp8_qtype(qtype):
+                self.assertTrue(torch.equal(scaling_tensor.float().t(), scaling_tensor.fp8_transpose().float()))
+            else:
+                with self.assertRaises(TypeError):
+                    scaling_tensor.fp8_transpose()
 
     @decorator.cuda_test
     def test_inf_and_nan(self):

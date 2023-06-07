@@ -14,7 +14,7 @@ from torch.optim.optimizer import Optimizer, required
 from msamp.common.dtype import Floating
 from msamp.common.tensor import ScalingTensor, ScalingMeta
 from msamp.common.tensor import TensorDist
-from msamp.nn import model_state
+from msamp.nn import model_state, ScalingParameter
 
 
 class LBOptimizer(Optimizer):
@@ -46,16 +46,11 @@ class LBOptimizer(Optimizer):
 
     def all_reduce_grads(self, model):
         """All-reduce gradients of parameters."""
-        if not model_state.ready_to_all_reduce_grads:
-            return
-        while hasattr(model, 'module'):
-            model = model.module
-        get_fp8_wgrads_fn = getattr(model, 'get_fp8_wgrads', None)
-        if get_fp8_wgrads_fn is not None:
-            wgrads = get_fp8_wgrads_fn()
-            TensorDist.all_reduce_avg(wgrads)
-            # make sure that FP8 weight gradients have been reduced.
-            model_state.ready_to_all_reduce_grads = False
+        scaling_params = [p for p in model.parameters() if isinstance(p, ScalingParameter)]
+        grads = [p.grad for p in scaling_params if p.grad is not None]
+        TensorDist.all_reduce_avg(grads)
+        # make sure that FP8 weight gradients have been reduced.
+        model_state.ready_to_all_reduce_grads = False
 
     def lb_step(self, closure=None):
         """Performs a single optimization step. The subclass needs to implement this method.
@@ -94,15 +89,25 @@ class LBOptimizer(Optimizer):
             amax_counters = meta['amax_counters']
             fp_max = Floating.qfp_max[qtype]
             # compute scaling factor before rolling amaxs
-            sf = ScalingMeta.compute_scaling_factor(amaxs.max(1).values, scales, fp_max, margin)
 
             mask_valid = torch.isfinite(amaxs[:, 0])
             mask_inf_nan = ~mask_valid
+            # filter out inf and nan from amaxs
+            amaxs[mask_inf_nan, 0] = 0
+
+            sf = ScalingMeta.compute_scaling_factor(amaxs.max(1).values, scales, fp_max, margin)
+
+            # shift window
             amaxs.copy_(amaxs.roll(1, dims=1))
+            # set 0 for the first element in the window
             amaxs[:, 0] = 0
+
             amax_counters += 1
+            # reset counter when meeting inf or nan
             amax_counters[mask_inf_nan] = 0
-            scales[mask_valid] = sf[mask_valid]
+
+            # update scaling factors
+            scales.copy_(sf)
 
     def state_dict(self):
         r"""Returns the state of the optimizer as a :class:`dict`.
@@ -122,8 +127,10 @@ class LBOptimizer(Optimizer):
             nonlocal start_index
             packed = {k: v for k, v in group.items() if k != 'params'}
             param_mappings.update(
-                {id(p): i
-                 for i, p in enumerate(group['params'], start_index) if id(p) not in param_mappings}
+                {
+                    id(p): i
+                    for i, p in enumerate(group['params'], start_index) if id(p) not in param_mappings
+                }
             )
             packed['params'] = [param_mappings[id(p)] for p in group['params']]
             start_index += len(packed['params'])

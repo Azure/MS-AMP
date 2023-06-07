@@ -9,6 +9,7 @@ from msamp.common.tensor import ScalingMeta
 from msamp.common.tensor import HookManager
 from msamp.common.dtype import Dtypes
 from msamp.common.tensor import TypeCast
+from msamp.common.utils import TransformerEngineWrapper
 
 
 class ScalingTensor:
@@ -248,6 +249,12 @@ class ScalingTensor:
             return self.float().cast(Dtypes.kfloat32)
         raise TypeError(f'Unsupported Cast: {self.meta.qtype} -> {qtype}')
 
+    def fp8_transpose(self):
+        """FP8 scaling tensor transpose."""
+        if not Dtypes.is_fp8_qtype(self.meta.qtype):
+            raise TypeError(f'Unsupported FP8 transpose type: {self.meta.qtype}')
+        return TransformerEngineWrapper.fp8_transpose(self)
+
     def t(self):
         """Transpose tensor.
 
@@ -412,6 +419,15 @@ class ScalingTensor:
         """
         return self.value.numel()
 
+    def nelement(self):
+        """Get number of elements in tensor.
+
+        Return:
+            int: The number of elements in value tensor.
+        """
+        # nelement is an alias for numel
+        return self.numel()
+
     @property
     def device(self):
         """Get device.
@@ -448,6 +464,13 @@ class ScalingTensor:
                 if not isinstance(data, torch.Tensor):
                     raise TypeError('The type of data is not supported')
                 self.value.data = data
+
+    def data_ptr(self):
+        """Get data pointer.
+
+        Returns the address of the first element of the tensor.
+        """
+        return self.value.data_ptr()
 
     def copy_(self, src):
         """Copy from another tensor.
@@ -615,13 +638,14 @@ class ScalingTensor:
 
 class TorchOverider:
     """Class to override torch attributes and functions."""
-    one_scale = torch.tensor(1.0, device='cuda')
+    one_scales = dict()
     torch_unary_funcs = ['torch.zeros_like', 'torch.ones_like', 'torch.overrides.is_tensor_like']
 
     @classmethod
     def override(cls):
         """Override torch attributes and functions."""
         torch.Tensor.cast = cls._cast_to_scalingtensor
+        torch.Tensor.fused_cast_transpose = cls._fused_cast_transpose_to_scalingtensors
         torch.Tensor.qtype = property(lambda self: Dtypes.dtype_to_qtype[self.dtype])
         cls._override_unary_func()
         torch.is_floating_point = cls._get_wrapper_for_scalingtensor(
@@ -666,6 +690,28 @@ class TorchOverider:
             return ScalingTensor(TypeCast.cast_to_fp16(self, meta, sync=sync), meta=meta)
         elif qtype == Dtypes.kfloat32:
             return ScalingTensor(self, meta=meta)
+        raise TypeError(f'Unsupported Cast: {self.dtype} -> {qtype}')
+
+    @staticmethod
+    def _fused_cast_transpose_to_scalingtensors(self, qtype, meta=None, sync=False):
+        """Fused cast and transpose pytorch native tensor to ScalingTensors.
+
+        Args:
+            self (torch.Tensor): input tensor.
+            qtype (QType): qtype to cast.
+            meta (ScalingMeta): scaling meta.
+            sync (bool): whether to synchronize the cast operation.
+
+        Return:
+            ScalingTensor, ScalingTensor: casted and transposed scaling tensors.
+        """
+        self = self.contiguous()
+        if meta is None:
+            # default window size: 1
+            meta = ScalingMeta(qtype)
+        if Dtypes.is_fp8_qtype(qtype):
+            cast, t = TypeCast.cast_to_fp8(self, meta, sync=sync, fuse_transpose=True)
+            return ScalingTensor(cast.contiguous(), meta=meta), ScalingTensor(t.contiguous(), meta=meta)
         raise TypeError(f'Unsupported Cast: {self.dtype} -> {qtype}')
 
     @staticmethod
@@ -772,7 +818,11 @@ class TorchOverider:
             if scaling_grads_scale_inv:
                 # torch._amp_foreach_non_finite_check_and_unscale_
                 old_fn(scaling_grads_scale_inv, found_inf, inv_scale)
-                old_fn(scaling_grads_amax0, found_inf, cls.one_scale)
+
+                device = found_inf.device
+                if device not in cls.one_scales:
+                    cls.one_scales[device] = torch.ones(1, device=device)
+                old_fn(scaling_grads_amax0, found_inf, cls.one_scales[device])
 
         return new_fn
 

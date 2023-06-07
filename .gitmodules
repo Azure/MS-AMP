@@ -1,0 +1,4 @@
+[submodule "third_party/nccl"]
+	path = third_party/nccl
+	url = https://github.com/yzygitzh/nccl.git
+	branch = ziyyang/fp8-support

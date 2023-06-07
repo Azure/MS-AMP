@@ -16,8 +16,6 @@
 #include <utility>
 #include <vector>
 
-using namespace torch;
-using namespace std;
 
 ncclComm_t *to_nccl_comm(ncclComm_t *var) { return reinterpret_cast<ncclComm_t *>(var); }
 
@@ -120,7 +118,7 @@ struct NcclCommList {
             }
         }
     }
-    ArrayRef<ncclComm_t> ref() const { return ArrayRef<ncclComm_t>(comms.get(), ndevices); }
+    at::ArrayRef<ncclComm_t> ref() const { return at::ArrayRef<ncclComm_t>(comms.get(), ndevices); }
 };
 
 using device_list = std::vector<int>;
@@ -131,7 +129,7 @@ struct ncclCommPtr {
     ncclComm_t ptr;
 };
 
-ArrayRef<ncclComm_t> get_communicators(TensorList inputs) {
+at::ArrayRef<ncclComm_t> get_communicators(at::TensorList inputs) {
     static auto get_device = [](const at::Tensor &t) -> int { return t.get_device(); };
     device_list devices = fmap(inputs, get_device);
     auto it = _communicators.find(devices);
@@ -152,8 +150,8 @@ ncclCommPtr get_communicator(ncclUniqueId uid, int rank, int world_size) {
     return comm;
 }
 
-void reduce(const at::Tensor &input, at::Tensor &output, int32_t root, int32_t op, const ncclCommPtr &user_comm,
-            int nccl_type = -1) {
+void custom_reduce(const at::Tensor &input, at::Tensor &output, int32_t root, int32_t op,
+                   const ncclCommPtr &user_comm, int nccl_type = -1) {
     ncclDataType_t data_type = nccl_type == -1 ? to_nccl_data_type(input) : (ncclDataType_t)nccl_type;
 
     const auto count = input.numel();
@@ -169,8 +167,8 @@ void reduce(const at::Tensor &input, at::Tensor &output, int32_t root, int32_t o
                           to_nccl_comm(comm), stream));
 }
 
-void all_reduce(const vector<Tensor> &inputs, vector<Tensor> &outputs, int32_t op,
-                const std::vector<ncclCommPtr> &user_comms, int nccl_type = -1) {
+void custom_all_reduce(const std::vector<at::Tensor> &inputs, std::vector<at::Tensor> &outputs,
+                       int32_t op, const std::vector<ncclCommPtr> &user_comms, int nccl_type = -1) {
     const auto len = inputs.size();
 
     ncclDataType_t data_type = nccl_type == -1 ? to_nccl_data_type(inputs[0]) : (ncclDataType_t)nccl_type;
@@ -206,8 +204,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
                 return id;
             }));
     py::class_<ncclCommPtr>(m, "ncclCommPtr").def(py::init<>());
-    m.def("reduce", &reduce, "Reduce");
-    m.def("all_reduce", &all_reduce, "All reduce");
+    m.def("reduce", &custom_reduce, "Reduce");
+    m.def("all_reduce", &custom_all_reduce, "All reduce");
     m.def("get_nccl_uid", &get_nccl_uid, "Get NCCL UID");
     m.def("get_communicator", &get_communicator, "Get communicator");
 }
