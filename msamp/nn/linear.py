@@ -24,6 +24,7 @@ class FP8Linear(ScalingModule):
             out_features (int): Number of output features.
             use_bias (bool): Whether to use bias. Defaults to True.
             weight_qtype (Dtypes.QType): qtype of weight. Defaults to Dtypes.kfloat16.
+            bias_type (torch.dtype): dtype of bias. Defaults to torch.float32.
         """
         super().__init__()
         self.in_features = in_features

@@ -4,24 +4,17 @@
 # SPDX-License-Identifier: Apache-2.0. DeepSpeed Team)
 
 """DeepSpeedEngine in MS-AMP."""
-
-import torch
-
 import deepspeed
 from deepspeed.runtime.engine import SparseTensor, ZERO_OPTIMIZATION, AMP, amp, \
-                                     FP16, BFLOAT16, ADAGRAD_OPTIMIZER, ADAM_OPTIMIZER, ADAMW_OPTIMIZER, \
-                                     TORCH_ADAM_PARAM, ADAM_W_MODE, ADAM_W_MODE_DEFAULT, LAMB_OPTIMIZER, \
-                                     ONEBIT_ADAM_OPTIMIZER, logger, ZERO_ONE_ADAM_OPTIMIZER, ONEBIT_LAMB_OPTIMIZER, \
-                                     DeepSpeedEngine, instrument_w_nvtx, log_dist, see_memory_usage, DummyOptim, \
-                                     DeepSpeedZeroOptimizer, DeepSpeedZeRoOffload, PipelineModule, ZeroStageEnum
-from deepspeed.ops.adam import FusedAdam
+                                     FP16, BFLOAT16, logger, DeepSpeedEngine, instrument_w_nvtx, log_dist, \
+                                     see_memory_usage, DummyOptim, DeepSpeedZeroOptimizer, DeepSpeedZeRoOffload, \
+                                     PipelineModule, ZeroStageEnum
 
 from msamp import initialize as msamp_initialize
 from msamp.common.tensor import ScalingTensor, TensorDist
 from msamp.nn import model_state
-from msamp.optim.optimizer import LBOptimizer
+from msamp.optim import LBOptimizer
 from msamp.deepspeed.runtime.fp8.fused_optimizer import FP8Optimizer
-from msamp.deepspeed.runtime.config import MSAMP_ADAM_OPTIMIZER, MSAMP_ADAMW_OPTIMIZER
 from msamp.deepspeed.runtime.zero import utils    # noqa: F401
 from msamp.deepspeed.runtime.zero.fp8_stage_1_and_2 import FP8DeepSpeedZeroOptimizer
 from msamp.deepspeed.runtime.config import FP8
@@ -88,7 +81,8 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
                 optlevel = 'O2'
             model, basic_optimizer = msamp_initialize(self.module, basic_optimizer, optlevel)
             self._set_client_model(model)
-
+            # We need to reset param names after msamp initialize.
+            self.param_names = {param: name for name, param in model.named_parameters()}
 
         self._check_for_duplicates(basic_optimizer)
 
@@ -100,7 +94,6 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
             self.optimizer = self._configure_zero_optimizer(basic_optimizer)
         elif optimizer_wrapper == FP8:
             self.optimizer = self._configure_fp8_optimizer(basic_optimizer, optimizer_wrapper)
-
         elif optimizer_wrapper == AMP:
             amp_params = self.amp_params()
             log_dist(f'Initializing AMP with these params: {amp_params}', ranks=[0])
@@ -122,6 +115,9 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
 
     def _do_optimizer_sanity_check(self, basic_optimizer):
         """Check if optimizer is supported and return the wrapper type."""
+        if self.zero_optimization():
+            return super()._do_optimizer_sanity_check(basic_optimizer)
+
         if isinstance(basic_optimizer, LBOptimizer):
             return FP8
         return super()._do_optimizer_sanity_check(basic_optimizer)
