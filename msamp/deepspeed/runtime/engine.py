@@ -210,7 +210,9 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
                 if overlap_comm:
                     logger.warning('Pipeline parallelism does not support overlapped communication, will be disabled.')
                     overlap_comm = False
-            zero_t = DeepSpeedZeroOptimizer if not self.msamp_enabled() else FP8DeepSpeedZeroOptimizer
+            zero_t = DeepSpeedZeroOptimizer
+            if self.msamp_enabled() or isinstance(optimizer, LBOptimizer):
+                zero_t = FP8DeepSpeedZeroOptimizer
             optimizer = zero_t(
                 optimizer,
                 self.param_names,
