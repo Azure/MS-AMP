@@ -123,7 +123,7 @@ class LBAdamW(LBAdamWBase):
             return dict(state=state, factor=1.0, amax=state.new_zeros((1, ), dtype=torch.float32))
         return dict(state=state)
 
-    def adamw_fn(
+    def adamw_fn(   # noqa: C901
         self,
         params: List[Union[Tensor, ScalingTensor]],
         grads: List[Union[Tensor, ScalingTensor]],
