@@ -27,3 +27,9 @@ deepspeed cifar10_deepspeed.py --deepspeed --deepspeed_config ds_config.json
 ```bash
 deepspeed cifar10_deepspeed.py --deepspeed --deepspeed_config ds_config_msamp.json
 ```
+
+## 3. Run cifar10 using deepspeed-ZeRO with msamp enabled
+
+```
+deepspeed cifar10_deepspeed.py --deepspeed --deepspeed_config ds_config_zero_msamp.json
+```
