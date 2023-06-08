@@ -142,7 +142,6 @@ def main():
     )
     parser.add_argument('--save-model', action='store_true', default=False, help='For Saving the current Model')
     parser.add_argument('--local-rank', type=int, help='local rank, will passed by ddp')
-
     parser.add_argument('--enable-msamp', action='store_true', default=False, help='enable MS-AMP')
     parser.add_argument('--opt-level', type=str, default='O1', help='MS-AMP optimization level')
 

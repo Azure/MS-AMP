@@ -32,6 +32,9 @@
         "min_loss_scale": 1,
         "initial_scale_power": 15
     },
+    "msamp": {
+      "enabled": false,
+    },
     "wall_clock_breakdown": false,
     "zero_optimization": {
         "stage": 0,
