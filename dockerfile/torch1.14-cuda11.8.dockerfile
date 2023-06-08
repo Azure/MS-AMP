@@ -36,7 +36,8 @@ RUN apt-get update && \
 
 ARG NUM_MAKE_JOBS=
 ENV PATH="${PATH}" \
-    LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH}"
+    LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH}" \
+    PYTHONOPTIMIZE=1
 
 WORKDIR /opt/msamp
 
