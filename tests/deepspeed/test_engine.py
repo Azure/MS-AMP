@@ -189,7 +189,7 @@ class DeepSpeedEngineTestCase(unittest.TestCase):
                 total_loss += loss.item()
                 model.backward(loss)
                 model.step()
-            losses.append(total_loss / 10)
+            losses.append(total_loss / num_inputs)
 
         for i in range(epoches):
             if i > 0:

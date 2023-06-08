@@ -141,6 +141,7 @@ def main():
         help='how many batches to wait before logging training status'
     )
     parser.add_argument('--save-model', action='store_true', default=False, help='For Saving the current Model')
+    parser.add_argument('--local-rank', type=int, help='local rank, will passed by ddp')
 
     parser.add_argument('--enable-msamp', action='store_true', default=False, help='enable MS-AMP')
     parser.add_argument('--opt-level', type=str, default='O1', help='MS-AMP optimization level')
@@ -148,7 +149,8 @@ def main():
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
 
-    args.local_rank = int(os.environ.get('LOCAL_RANK', '0'))
+    if args.local_rank is None and 'LOCAL_RANK' in os.environ:
+        args.local_rank = int(os.environ['LOCAL_RANK'])
 
     torch.cuda.set_device(args.local_rank)
     dist.init_process_group(backend='nccl', init_method='env://')
