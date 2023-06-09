@@ -325,8 +325,9 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
                 else:
                     avg_new = self.fp8_get_flat_partition(self.fp8_params_in_partition[i])
                     for accumulated_grad, new_avg_grad in zip(self.fp8_averaged_gradients[i], avg_new):
-                        accumulated_grad.data = (accumulated_grad.float() +
-                                                 new_avg_grad.float()).cast(WEIGHT_GRAD_QTYPE, in_time=True)
+                        accumulated_grad.data.copy_(
+                            (accumulated_grad.float() + new_avg_grad.float()).cast(WEIGHT_GRAD_QTYPE)
+                        )
 
         self._release_ipg_buffers()
 

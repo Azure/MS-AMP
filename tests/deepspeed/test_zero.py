@@ -74,3 +74,15 @@ class FP8DeepSpeedZeroOptimizerTestCase(unittest.TestCase):
             }
         }
         self._check_zero(config)
+
+    @decorator.cuda_test
+    def test_stage2_with_grad_accumulation(self):
+        """Test fp8 deepspeed zero-stage2 with gradient accumulation."""
+        config = {
+            'train_batch_size': 2,
+            'train_micro_batch_size_per_gpu': 1,
+            'zero_optimization': {
+                'stage': 2,
+            }
+        }
+        self._check_zero(config)
