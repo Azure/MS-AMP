@@ -36,7 +36,8 @@ RUN apt-get update && \
 
 ARG NUM_MAKE_JOBS=
 ENV PATH="${PATH}" \
-    LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH}"
+    LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH}" \
+    PYTHONOPTIMIZE=1
 
 WORKDIR /opt/msamp
 
@@ -49,5 +50,6 @@ RUN cd third_party/nccl && \
     make install
 
 ADD . .
-RUN python3 -m pip install . && \
+RUN python3 -m pip install --upgrade pip && \
+    python3 -m pip install . && \
     make postinstall

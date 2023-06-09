@@ -11,7 +11,8 @@ from deepspeed.runtime.engine import SparseTensor, ZERO_OPTIMIZATION, AMP, amp, 
                                      FP16, BFLOAT16, ADAGRAD_OPTIMIZER, ADAM_OPTIMIZER, ADAMW_OPTIMIZER, \
                                      TORCH_ADAM_PARAM, ADAM_W_MODE, ADAM_W_MODE_DEFAULT, LAMB_OPTIMIZER, \
                                      ONEBIT_ADAM_OPTIMIZER, logger, ZERO_ONE_ADAM_OPTIMIZER, ONEBIT_LAMB_OPTIMIZER, \
-                                     DeepSpeedEngine, instrument_w_nvtx, log_dist, see_memory_usage, DummyOptim
+                                     DeepSpeedEngine, instrument_w_nvtx, log_dist, see_memory_usage, DummyOptim, \
+                                     DeepSpeedZeroOptimizer, DeepSpeedZeRoOffload, PipelineModule, ZeroStageEnum
 
 from msamp.common.tensor import ScalingTensor, TensorDist
 from msamp.nn import model_state
@@ -19,6 +20,8 @@ from msamp.optim import LBAdam as MSAMP_Adam, LBAdamW as MSAMP_AdamW, DSAdam
 from msamp.optim.optimizer import LBOptimizer
 from msamp.deepspeed.runtime.fp8.fused_optimizer import FP8Optimizer
 from msamp.deepspeed.runtime.config import MSAMP_ADAM_OPTIMIZER, MSAMP_ADAMW_OPTIMIZER
+from msamp.deepspeed.runtime.zero import utils    # noqa: F401
+from msamp.deepspeed.runtime.zero.fp8_stage_1_and_2 import FP8DeepSpeedZeroOptimizer
 
 
 def split_half_float_double_sparse(tensors):
@@ -268,9 +271,120 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
         Returns:
             ZeROOptimizer: zero optimizer.
         """
-        if use_fp8:
-            raise NotImplementedError('fp8 ZeRO is not supported yet')
-        return super()._configure_zero_optimizer(optimizer)
+        zero_stage = self.zero_optimization_stage()
+        timers = self.timers if self.wall_clock_breakdown() else None
+
+        if optimizer is None:
+            optimizer = DummyOptim(list(self.module.parameters()))
+
+        if self.zero_legacy_stage1():
+            raise Exception(
+                'The deprecated version of ZeRO Stage 1 is not supported in deepspeed >= 0.5.9. '
+                'Please downgrade to a version less than 0.5.9 if '
+                'you need to use this deprecated version of ZeRO.'
+            )
+
+        if zero_stage <= ZeroStageEnum.gradients:
+            overlap_comm = self.zero_overlap_comm()
+            contiguous_gradients = self.zero_contiguous_gradients()
+            round_robin_gradients = self.zero_round_robin_gradients()
+            assert not isinstance(optimizer, DummyOptim), 'zero stage {} requires an optimizer'.format(zero_stage)
+
+            log_dist('Creating fp16 ZeRO stage {} optimizer'.format(zero_stage), ranks=[0])
+            # Overlap and contiguous grads are meaningless in stage 1 and are ignored
+            if zero_stage == ZeroStageEnum.optimizer_states:
+                overlap_comm = False
+                round_robin_gradients = False
+
+            if isinstance(self.module, PipelineModule):
+                if overlap_comm:
+                    logger.warning('Pipeline parallelism does not support overlapped communication, will be disabled.')
+                    overlap_comm = False
+            zero_t = DeepSpeedZeroOptimizer if not use_fp8 else FP8DeepSpeedZeroOptimizer
+            optimizer = zero_t(
+                optimizer,
+                self.param_names,
+                timers=timers,
+                static_loss_scale=self.loss_scale(),
+                dynamic_loss_scale=self.dynamic_loss_scale(),
+                dynamic_loss_args=self.dynamic_loss_scale_args(),
+                clip_grad=self.gradient_clipping(),
+                contiguous_gradients=contiguous_gradients,
+                reduce_bucket_size=self.zero_reduce_bucket_size(),
+                allgather_bucket_size=self.zero_allgather_bucket_size(),
+                dp_process_group=self.data_parallel_group,
+                expert_parallel_group=self.expert_parallel_group if self.has_moe_layers else None,
+                expert_data_parallel_group=self.expert_data_parallel_group if self.has_moe_layers else None,
+                reduce_scatter=self.zero_reduce_scatter(),
+                overlap_comm=overlap_comm,
+                cpu_offload=self.zero_cpu_offload(),
+                mpu=self.mpu,
+                postscale_gradients=self.postscale_gradients(),
+                gradient_predivide_factor=self.gradient_predivide_factor(),
+                gradient_accumulation_steps=self.gradient_accumulation_steps(),
+                ignore_unused_parameters=self.zero_ignore_unused_parameters(),
+                partition_grads=zero_stage == ZeroStageEnum.gradients,
+                round_robin_gradients=round_robin_gradients,
+                has_moe_layers=self.has_moe_layers,
+                fp16_master_weights_and_gradients=self.fp16_master_weights_and_gradients(),
+                communication_data_type=self.communication_data_type,
+                elastic_checkpoint=self.zero_elastic_checkpoint()
+            )
+
+        elif zero_stage == ZeroStageEnum.weights:
+            assert not self.has_moe_layers, 'MoE not supported with Stage 3'
+            if isinstance(optimizer, DummyOptim):
+                log_dist('Creating ZeRO Offload', ranks=[0])
+                optimizer = DeepSpeedZeRoOffload(
+                    self.module,
+                    timers=timers,
+                    ds_config=self.config,
+                    overlap_comm=self.zero_overlap_comm(),
+                    prefetch_bucket_size=self.zero_prefetch_bucket_size(),
+                    max_reuse_distance=self.zero_max_reuse_distance(),
+                    max_live_parameters=self.zero_max_live_parameters(),
+                    param_persistence_threshold=self.zero_param_persistence_threshold(),
+                    model_persistence_threshold=self.zero_model_persistence_threshold(),
+                    offload_param_config=self.zero_offload_param(),
+                    mpu=self.mpu
+                )
+            else:
+                log_dist('Creating fp16 ZeRO stage {} optimizer'.format(zero_stage), ranks=[0])
+                from deepspeed.runtime.zero.stage3 import DeepSpeedZeroOptimizer_Stage3
+                optimizer = DeepSpeedZeroOptimizer_Stage3(
+                    self.module,
+                    optimizer,
+                    timers=timers,
+                    ds_config=self.config,
+                    static_loss_scale=self.loss_scale(),
+                    dynamic_loss_scale=self.dynamic_loss_scale(),
+                    dynamic_loss_args=self.dynamic_loss_scale_args(),
+                    clip_grad=self.gradient_clipping(),
+                    contiguous_gradients=self.zero_contiguous_gradients(),
+                    reduce_bucket_size=self.zero_reduce_bucket_size(),
+                    prefetch_bucket_size=self.zero_prefetch_bucket_size(),
+                    max_reuse_distance=self.zero_max_reuse_distance(),
+                    max_live_parameters=self.zero_max_live_parameters(),
+                    param_persistence_threshold=self.zero_param_persistence_threshold(),
+                    model_persistence_threshold=self.zero_model_persistence_threshold(),
+                    dp_process_group=self.data_parallel_group,
+                    reduce_scatter=self.zero_reduce_scatter(),
+                    overlap_comm=self.zero_overlap_comm(),
+                    offload_optimizer_config=self.zero_offload_optimizer(),
+                    offload_param_config=self.zero_offload_param(),
+                    sub_group_size=self.zero_sub_group_size(),
+                    mpu=self.mpu,
+                    postscale_gradients=self.postscale_gradients(),
+                    gradient_predivide_factor=self.gradient_predivide_factor(),
+                    gradient_accumulation_steps=self.gradient_accumulation_steps(),
+                    aio_config=self.aio_config(),
+                    communication_data_type=self.communication_data_type
+                )
+
+        else:
+            raise NotImplementedError('ZeRO stage {} not implemented'.format(zero_stage))
+
+        return optimizer
 
     @instrument_w_nvtx
     def backward(      # noqa: C901
