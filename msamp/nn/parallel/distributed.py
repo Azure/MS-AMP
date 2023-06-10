@@ -22,6 +22,7 @@ class ScalingTensorReducer:
         self.buffer = self._create_buffer(parameters)
         self.bucket_bytes_cap = bucket_bytes_cap
         self.process_group = process_group
+        self.reduction_stream = torch.cuda.Stream(device=self.device)
         self._build_buckets(parameters)
         self._register_backward_hooks()
         self.bucket_unreduced_param_ids = dict()
@@ -40,6 +41,7 @@ class ScalingTensorReducer:
         for handle in self.dist_handles:
             handle.wait()
         self.dist_handles = []
+        self.reduction_stream.synchronize()
 
     def _create_buffer(self, parameters):
         buffer_size = sum(p.numel() for p in parameters)
@@ -93,69 +95,74 @@ class ScalingTensorReducer:
         return hook_fn
 
     def _reduce_bucket(self, bucket_id):
-        # step 1: collect the gradients
-        param_ids = self.bucket_to_param_ids[bucket_id]
-        params = [self.parameters[i] for i in param_ids]
-        grads = [p.grad for p in params]
-        metas = [g.meta for g in grads]
+        self.reduction_stream.wait_stream(torch.cuda.current_stream())
+        with torch.cuda.stream(self.reduction_stream):
+            # step 1: collect the gradients
+            param_ids = self.bucket_to_param_ids[bucket_id]
+            params = [self.parameters[i] for i in param_ids]
+            grads = [p.grad for p in params]
+            metas = [g.meta for g in grads]
 
-        # step 2: synchronize the amax
-        # shape of amaxs: (n, )
-        amaxs = torch.stack([g.max().float() for g in grads])
-        scales = torch.stack([meta.scale for meta in metas])
-        # convert NAN to INF since NCCL-ReduceMax ignores NAN
-        # notice: nan and posinf must be INF
-        amaxs.nan_to_num_(nan=torch.inf, posinf=torch.inf)
-        dist.all_reduce(amaxs, op=dist.ReduceOp.MAX, group=self.process_group)
+            # step 2: synchronize the amax
+            # shape of amaxs: (n, )
+            amaxs = torch.stack([g.max().float() for g in grads])
+            scales = torch.stack([meta.scale for meta in metas])
+            # convert NAN to INF since NCCL-ReduceMax ignores NAN
+            # notice: nan and posinf must be INF
+            amaxs.nan_to_num_(nan=torch.inf, posinf=torch.inf)
+            handle = dist.all_reduce(amaxs, op=dist.ReduceOp.MAX, group=self.process_group, async_op=True)
+            handle.wait()
+            # wait for the reduction to finish
+            self.reduction_stream.wait_stream(torch.cuda.default_stream())
 
-        # step 3: update scaling factor
-        wgrad_qtype = Dtypes.kfloat8_e4m3
-        fp_max = Floating.qfp_max[wgrad_qtype]
-        world_size = dist.get_world_size(self.process_group)
-        pre_scale = 1.0 / math.sqrt(world_size)
-        # shape of sf: (n, )
-        sf = ScalingMeta.compute_scaling_factor(amaxs, scales, fp_max, margin=0)
-        sf.mul_(pre_scale)
+            # step 3: update scaling factor
+            wgrad_qtype = Dtypes.kfloat8_e4m3
+            fp_max = Floating.qfp_max[wgrad_qtype]
+            world_size = dist.get_world_size(self.process_group)
+            pre_scale = 1.0 / math.sqrt(world_size)
+            # shape of sf: (n, )
+            sf = ScalingMeta.compute_scaling_factor(amaxs, scales, fp_max, margin=0)
+            sf.mul_(pre_scale)
 
-        # update meta.amax[0] to global amax
-        for meta, amax, scale in zip(metas, amaxs, sf):
-            meta.amax[0] = amax
-            meta.scale.copy_(scale)
+            # update meta.amax[0] to global amax
+            for meta, amax, scale in zip(metas, amaxs, sf):
+                meta.amax[0] = amax
+                meta.scale.copy_(scale)
 
-        # step 4: quantize the gradients to FP8
-        bucket_range = self.bucket_to_range[bucket_id]
-        bucket_start, bucket_end = bucket_range
-        bucket_offset = bucket_start
-        dummy_amax = torch.empty((1, ), dtype=torch.float32, device=self.device)
-        for i, (grad, meta) in enumerate(zip(grads, metas)):
-            fp8_grad = TransformerEngineWrapper.cast_to_fp8(
-                grad.view(1, -1),
-                meta.scale,
-                dummy_amax,
-                meta.scale_inv,
-                meta.qtype,
-            )
-            meta.scale_inv.data.copy_(torch.reciprocal(meta.scale))
-            grads[i] = None
-            # copy fp8_grad to buffer
-            grad_numel = grad.numel()
-            buf = self.buffer.narrow(0, bucket_offset, grad_numel).view_as(fp8_grad)
-            buf.copy_(fp8_grad)
-            params[i].grad = ScalingTensor(buf, meta)
-            params[i].grad.div_(world_size)
-            bucket_offset += grad_numel
+            # step 4: quantize the gradients to FP8
+            bucket_range = self.bucket_to_range[bucket_id]
+            bucket_start, bucket_end = bucket_range
+            bucket_offset = bucket_start
+            dummy_amax = torch.empty((1, ), dtype=torch.float32, device=self.device)
+            for i, (grad, meta) in enumerate(zip(grads, metas)):
+                fp8_grad = TransformerEngineWrapper.cast_to_fp8(
+                    grad.view(1, -1),
+                    meta.scale,
+                    dummy_amax,
+                    meta.scale_inv,
+                    meta.qtype,
+                )
+                meta.scale_inv.data.copy_(torch.reciprocal(meta.scale))
+                grads[i] = None
+                # copy fp8_grad to buffer
+                grad_numel = grad.numel()
+                buf = self.buffer.narrow(0, bucket_offset, grad_numel).view_as(fp8_grad)
+                buf.copy_(fp8_grad)
+                params[i].grad = ScalingTensor(buf, meta)
+                params[i].grad.div_(world_size)
+                bucket_offset += grad_numel
 
-        # step 5: allreduce the gradients
-        flat_fp8_grads = self.buffer.narrow(0, bucket_start, bucket_end - bucket_start)
-        if True:
-            # [TODO] support native distributed API with FP8 support
-            handle = dist.all_reduce(flat_fp8_grads, op=dist.ReduceOp.SUM, group=self.process_group, async_op=True)
-            self.dist_handles.append(handle)
-        else:
-            if dist.get_world_size() == dist.get_world_size(self.process_group):
-                DistOp.all_reduce(flat_fp8_grads, qtype=wgrad_qtype, op=dist.ReduceOp.SUM)
+            # step 5: allreduce the gradients
+            flat_fp8_grads = self.buffer.narrow(0, bucket_start, bucket_end - bucket_start)
+            if True:
+                # [TODO] support native distributed API with FP8 support
+                handle = dist.all_reduce(flat_fp8_grads, op=dist.ReduceOp.SUM, group=self.process_group, async_op=True)
+                self.dist_handles.append(handle)
             else:
-                raise RuntimeError("msamp.nn.parallel.DistributedDataParallel only supports `self.process_group is None`")
+                if dist.get_world_size() == dist.get_world_size(self.process_group):
+                    DistOp.all_reduce(flat_fp8_grads, qtype=wgrad_qtype, op=dist.ReduceOp.SUM)
+                else:
+                    raise RuntimeError("msamp.nn.parallel.DistributedDataParallel only supports `self.process_group is None`")
 
 
 class _DDPSink(torch.autograd.Function):
