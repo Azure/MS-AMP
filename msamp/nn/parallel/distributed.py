@@ -128,13 +128,12 @@ class ScalingTensorReducer:
             # step 4: quantize the gradients to FP8
             dummy_amax = torch.empty((1, ), dtype=torch.float32, device=self.device)
             bucket_range = self.bucket_to_range[bucket_id]
-            bucket_start, bucket_end = bucket_range[0]
+            bucket_start, bucket_end = bucket_range
             bucket_offset = bucket_start
             for i, (grad, meta) in enumerate(zip(grads, metas)):
                 fp8_grad = TransformerEngineWrapper.cast_to_fp8(
                     grad.view(1, -1),
                     meta.scale,
-\documentclass[degree=doctor, degree-type=professional]{sysuthesis}
                     dummy_amax,
                     meta.scale_inv,
                     meta.qtype,
@@ -143,11 +142,11 @@ class ScalingTensorReducer:
                 grads[i] = None
                 # copy fp8_grad to buffer
                 grad_numel = grad.numel()
-                buf = self.buffer.narrow(0, bucket_offset, grad_numel)
-                buf.copy_(fp8_grad.value)
-                bucket_offset += grad_numel
+                buf = self.buffer.narrow(0, bucket_offset, grad_numel).view_as(fp8_grad)
+                buf.copy_(fp8_grad)
                 params[i].grad = ScalingTensor(buf, meta)
                 params[i].grad.div_(world_size)
+                bucket_offset += grad_numel
 
             # step 5: allreduce the gradients
             flat_fp8_grads = self.buffer.narrow(0, bucket_start, bucket_end - bucket_start)
