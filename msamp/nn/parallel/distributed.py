@@ -41,7 +41,7 @@ class ScalingTensorReducer:
         for handle in self.dist_handles:
             handle.wait()
         self.dist_handles = []
-        self.reduction_stream.synchronize()
+        torch.cuda.current_stream().wait_stream(self.reduction_stream)
 
     def _create_buffer(self, parameters):
         buffer_size = sum(p.numel() for p in parameters)
@@ -110,10 +110,7 @@ class ScalingTensorReducer:
             # convert NAN to INF since NCCL-ReduceMax ignores NAN
             # notice: nan and posinf must be INF
             amaxs.nan_to_num_(nan=torch.inf, posinf=torch.inf)
-            handle = dist.all_reduce(amaxs, op=dist.ReduceOp.MAX, group=self.process_group, async_op=True)
-            handle.wait()
-            # wait for the reduction to finish
-            self.reduction_stream.wait_stream(torch.cuda.default_stream())
+            dist.all_reduce(amaxs, op=dist.ReduceOp.MAX, group=self.process_group)
 
             # step 3: update scaling factor
             wgrad_qtype = Dtypes.kfloat8_e4m3
@@ -154,6 +151,7 @@ class ScalingTensorReducer:
 
             # step 5: allreduce the gradients
             flat_fp8_grads = self.buffer.narrow(0, bucket_start, bucket_end - bucket_start)
+            torch.cuda.default_stream().wait_stream(self.reduction_stream)
             if True:
                 # [TODO] support native distributed API with FP8 support
                 handle = dist.all_reduce(flat_fp8_grads, op=dist.ReduceOp.SUM, group=self.process_group, async_op=True)
