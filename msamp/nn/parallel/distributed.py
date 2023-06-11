@@ -19,7 +19,7 @@ class ScalingTensorReducer:
         self.device = parameters[0].device
         self.parameters = parameters
         self.param_to_id = {p: i for i, p in enumerate(parameters)}
-        self.buffer = self._create_buffer(parameters)
+        self.buffer = None
         self.bucket_bytes_cap = bucket_bytes_cap
         self.process_group = process_group
         self.reduction_stream = torch.cuda.Stream(device=self.device)
@@ -41,10 +41,9 @@ class ScalingTensorReducer:
         for handle in self.dist_handles:
             handle.wait()
         self.dist_handles = []
-        torch.cuda.current_stream().wait_stream(self.reduction_stream)
 
-    def _create_buffer(self, parameters):
-        buffer_size = sum(p.numel() for p in parameters)
+    def _create_buffer(self):
+        buffer_size = sum(p.numel() for p in self.parameters)
         return torch.empty((buffer_size, ), dtype=torch.uint8, device=self.device)
 
     def _build_buckets(self, parameters):
@@ -110,7 +109,12 @@ class ScalingTensorReducer:
             # convert NAN to INF since NCCL-ReduceMax ignores NAN
             # notice: nan and posinf must be INF
             amaxs.nan_to_num_(nan=torch.inf, posinf=torch.inf)
+
+            torch.cuda.default_stream().wait_stream(self.reduction_stream)
+            # all_reduce is launched in the custom stream pool, rather than reduction_stream
+            # all_reduce will synchronize default stream when it is launched
             dist.all_reduce(amaxs, op=dist.ReduceOp.MAX, group=self.process_group)
+            self.reduction_stream.wait_stream(torch.cuda.default_stream())
 
             # step 3: update scaling factor
             wgrad_qtype = Dtypes.kfloat8_e4m3
@@ -131,6 +135,8 @@ class ScalingTensorReducer:
             bucket_start, bucket_end = bucket_range
             bucket_offset = bucket_start
             dummy_amax = torch.empty((1, ), dtype=torch.float32, device=self.device)
+            if self.buffer is None:
+                self.buffer = self._create_buffer()
             for i, (grad, meta) in enumerate(zip(grads, metas)):
                 fp8_grad = TransformerEngineWrapper.cast_to_fp8(
                     grad.view(1, -1),
@@ -151,16 +157,17 @@ class ScalingTensorReducer:
 
             # step 5: allreduce the gradients
             flat_fp8_grads = self.buffer.narrow(0, bucket_start, bucket_end - bucket_start)
-            torch.cuda.default_stream().wait_stream(self.reduction_stream)
-            if False:
-                # [TODO] support native distributed API with FP8 support
-                handle = dist.all_reduce(flat_fp8_grads, op=dist.ReduceOp.SUM, group=self.process_group, async_op=True)
-                self.dist_handles.append(handle)
+
+        torch.cuda.default_stream().wait_stream(self.reduction_stream)
+        if False:
+            # [TODO] support native distributed API with FP8 support
+            handle = dist.all_reduce(flat_fp8_grads, op=dist.ReduceOp.SUM, group=self.process_group, async_op=True)
+            self.dist_handles.append(handle)
+        else:
+            if dist.get_world_size() == dist.get_world_size(self.process_group):
+                DistOp.all_reduce(flat_fp8_grads, qtype=wgrad_qtype, op=dist.ReduceOp.SUM)
             else:
-                if dist.get_world_size() == dist.get_world_size(self.process_group):
-                    DistOp.all_reduce(flat_fp8_grads, qtype=wgrad_qtype, op=dist.ReduceOp.SUM)
-                else:
-                    raise RuntimeError("msamp.nn.parallel.DistributedDataParallel only supports `self.process_group is None`")
+                raise RuntimeError("msamp.nn.parallel.DistributedDataParallel only supports `self.process_group is None`")
 
 
 class _DDPSink(torch.autograd.Function):
