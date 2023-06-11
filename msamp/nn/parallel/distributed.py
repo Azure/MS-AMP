@@ -152,7 +152,7 @@ class ScalingTensorReducer:
             # step 5: allreduce the gradients
             flat_fp8_grads = self.buffer.narrow(0, bucket_start, bucket_end - bucket_start)
             torch.cuda.default_stream().wait_stream(self.reduction_stream)
-            if True:
+            if False:
                 # [TODO] support native distributed API with FP8 support
                 handle = dist.all_reduce(flat_fp8_grads, op=dist.ReduceOp.SUM, group=self.process_group, async_op=True)
                 self.dist_handles.append(handle)
