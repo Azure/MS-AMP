@@ -96,6 +96,16 @@ class FP8DeepSpeedZeroOptimizerTestCase(unittest.TestCase):
         config = {
             'train_batch_size': 2,
             'train_micro_batch_size_per_gpu': 1,
+            'optimizer': {
+                'type': 'adamw',
+                'params': {
+                    'torch_adam': True,
+                }
+            },
+            'msamp': {
+                'enabled': True,
+                'opt_level': 'O3',
+            },
             'zero_optimization': {
                 'stage': 2,
             }
