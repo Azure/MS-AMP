@@ -8,9 +8,6 @@ import torch
 import torch.nn as nn
 
 from msamp import deepspeed
-from msamp.common.dtype.dtypes import Dtypes
-from msamp.nn import LinearReplacer
-from msamp.optim import LBAdam
 from tests.helper import decorator
 
 
@@ -27,9 +24,7 @@ class FP8DeepSpeedZeroOptimizerTestCase(unittest.TestCase):
 
     def _check_zero(self, ds_config):
         model = nn.Linear(4, 4, device='cuda')
-        model = LinearReplacer.replace(model, Dtypes.kfloat16)
-        optimizer = LBAdam(list(model.parameters()))
-        model, _, _, _ = deepspeed.initialize(model=model, optimizer=optimizer, config=ds_config)
+        model, _, _, _ = deepspeed.initialize(model=model, config=ds_config)
 
         inputs = []
         num_inputs = 10
@@ -58,6 +53,16 @@ class FP8DeepSpeedZeroOptimizerTestCase(unittest.TestCase):
         """Test fp8 deepspeed zero-stage1."""
         config = {
             'train_batch_size': 1,
+            'optimizer': {
+                'type': 'adamw',
+                'params': {
+                    'torch_adam': True,
+                }
+            },
+            'msamp': {
+                'enabled': True,
+                'opt_level': 'O3',
+            },
             'zero_optimization': {
                 'stage': 1,
             }
@@ -69,6 +74,16 @@ class FP8DeepSpeedZeroOptimizerTestCase(unittest.TestCase):
         """Test fp8 deepspeed zero-stage2."""
         config = {
             'train_batch_size': 1,
+            'optimizer': {
+                'type': 'adamw',
+                'params': {
+                    'torch_adam': True,
+                }
+            },
+            'msamp': {
+                'enabled': True,
+                'opt_level': 'O3',
+            },
             'zero_optimization': {
                 'stage': 2,
             }
