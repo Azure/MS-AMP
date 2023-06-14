@@ -96,7 +96,6 @@ class ScalingMeta:
         self.amax.copy_(src.amax)
         self.amax_counter.copy_(src.amax_counter)
         self.window_size = src.window_size
-        self.group = src.group
 
     def clone(self):
         """Returns a copy of this object."""
