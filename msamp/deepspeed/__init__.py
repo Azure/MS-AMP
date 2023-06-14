@@ -10,10 +10,11 @@ from torch.optim import Optimizer
 from deepspeed import *    # noqa
 from deepspeed import __version__, __git_hash__, __git_branch__, log_dist, logger,  get_accelerator, \
                       DeepSpeedOptimizerCallable, DeepSpeedSchedulerCallable, DeepSpeedConfig, \
-                      DeepSpeedHybridEngine, _LRScheduler, zero, PipelineModule, PipelineEngine
+                      DeepSpeedHybridEngine, _LRScheduler, zero, PipelineModule
 
 from msamp.deepspeed.runtime.config import MSAMPDeepSpeedConfig
 from msamp.deepspeed.runtime.engine import MSAMPDeepSpeedEngine
+from msamp.deepspeed.runtime.pipe.engine import MSAMPPipelineEngine
 
 
 def initialize(
@@ -148,7 +149,7 @@ def initialize(
         assert mpu is None, 'mpu must be None with pipeline parallelism'
         mpu = model.mpu()
         config_class = DeepSpeedConfig(config, mpu)
-        engine = PipelineEngine(
+        engine = MSAMPPipelineEngine(
             args=args,
             model=model,
             optimizer=optimizer,
