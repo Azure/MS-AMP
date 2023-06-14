@@ -24,7 +24,7 @@ class MSAMPPipelineEngine(MSAMPDeepSpeedEngine, PipelineEngine):
                 elif self.zero_optimization_stage() == ZeroStageEnum().gradients:
                     self.allreduce_gradients(bucket_size=MEMORY_OPT_ALLREDUCE_SIZE)
                 else:
-                    raise NotImplementedError("PP+BF16 only work for ZeRO Stage 2")
+                    raise NotImplementedError('PP+BF16 only work for ZeRO Stage 2')
             else:
                 self.allreduce_gradients(bucket_size=MEMORY_OPT_ALLREDUCE_SIZE)
         self._force_grad_boundary = False
