@@ -13,7 +13,7 @@ class ScalingMeta:
     """The meta data for scaling tensor."""
     in_time_scaling: bool = True
 
-    def __init__(self, qtype, scale=None, scale_inv=None, amax=None, window_size=1):
+    def __init__(self, qtype, scale=None, scale_inv=None, amax=None, window_size=1, group=None):
         """Constructor.
 
         Args:
@@ -22,6 +22,7 @@ class ScalingMeta:
             scale_inv (torch.Tensor, optional): The reciprocal of scaling tensor, defaults to None.
             amax (torch.Tensor, optional): Absolute maximum tensor, defaults to None.
             window_size (int, optional): Window size, defaults to 1.
+            group (torch.distributed.ProcessGroup, optional): Distributed group, defaults to None.
         """
         self.qtype = qtype
         self.scale = scale if scale is not None else torch.ones((), device='cuda')
@@ -29,6 +30,7 @@ class ScalingMeta:
         self.amax = amax if amax is not None else torch.zeros((window_size, ), device='cuda')
         self.amax_counter = torch.zeros((), dtype=torch.int32)
         self.window_size = window_size
+        self.group = group
         # lock flag to avoid the reference of the meta changed.
         self.locked = False
 
@@ -94,10 +96,15 @@ class ScalingMeta:
         self.amax.copy_(src.amax)
         self.amax_counter.copy_(src.amax_counter)
         self.window_size = src.window_size
+        self.group = src.group
 
     def clone(self):
         """Returns a copy of this object."""
-        return copy.deepcopy(self)
+        group = self.group
+        self.group = None
+        obj = copy.deepcopy(self)
+        self.group = obj.group = group
+        return obj
 
     def cuda(self):
         """Returns a copy of this object in CUDA memory."""
