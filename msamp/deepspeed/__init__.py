@@ -148,7 +148,7 @@ def initialize(
     else:
         assert mpu is None, 'mpu must be None with pipeline parallelism'
         mpu = model.mpu()
-        config_class = DeepSpeedConfig(config, mpu)
+        config_class = MSAMPDeepSpeedConfig(config, mpu)
         engine = MSAMPPipelineEngine(
             args=args,
             model=model,
