@@ -6,22 +6,25 @@
 from deepspeed.utils import instrument_w_nvtx
 from deepspeed.runtime.pipe.engine import PipelineEngine, schedule
 from deepspeed.runtime.engine import MEMORY_OPT_ALLREDUCE_SIZE
+from deepspeed.runtime.zero.config import ZeroStageEnum
 
 from msamp.nn import model_state
 from msamp.deepspeed.runtime.engine import MSAMPDeepSpeedEngine
 
 
 class MSAMPPipelineEngine(MSAMPDeepSpeedEngine, PipelineEngine):
-    """Pipeline engine supports pipeline+ZeRO+BF16."""
+    """Pipeline engine supports pipeline+ZeRO-2+BF16."""
     def _exec_reduce_grads(self):
         """Reduce gradients across pipeline stages."""
         self._force_grad_boundary = True
         if self.pipeline_enable_backward_allreduce:
-            if self.bfloat1_enabled():
-                if self.zero_optimization_stage() == 0:
+            if self.bfloat16_enabled():
+                if self.zero_optimization_stage() < ZeroStageEnum().gradients:
                     self._bf16_reduce_grads()
-                else:
+                elif self.zero_optimization_stage() == ZeroStageEnum().gradients:
                     self.allreduce_gradients(bucket_size=MEMORY_OPT_ALLREDUCE_SIZE)
+                else:
+                    raise NotImplementedError("PP+BF16 only work for ZeRO Stage 2")
             else:
                 self.allreduce_gradients(bucket_size=MEMORY_OPT_ALLREDUCE_SIZE)
         self._force_grad_boundary = False
