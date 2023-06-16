@@ -178,7 +178,7 @@ class LinearReplacer:
 
         fp8_names = [k for k, _ in fp8_named_weights]
         fp8_weights = [p for _, p in fp8_named_weights]
-        TensorDist.broadcast(fp8_weights, src=0, group=group)
+        TensorDist.broadcast(fp8_weights, src=src_rank, group=group)
 
         for k, p in fp8_named_weights:
             p._param_name = k
