@@ -7,12 +7,12 @@ import unittest
 
 import torch
 import torch.nn as nn
-from deepspeed.runtime.pipe.engine import PipelineEngine
 from deepspeed.runtime.hybrid_engine import DeepSpeedHybridEngine
 from deepspeed.pipe import PipelineModule
 
 from msamp import deepspeed
 from msamp.deepspeed.runtime.engine import MSAMPDeepSpeedEngine
+from msamp.deepspeed.runtime.pipe.engine import MSAMPPipelineEngine
 from tests.helper import decorator
 
 
@@ -40,7 +40,7 @@ class DeepSpeedInitializeTestCase(unittest.TestCase):
 
         model2 = PipelineModule(layers=model2, num_stages=1)
         model2, _, _, _ = deepspeed.initialize(model=model2, config=config)
-        assert isinstance(model2, PipelineEngine)
+        assert isinstance(model2, MSAMPPipelineEngine)
 
         config = {'train_batch_size': 1, 'hybrid_engine': {'enabled': True}}
         model3 = torch.nn.Linear(4, 4)
