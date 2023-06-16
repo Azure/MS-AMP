@@ -48,6 +48,8 @@ RUN cd third_party/nccl && \
     -gencode=arch=compute_80,code=sm_80 \
     -gencode=arch=compute_90,code=sm_90" && \
     make install
+# cache TE build to save time in CI
+RUN python3 -m pip install git+https://github.com/NVIDIA/TransformerEngine.git@v0.7
 
 ADD . .
 RUN python3 -m pip install --upgrade pip && \
