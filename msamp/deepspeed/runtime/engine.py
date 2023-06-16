@@ -242,6 +242,10 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
                 communication_data_type=self.communication_data_type,
                 elastic_checkpoint=self.zero_elastic_checkpoint()
             )
+            # update_hp_grads and clear_lp_grads will be called in PipelineEngine when using pipeline+bf16+zero1,
+            # so we just set them to None.
+            zero_t.update_hp_grads = lambda instance, clear_lp_grads: None
+            zero_t.clear_lp_grads = lambda instance: None
 
         elif zero_stage == ZeroStageEnum.weights:
             assert not self.has_moe_layers, 'MoE not supported with Stage 3'
