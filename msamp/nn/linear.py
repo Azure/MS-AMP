@@ -159,7 +159,7 @@ class LinearReplacer:
         return model
 
     @classmethod
-    def replace(cls, model, weight_qtype=Dtypes.kfloat16):
+    def replace(cls, model, weight_qtype=Dtypes.kfloat16, src_rank=0, group=None):
         """Replace torch.nn.Linear with FP8Linear in a model.
 
         Besides replace linear modules, it also broadcasts weights and register scaling data to model state.
@@ -167,6 +167,8 @@ class LinearReplacer:
         Args:
             model (torch.nn.Module): Model to replace.
             weight_qtype (Dtypes.QType, optional): Qtype of weight. Defaults to kfloat16.
+            src_rank (int, optional): Source rank of broadcast. Defaults to 0.
+            group (torch.distributed.ProcessGroup, optional): Group of broadcast. Defaults to None.
 
         Return:
             model (torch.nn.Module): Model in which all Linear modules are replaced with FP8Linear.
@@ -176,7 +178,7 @@ class LinearReplacer:
 
         fp8_names = [k for k, _ in fp8_named_weights]
         fp8_weights = [p for _, p in fp8_named_weights]
-        TensorDist.broadcast(fp8_weights, src=0)
+        TensorDist.broadcast(fp8_weights, src=src_rank, group=group)
 
         for k, p in fp8_named_weights:
             p._param_name = k
@@ -185,5 +187,5 @@ class LinearReplacer:
         # to sync them.
         torch.nn.parallel.DistributedDataParallel._set_params_and_buffers_to_ignore_for_model(model, fp8_names)
 
-        model_state.register_scaling_metas(model)
+        model_state.register_scaling_metas(model, group)
         return model

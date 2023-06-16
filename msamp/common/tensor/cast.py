@@ -40,7 +40,7 @@ class TypeCast:
             meta.amax[0].nan_to_num_(nan=torch.inf, posinf=torch.inf)
             world_size = DistUtil.get_world_size()
             if world_size > 1:
-                dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX)
+                dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX, group=meta.group)
                 sync_amax = meta.amax[0].clone()
         if in_time or sync:
             meta.reset_scaling_factor()
@@ -84,7 +84,7 @@ class TypeCast:
             meta.amax[0].nan_to_num_(nan=torch.inf, posinf=torch.inf)
             world_size = DistUtil.get_world_size()
             if world_size > 1:
-                dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX)
+                dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX, group=meta.group)
         if in_time or sync:
             # notice: we scale the tensor with qtype FP8-E4M3.
             meta.reset_scaling_factor(qtype=Dtypes.kfloat8_e4m3)
