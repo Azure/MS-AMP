@@ -34,8 +34,6 @@ class FP8OptimizerTestCase(unittest.TestCase):
         model = torch.nn.Linear(4, 4, bias=False).cuda()
         model1 = LinearReplacer.replace(model, Dtypes.kfloat16)
         model2 = LinearReplacer.replace(model, Dtypes.kfloat16)
-        print(f'model1.weight:{model1.weight.float()}')
-        print(f'model2.weight: {model2.weight.float()}')
         assert torch.equal(model1.weight.float(), model2.weight.float())
         opt1 = LBAdamW(list(model1.parameters()))
         opt2 = LBAdamW(list(model2.parameters()))
