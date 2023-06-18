@@ -455,7 +455,7 @@ class ScalingTensor:
         # ref
         with torch.no_grad():
             if isinstance(data, ScalingTensor):
-                if self.meta.locked:
+                if self.meta.locked and self.meta is not data.meta:
                     raise ValueError('This ScalingTensor is locked.')
                 self.value.data = data.value
                 self.meta = data.meta

@@ -40,7 +40,7 @@ class TypeCast:
             meta.amax[0].nan_to_num_(nan=torch.inf, posinf=torch.inf)
             world_size = DistUtil.get_world_size()
             if world_size > 1:
-                dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX)
+                dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX, group=meta.group)
                 sync_amax = meta.amax[0].clone()
         if in_time or sync:
             meta.reset_scaling_factor()
@@ -83,7 +83,7 @@ class TypeCast:
             meta.amax[0].nan_to_num_(nan=torch.inf, posinf=torch.inf)
             world_size = DistUtil.get_world_size()
             if world_size > 1:
-                dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX)
+                dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX, group=meta.group)
         meta.reset_scaling_factor()
 
         meta.scale_inv.data.copy_(torch.reciprocal(meta.scale))    # scale_inv = 1 / scale

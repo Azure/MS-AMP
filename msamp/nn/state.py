@@ -151,11 +151,12 @@ class ModelState:
             ModelState._check_in_mem(v.amax, metas['amaxs'])
             ModelState._check_in_mem(v.amax_counter, metas['amax_counters'])
 
-    def register_scaling_metas(self, model):
+    def register_scaling_metas(self, model, group=None):    # noqa: C901
         """Register scaling metas of the model to model state.
 
         Args:
             model (torch.nn.Module): model to register.
+            group (torch.distributed.ProcessGroup): process group to register.
         """
         for k, m in model.named_modules():
             if hasattr(m, 'scaling_metas'):
@@ -181,7 +182,10 @@ class ModelState:
             values[key] = ModelState._flatten_scaling_metas([m[key] for m in metas])
 
         self._flattened_scaling_metas = values
-
+        # Set group for ScalingMeta.
+        for meta in metas:
+            for m in meta.values():
+                m.group = group
         # check metas memory
         for meta in metas:
             self.check_metas_in_flat(meta)
