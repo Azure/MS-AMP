@@ -339,7 +339,7 @@ class ScalingTensorTestCase(unittest.TestCase):
         fp8_value2 = pickle.loads(pickle.dumps(fp8_value))
 
         self.assertTrue(torch.equal(fp8_value.value, fp8_value2.value))
-        self.assertTrue(torch.equal(fp8_value.scale_inv, fp8_value2.scale_inv))
+        self.assertTrue(torch.equal(fp8_value.meta.scale_inv, fp8_value2.meta.scale_inv))
         self.assertTrue(torch.equal(fp8_value.float(), fp8_value2.float()))
 
         # pickle state does not save grad
