@@ -96,6 +96,8 @@ class ScalingTensor:
     def __setstate__(self, state):
         """Set state."""
         self.__dict__.update(state)
+        self._backward_post_hooks = HookManager()
+        self._grad = None
 
     @property
     def grad(self):
