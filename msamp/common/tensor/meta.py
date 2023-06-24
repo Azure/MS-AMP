@@ -43,6 +43,7 @@ class ScalingMeta:
     def __setstate__(self, state):
         """Set state."""
         self.__dict__.update(state)
+        self.group = None
 
     @staticmethod
     @torch.jit.script
