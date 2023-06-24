@@ -34,6 +34,16 @@ class ScalingMeta:
         # lock flag to avoid the reference of the meta changed.
         self.locked = False
 
+    def __getstate__(self):
+        """Get state."""
+        state = {k: v for k, v in self.__dict__.items()}
+        state.pop('group')
+        return state
+
+    def __setstate__(self, state):
+        """Set state."""
+        self.__dict__.update(state)
+
     @staticmethod
     @torch.jit.script
     def compute_scaling_factor(amax, scale, fp_max: float, margin: int):

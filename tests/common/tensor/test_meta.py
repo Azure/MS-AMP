@@ -4,6 +4,7 @@
 """Tests for ScalingMeta."""
 
 import torch
+import pickle
 import unittest
 
 from msamp.common.dtype import Dtypes
@@ -59,3 +60,19 @@ class ScalingMetaTestCase(unittest.TestCase):
         meta = ScalingMeta(Dtypes.kfloat8_e4m3)
         self.assertFalse(meta.is_in_time_scaling())
         ScalingMeta.in_time_scaling = bak
+
+    @decorator.cuda_test
+    def test_meta_pickle(self):
+        """Test pickle and unpickle of ScalingMeta."""
+        meta = ScalingMeta(Dtypes.kfloat8_e4m3)
+        value = torch.randn((3, 4), device='cuda')
+        fp8_value = value.cast(meta.qtype, meta=meta)
+
+        meta2 = pickle.loads(pickle.dumps(meta))
+
+        self.assertEqual(meta.qtype, meta2.qtype)
+        self.assertEqual(meta.amax_counter, meta2.amax_counter)
+        self.assertEqual(meta.window_size, meta2.window_size)
+        self.assertTrue(torch.equal(meta.scale, meta2.scale))
+        self.assertTrue(torch.equal(meta.scale_inv, meta2.scale_inv))
+        self.assertTrue(torch.equal(meta.amax, meta2.amax))

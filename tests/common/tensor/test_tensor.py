@@ -4,6 +4,7 @@
 """Tests for ScalingTensor."""
 
 import unittest
+import pickle
 import torch
 import numpy as np
 
@@ -326,3 +327,20 @@ class ScalingTensorTestCase(unittest.TestCase):
         for dtype in dtypes:
             for qtype in qtypes:
                 self._helper_test_grad_check_unscale('cuda', dtype=dtype, qtype=qtype)
+
+    @decorator.cuda_test
+    def test_tensor_pickle(self):
+        """Test pickle and unpickle of ScalingTensor."""
+        meta = ScalingMeta(Dtypes.kfloat8_e4m3)
+        value = torch.randn((3, 4), device='cuda')
+        fp8_value = value.cast(meta.qtype, meta=meta)
+        fp8_value.grad = torch.randn((3, 4), device='cuda')
+
+        fp8_value2 = pickle.loads(pickle.dumps(fp8_value))
+
+        self.assertTrue(torch.equal(fp8_value.value, fp8_value2.value))
+        self.assertTrue(torch.equal(fp8_value.scale_inv, fp8_value2.scale_inv))
+        self.assertTrue(torch.equal(fp8_value.float(), fp8_value2.float()))
+
+        # pickle state does not save grad
+        self.assertTrue(fp8_value2.grad is None)

@@ -86,6 +86,17 @@ class ScalingTensor:
             raise TypeError(f'Type mismatch, value.type is {value.type}, meta.type is {meta.type}')
         self._requires_grad = False
 
+    def __getstate__(self):
+        """Get state."""
+        state = {k: v for k, v in self.__dict__.items()}
+        state.pop('_backward_post_hooks')
+        state.pop('_grad')
+        return state
+
+    def __setstate__(self, state):
+        """Set state."""
+        self.__dict__.update(state)
+
     @property
     def grad(self):
         """Decoration function to access _grad."""
