@@ -66,7 +66,7 @@ class ScalingMetaTestCase(unittest.TestCase):
         """Test pickle and unpickle of ScalingMeta."""
         meta = ScalingMeta(Dtypes.kfloat8_e4m3)
         value = torch.randn((3, 4), device='cuda')
-        fp8_value = value.cast(meta.qtype, meta=meta)
+        value.cast(meta.qtype, meta=meta)
 
         meta2 = pickle.loads(pickle.dumps(meta))
 
