@@ -5,7 +5,9 @@
 
 import ctypes
 
+
 class Fp8Op:
+    """Msampfp8 library wrapper class."""
     lib = ctypes.cdll.LoadLibrary('libmsampfp8.so')
 
     @classmethod
