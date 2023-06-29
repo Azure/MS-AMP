@@ -28,10 +28,12 @@ jobs:
     steps:
     - name: Checkout msamp
       uses: actions/checkout@v2
+      with:
+          submodules: true
     - name: Install nccl
       run: |
         cd third_party/nccl
-        make -j ${NUM_MAKE_JOBS} src.build NVCC_GENCODE="\
+        make -j src.build NVCC_GENCODE="\
           -gencode=arch=compute_70,code=sm_70 \
           -gencode=arch=compute_80,code=sm_80 \
           -gencode=arch=compute_90,code=sm_90"
