@@ -39,6 +39,7 @@ ENV PATH="${PATH}" \
     LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH}" \
     PYTHONOPTIMIZE=1
 
+
 WORKDIR /opt/msamp
 
 ADD third_party third_party
@@ -55,3 +56,5 @@ RUN python3 -m pip install --upgrade pip && \
 ADD . .
 RUN python3 -m pip install . && \
     make postinstall
+
+ENV LD_PRELOAD="/usr/local/lib/libmsampfp8.so:/usr/local/lib/libnccl.so:${LD_PRELOAD}"

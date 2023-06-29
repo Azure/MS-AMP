@@ -23,4 +23,5 @@ lint: cpplint mdlint
 
 postinstall:
 	cd msamp/operators/dist_op && pip install -v . && cd -
+	cd msamp/operators/fp8_op && bash build.sh && cd -
 	cd msamp/optim && pip install -v . && cd -
