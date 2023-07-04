@@ -76,7 +76,9 @@ class TypeCast:
         Return:
             torch.Tensor: tensor whose dtype is torch.float16.
         """
-        meta.amax[0] = input.abs().max()
+        in_time = meta.is_in_time_scaling()
+        if in_time or sync:
+            meta.amax[0] = input.abs().max()
         if sync:
             # convert NAN to INF since NCCL-ReduceMax ignores NAN
             # notice: nan and posinf must be INF
@@ -84,9 +86,9 @@ class TypeCast:
             world_size = DistUtil.get_world_size()
             if world_size > 1:
                 dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX, group=meta.group)
-        meta.reset_scaling_factor()
-
-        meta.scale_inv.data.copy_(torch.reciprocal(meta.scale))    # scale_inv = 1 / scale
+        if in_time or sync:
+            meta.reset_scaling_factor()
+            meta.scale_inv.data.copy_(torch.reciprocal(meta.scale))    # scale_inv = 1 / scale
         dtype = Dtypes.get_dtype_from_qtype(meta.qtype)
         # reshape scale to the tensor with the shape of (1,)
         # to avoid overflow when scale is larger than the maximum of qtype
