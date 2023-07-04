@@ -10,6 +10,7 @@
 #include <cuda_runtime.h>
 #include <cuda_bf16.h>
 #include <nccl.h>
+#include <nccl_net.h>
 
 enum FP8ModeType {kFP8Disabled, kFP8E4M3, kFp8E5M2};
 static enum FP8ModeType gFP8Mode = kFP8Disabled;
@@ -38,9 +39,10 @@ ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count,
   ncclDataType_t datatype, ncclRedOp_t op, ncclComm_t comm, cudaStream_t stream) {
   using ncclAllReduceFuncType = ncclResult_t (*)
     (const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, ncclComm_t, cudaStream_t);
-  ncclAllReduceFuncType real_nccl_all_reduce = nullptr;
-  if (!real_nccl_all_reduce) {
-    real_nccl_all_reduce = reinterpret_cast<ncclAllReduceFuncType>(dlsym(RTLD_NEXT, "ncclAllReduce"));
+  ncclAllReduceFuncType real_nccl_all_reduce = reinterpret_cast<ncclAllReduceFuncType>(dlsym(RTLD_NEXT, "ncclAllReduce"));
+  if (real_nccl_all_reduce == nullptr) {
+    printf("MSAMPFP8: Failed to find ncclAllReduce symbol");
+    return ncclSystemError;
   }
   if (gFP8Mode == kFP8E4M3) {
     return real_nccl_all_reduce(sendbuff, recvbuff, count, ncclFp8E4M3, op, comm, stream);

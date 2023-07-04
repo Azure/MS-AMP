@@ -51,8 +51,6 @@ jobs:
       run: |
         export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
         export LD_PRELOAD="/usr/local/lib/libmsampfp8.so:/usr/local/lib/libnccl.so:${LD_PRELOAD}"
-        echo "LD_LIBRARY_PATH is: $LD_LIBRARY_PATH"
-        echo "LD_LIBRARY_PATH is $LD_PRELOAD"
         python3 setup.py test
     # - name: Report coverage results
     #   run: |

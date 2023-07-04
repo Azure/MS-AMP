@@ -39,7 +39,6 @@ ENV PATH="${PATH}" \
     LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH}" \
     PYTHONOPTIMIZE=1
 
-
 WORKDIR /opt/msamp
 
 ADD third_party third_party
