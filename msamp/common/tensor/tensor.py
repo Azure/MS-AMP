@@ -233,17 +233,26 @@ class ScalingTensor:
 
         # Cast ScalingTensor to ScalingTensor with another data type
         old_amax = self.meta.amax[0]
+        # clone amax for the new ScalingTensor
         meta = ScalingMeta(qtype=qtype, amax=self.meta.amax.clone(), window_size=self.meta.window_size)
-        # re-compute scaling factor
+        # re-compute scaling factor with the maximum absolute value `amax`
         meta.reset_scaling_factor()
         # unscale it since self.value has been scaled by `self.scale`
         scale_inv = torch.reciprocal(meta.scale)
+        # correct meta.scale
+        # since self.value * self.meta.scale_inv = new_value * meta.scale_inv,
+        # new_value = self.value * (1 / meta.scale_inv * meta.scale_inv)
+        #           = self.value * (meta.scale * meta.scale_inv)
+        # where meta.scale * meta.scale_inv is the scaling factor to quantize self.value
         meta.scale.mul_(self.meta.scale_inv)
+        # quantize self.value with the current scaling factor, namely meta.scale
+        # therefore, disable the update of scaling factor in time
         with ScalingMeta.in_time_scaling_context(enabled=False):
             if Dtypes.is_fp8_qtype(meta.qtype):
                 value = TypeCast.cast_to_fp8(self.value, meta)
             else:
                 value = TypeCast.cast_to_fp16(self.value, meta)
+            # recover the following values since they are changed in cast_to_fp8/fp16.
             meta.amax[0] = old_amax
             meta.scale_inv.copy_(scale_inv)
         return ScalingTensor(value, meta=meta)
