@@ -9,7 +9,7 @@ import ctypes
 
 class FP8Op:
     """MSAMP FP8 library wrapper class."""
-    lib_path = "/usr/local/lib/libmsampfp8.so"
+    lib_path = '/usr/local/lib/libmsampfp8.so'
     lib = None
 
     @classmethod
