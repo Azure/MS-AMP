@@ -37,4 +37,5 @@ class FP8Op:
         except Exception as e:
             raise RuntimeError(f'Cannot load {cls.lib_path}, exception: {e}')
 
+
 FP8Op.load_fp8_lib()
