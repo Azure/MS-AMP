@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-"""Fp8Op module."""
+"""fp8_op module."""
 
 import os
 import ctypes

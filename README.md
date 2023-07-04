@@ -67,10 +67,17 @@ cd -
 
 Then, you can install MS-AMP from source.
 
-```
+```bash
 python3 -m pip install --upgrade pip
 python3 -m pip install .
 make postinstall
+```
+
+Before using MS-AMP, you need to preload msampfp8 library and it's depdencies:
+
+```bash
+NCCL_LIBRARY=/usr/lib/x86_64-linux-gnu/libnccl.so # Change as needed
+export LD_PRELOAD="/usr/local/lib/libmsampfp8.so:${NCCL_LIBRARY}:${LD_PRELOAD}"
 ```
 
 After that, you can verify the installation by running:
