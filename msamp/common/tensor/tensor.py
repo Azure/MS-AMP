@@ -84,8 +84,10 @@ class ScalingTensor:
 
         meta_dtype = Dtypes.get_dtype_from_qtype(meta.qtype)
         if meta_dtype != value.dtype:
-            raise TypeError(f'Type mismatch, value.dtype is {value.dtype}, meta.dtype is {meta_dtype} (meta.qtype is
-                            {meta.qtype}).')
+            raise TypeError(
+                f'Type mismatch, value.dtype is {value.dtype}, \
+meta.dtype is {meta_dtype} (meta.qtype is {meta.qtype}).'
+            )
         self._requires_grad = False
 
     @property
