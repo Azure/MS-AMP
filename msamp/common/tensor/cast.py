@@ -88,7 +88,7 @@ class TypeCast:
                 dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX, group=meta.group)
         if in_time or sync:
             meta.reset_scaling_factor()
-            meta.scale_inv.data.copy_(torch.reciprocal(meta.scale))    # scale_inv = 1 / scale
+        meta.scale_inv.data.copy_(torch.reciprocal(meta.scale))    # scale_inv = 1 / scale
         dtype = Dtypes.get_dtype_from_qtype(meta.qtype)
         # reshape scale to the tensor with the shape of (1,)
         # to avoid overflow when scale is larger than the maximum of qtype
