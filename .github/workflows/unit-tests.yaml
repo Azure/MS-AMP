@@ -28,8 +28,19 @@ jobs:
     steps:
     - name: Checkout msamp
       uses: actions/checkout@v2
+      with:
+          submodules: true
+    - name: Install nccl
+      run: |
+        cd third_party/nccl
+        make -j src.build NVCC_GENCODE="\
+          -gencode=arch=compute_70,code=sm_70 \
+          -gencode=arch=compute_80,code=sm_80 \
+          -gencode=arch=compute_90,code=sm_90"
+        make install
     - name: Install dependencies
       run: |
+        export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
         python3 -m pip install --upgrade pip
         python3 -m pip install .[test]
         make postinstall
@@ -38,6 +49,8 @@ jobs:
         python3 setup.py lint
     - name: Run unit tests
       run: |
+        export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
+        export LD_PRELOAD="/usr/local/lib/libmsampfp8.so:/usr/local/lib/libnccl.so:${LD_PRELOAD}"
         python3 setup.py test
     # - name: Report coverage results
     #   run: |
