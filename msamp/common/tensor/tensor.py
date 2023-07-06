@@ -225,9 +225,9 @@ meta.dtype is {meta_dtype} (meta.qtype is {meta.qtype}).'
 
         Args:
             qtype (Dtypes.QType): the qtype to cast.
-                Supported qtype: Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2,
-                                 Dtypes.kfloat16, Dtypes.kbfloat16,
-                                 Dtypes.kfloat32
+                Supported qtype:
+                    Dtypes.kfloat8_e4m3 | Dtypes.kfloat8_e5m2 |
+                    Dtypes.kfloat16 | Dtypes.kbfloat16 | Dtypes.kfloat32
 
         Return:
             ScalingTensor: a ScalingTensor with desired qtype.
