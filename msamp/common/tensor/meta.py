@@ -71,6 +71,30 @@ class ScalingMeta:
         """
         return ScalingMeta.in_time_scaling and (self.window_size == 1 or self.is_warmup())
 
+    @staticmethod
+    def in_time_scaling_context(enabled):
+        """A context manager to set in_time_scaling flag.
+
+        Args:
+            bool: in_time_scaling flag.
+
+        Returns:
+            InTimeScalingContext: A context manager to set in_time_scaling flag.
+        """
+        class InTimeScalingContext:
+            def __init__(self, enabled):
+                self.enabled = enabled
+                self.in_time_scaling = ScalingMeta.in_time_scaling
+
+            def __enter__(self):
+                self.in_time_scaling = ScalingMeta.in_time_scaling
+                ScalingMeta.in_time_scaling = self.enabled
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                ScalingMeta.in_time_scaling = self.in_time_scaling
+
+        return InTimeScalingContext(enabled=enabled)
+
     def reset_scaling_factor(self, qtype=None):
         """Reset scaling factor.
 
