@@ -61,6 +61,7 @@ apt-get update
 apt install build-essential devscripts debhelper fakeroot
 make pkg.debian.build
 dpkg -i build/pkg/deb/libnccl2_*.deb
+dpkg -i build/pkg/deb/libnccl-dev_2*.deb
 
 cd -
 ```
