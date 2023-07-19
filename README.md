@@ -123,6 +123,7 @@ for batch_idx, (data, target) in enumerate(train_loader):
 ```
 
 For applying MS-AMP to DeepSpeed ZeRO, add a "msamp" section in deepspeed config file:
+
 ```json
 "msamp": {
   "enabled": true,
@@ -130,7 +131,7 @@ For applying MS-AMP to DeepSpeed ZeRO, add a "msamp" section in deepspeed config
 }
 ```
 
-Runnable, comprehensive examples demonstrating good practices can be found [here](./examples). 
+Runnable, comprehensive examples demonstrating good practices can be found [here](./examples).
 For more examples, please go to [MS-AMP-Examples](https://github.com/Azure/MS-AMP-Examples).
 
 ### Optimization Level
@@ -144,7 +145,7 @@ Currently MS-AMP supports two optimization levels: O1 and O2. Try both, and see 
 - O3: This optimization level is specifically designed for ZeRO-optimizer in advanced distributed traning framework DeepSpeed. ZeRO separates model weights into regular weights and master weights, with the former used for network forward/backward on each GPU, and the latter used for model updating in the optimizer. This separation allows us to use 8-bit data precision for regular weights and weight broadcasting, which reduces GPU memory and bandwidth usage even further.
 
 Here are details of different MS-AMP optimization levels:
-| Optimization Level  | Computation(GEMM) | Comm  | Weight | Master Weight  | Weight Gradient | Optimizer States | 
+| Optimization Level  | Computation(GEMM) | Comm  | Weight | Master Weight  | Weight Gradient | Optimizer States |
 | ------------------- | -----------       | ----- | ------ | -------------  | --------------- | ---------------- |
 | FP16 AMP            | FP16              | FP32  | FP32   | N/A            | FP32            | FP32+FP32        |
 | Nvidia TE           | FP8               | FP32  | FP32   | N/A            | FP32            | FP32+FP32        |
