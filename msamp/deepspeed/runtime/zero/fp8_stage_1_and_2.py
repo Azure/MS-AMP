@@ -279,7 +279,6 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
         self.reduce_ipg_grads()
         self.report_ipg_memory_usage('In ipg_epilogue after reduce_ipg_grads', 0)
         self.fp8_reduce_ipg_grads()
-        model_state.ready_to_all_reduce_grads = False
 
         # if dist.get_rank() == 0:
         #    logger.info("Params already reduced %s", self.params_already_reduced)

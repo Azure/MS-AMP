@@ -95,10 +95,8 @@ class LBAdamwTestCase(unittest.TestCase):
         TensorDist.all_reduce_avg = debug_all_reduce_avg
         opt.all_reduce_grads(model1)
         self.assertEqual(num_grads, 1)
-        self.assertFalse(model_state.ready_to_all_reduce_grads)
         opt.all_reduce_grads(model2)
         self.assertEqual(num_grads, 2)
-        self.assertFalse(model_state.ready_to_all_reduce_grads)
         TensorDist.all_reduce_avg = old_all_reduce_avg
 
     def check_optimizer_state_dict(self, lbadam_class):

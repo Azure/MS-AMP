@@ -176,7 +176,7 @@ class LinearReplacer:
         model = cls._replace(model, weight_qtype)
         fp8_named_weights = [(k, p) for k, p in model.named_parameters() if isinstance(p, ScalingParameter)]
 
-        fp8_names = [k for k, _ in fp8_named_weights]
+        # fp8_names = [k for k, _ in fp8_named_weights]
         fp8_weights = [p for _, p in fp8_named_weights]
         TensorDist.broadcast(fp8_weights, src=src_rank, group=group)
 
@@ -185,6 +185,13 @@ class LinearReplacer:
 
         # DDP ignores the FP8 weights, and the optimizer provides a function `optimizer.all_reduce_grads(model)`
         # to sync them.
+        fp8_names = []
+        for module_name, module in model.named_modules():
+            for param_name, param in module.named_parameters(recurse=False):
+                if isinstance(param, ScalingParameter):
+                    # Create expected format
+                    fqn = f"{module_name}.{param_name}"
+                    fp8_names.append(fqn)
         torch.nn.parallel.DistributedDataParallel._set_params_and_buffers_to_ignore_for_model(model, fp8_names)
 
         model_state.register_scaling_metas(model, group)
