@@ -24,7 +24,8 @@ class FakeNet(nn.Module):
 
     def forward(self, x):
         return self.fc1(x)
-    
+
+
 class DistributedTestCast(MultiProcessTestCase):
     """Test functions in distributed module."""
     def setUp(self):
@@ -32,7 +33,6 @@ class DistributedTestCast(MultiProcessTestCase):
         torch.manual_seed(1000)
         super().setUp()
         self._spawn_processes()
-
 
     def tearDown(self):
         """Hook method for deconstructing the test fixture after testing it."""
@@ -57,14 +57,14 @@ class DistributedTestCast(MultiProcessTestCase):
         store = dist.FileStore(self.file_name, self.world_size)
         torch.cuda.set_device(rank)
         dist.init_process_group(backend='nccl', store=store, rank=self.rank, world_size=self.world_size)
-            
+
         fake_model = FakeNet().cuda()
         model = LinearReplacer.replace(fake_model)
-        
+
         with _ddp_replicated_tensor(False):
             model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank])
             assert isinstance(model, FP8DistributedDataParallel)
-            # input is different for each rank. 
+            # input is different for each rank.
             input = torch.randn(20, 10).cuda() + rank
             output = model(input)
             output.sum().backward()

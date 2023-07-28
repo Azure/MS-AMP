@@ -8,7 +8,6 @@ from deepspeed.runtime.pipe.engine import PipelineEngine, schedule
 from deepspeed.runtime.engine import MEMORY_OPT_ALLREDUCE_SIZE
 from deepspeed.runtime.zero.config import ZeroStageEnum
 
-from msamp.nn import model_state
 from msamp.deepspeed.runtime.engine import MSAMPDeepSpeedEngine
 
 

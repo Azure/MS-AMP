@@ -13,7 +13,6 @@ from deepspeed.runtime.zero.stage_1_and_2 import all_gather_dp_groups, DeepSpeed
     get_accelerator, move_to_cpu, logger, see_memory_usage
 from msamp.common.tensor import ScalingTensor, ScalingMeta
 from msamp.common.dtype import Dtypes
-from msamp.nn import model_state
 from msamp.common.utils import TransformerEngineWrapper
 
 SINGLE_PARTITION_OF_FP8_GROUPS = 'single_partition_of_fp8_groups'

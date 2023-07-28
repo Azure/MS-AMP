@@ -12,7 +12,6 @@ from deepspeed.runtime.engine import SparseTensor, ZERO_OPTIMIZATION, AMP, amp, 
 
 from msamp import initialize as msamp_initialize
 from msamp.common.tensor import ScalingTensor, TensorDist
-from msamp.nn import model_state
 from msamp.optim import LBOptimizer
 from msamp.deepspeed.runtime.fp8.fused_optimizer import FP8Optimizer
 from msamp.deepspeed.runtime.zero import utils    # noqa: F401

@@ -11,7 +11,7 @@ import torch
 from msamp.common.dtype import Dtypes
 from msamp.common.tensor import TensorDist
 from msamp.optim import LBAdamW, LBAdam, LBAdamWBase, DSAdam
-from msamp.nn import LinearReplacer, model_state
+from msamp.nn import LinearReplacer
 from tests.helper import decorator
 
 

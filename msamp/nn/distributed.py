@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-"""distributed interface in MS-AMP."""
+"""distributed module in MS-AMP."""
 
 import math
 
@@ -19,7 +19,7 @@ class _ScalingTensorReducer:
     """A reducer for scaling tensors."""
     def __init__(self, parameters, process_group, bucket_bytes_cap):
         """Constructor.
-        
+
         Args:
             parameters (list): A list of ScalingTensor.
             process_group (torch.distributed.ProcessGroup): The process group to be used for distributed.
@@ -46,9 +46,9 @@ class _ScalingTensorReducer:
     def reset_buckets(self):
         """Reset the buckets after all parameters are reduced."""
         if len(self.bucket_unreduced_param_ids) > 0:
-            raise RuntimeError("some gradients are not reduced: {}".format(list(self.bucket_unreduced_param_ids.keys())))
+            raise RuntimeError("some gradients not reduced: {}".format(list(self.bucket_unreduced_param_ids.keys())))
         self.bucket_unreduced_param_ids = {k: set(v) for k, v in self.bucket_to_param_ids.items()}
-    
+
     def wait(self):
         """Wait for all aysnc operations to complete."""
         for handle in self.dist_handles:
@@ -62,7 +62,7 @@ class _ScalingTensorReducer:
 
     def _build_buckets(self, parameters):
         """Split the parameters into muitple buckets in reverse order.
-        
+
         Args:
             parameters (list): A list of ScalingTensor.
         """
@@ -99,15 +99,16 @@ class _ScalingTensorReducer:
 
     def _get_backward_hook(self, param):
         """Get the backward hook for a parameter.
-        
+
         Args:
             param (ScalingTensor): The parameter.
-        
+
         Returns:
             The backward hook.
         """
         param_id = self.param_to_id[param]
         bucket_id = self.param_id_to_bucket_id[param_id]
+
         def hook_fn(*args, **kwargs):
             unreduced_param_ids = self.bucket_unreduced_param_ids[bucket_id]
             try:
@@ -118,11 +119,12 @@ class _ScalingTensorReducer:
                 # the bucket is full, reduce it
                 self._reduce_bucket(bucket_id)
                 self.bucket_unreduced_param_ids.pop(bucket_id)
+
         return hook_fn
 
     def _reduce_bucket(self, bucket_id):
         """Reduce the gradients of all the parameters in a bucket.
-        
+
         Args:
             bucket_id (int): The id of the bucket.
         """
@@ -137,8 +139,8 @@ class _ScalingTensorReducer:
             # step 2: synchronize the amax
             amaxs = torch.stack([g.abs().max().float() for g in grads])
             scales = torch.stack([meta.scale for meta in metas])
-            
-            amaxs.nan_to_num_(nan=torch.inf, posinf=torch.inf) # convert NAN to INF since reduce ignores NAN
+
+            amaxs.nan_to_num_(nan=torch.inf, posinf=torch.inf)    # convert NAN to INF since reduce ignores NAN
             dist.all_reduce(amaxs, op=dist.ReduceOp.MAX, group=self.process_group)
 
             # step 3: re-compute scaling factor and update meta.amax
@@ -178,7 +180,7 @@ class _ScalingTensorReducer:
                 bucket_offset += grad_numel
 
             flat_fp8_grads = self.buffer.narrow(0, bucket_start, bucket_end - bucket_start)
-        
+
         # step 5: allreduce the gradients
         torch.cuda.default_stream().wait_stream(self.reduction_stream)
         FP8Op.enable_fp8(wgrad_qtype)
@@ -188,16 +190,17 @@ class _ScalingTensorReducer:
 
 
 class _DDPSink(torch.autograd.Function):
-    """Add a DDPSink to run various functions, such as reset buckets before forward and wait for allreduce after backward. """
+    """A class for running various functions in DDP, such as reset buckets before forward and wait for allreduce after
+    backward. """
     @staticmethod
     def forward(ctx, reducer, empty, *inputs):
         """Reset the buckets and return the inputs.
-        
+
         Argss:
             ctx (Context): The context to store arbitrary data which can be retrieved during the backward pass.
             reducer (_ScalingTensorReducer): The reducer for reducing the gradients.
-            empty (torch.Tensor): An empty tensor whose requires_grad is True to trigger the backward function. 
-        
+            empty (torch.Tensor): An empty tensor whose requires_grad is True to trigger the backward function.
+
         Returns:
             The inputs.
         """
@@ -209,11 +212,11 @@ class _DDPSink(torch.autograd.Function):
     @staticmethod
     def backward(ctx, *grad_outputs):
         """Wait for allreduce complete and return the gradients.
-        
+
         Args:
             ctx (Context): The context to get the data stored in forward pass.
             grad_outputs (tuple): The gradients of the outputs.
-        
+
         Returns:
             The gradients of outputs.
         """
@@ -225,7 +228,7 @@ class FP8DistributedDataParallel(torch.nn.parallel.DistributedDataParallel):
     """A wrapper of DistributedDataParallel to support all-reduce FP8 gradients."""
     def __init__(self, module, **kwargs):
         """Constructor.
-        
+
         Args:
             module (torch.nn.Module): The module to be wrapped.
             kwargs (dict): The rest arguments for DistributedDataParallel.
@@ -233,11 +236,13 @@ class FP8DistributedDataParallel(torch.nn.parallel.DistributedDataParallel):
         super().__init__(module, **kwargs)
         if model_state.use_torch_ddp:
             scaling_params = [p for p in self.parameters() if p.requires_grad and isinstance(p, ScalingTensor)]
-            self.scaling_tensor_reducer = _ScalingTensorReducer(scaling_params, self.process_group, self.bucket_bytes_cap)
+            self.scaling_tensor_reducer = _ScalingTensorReducer(
+                scaling_params, self.process_group, self.bucket_bytes_cap
+            )
 
     def forward(self, *inputs, **kwargs):
         """Apply _DDPSlin in forward function.
-        
+
         Args:
             inputs (tuple): The input tensors.
             kwargs (dict): The keyword arguments.
