@@ -1,8 +1,12 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+"""Tests for msamp.nn.distributed module."""
+
 import os
 
 import torch
 import torch.nn as nn
-
 import torch.distributed as dist
 from torch.nn.parallel._replicated_tensor_ddp_utils import _ddp_replicated_tensor
 from torch.testing._internal.common_distributed import MultiProcessTestCase, skip_if_lt_x_gpu, requires_nccl
@@ -11,7 +15,9 @@ from msamp.nn import LinearReplacer, model_state
 from msamp.nn.distributed import FP8DistributedDataParallel
 from tests.helper import decorator
 
+
 class FakeNet(nn.Module):
+    """A fake network for testing."""
     def __init__(self):
         super().__init__()
         self.fc1 = nn.Linear(10, 10)
@@ -20,7 +26,7 @@ class FakeNet(nn.Module):
         return self.fc1(x)
     
 class DistributedTestCast(MultiProcessTestCase):
-    """Test functions in clip_grad module."""
+    """Test functions in distributed module."""
     def setUp(self):
         """Hook method for setting up the test fixture before exercising it."""
         torch.manual_seed(1000)
@@ -45,6 +51,7 @@ class DistributedTestCast(MultiProcessTestCase):
     @skip_if_lt_x_gpu(2)
     @decorator.cuda_test
     def test_fp8_ddp(self):
+        """Test FP8DistributedDataParallel."""
         model_state.use_torch_ddp = True
         rank = self.rank
         store = dist.FileStore(self.file_name, self.world_size)
