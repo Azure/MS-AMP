@@ -12,10 +12,10 @@ from tests.helper import decorator
 from torch.testing._internal.common_distributed import MultiProcessTestCase, skip_if_lt_x_gpu, requires_nccl
 
 from msamp.common.dtype import Dtypes
-from msamp.operators.fp8_op import FP8Op
+from msamp.operators.dist_op import DistOp
 
 
-class FP8OpTestCase(MultiProcessTestCase):
+class DistOpTestCase(MultiProcessTestCase):
     """A class for FP8Op test cases."""
     def setUp(self):
         """Hook method for setting up the test fixture before exercising it."""
@@ -48,6 +48,7 @@ class FP8OpTestCase(MultiProcessTestCase):
         tensors = [torch.rand(4).cuda(), torch.rand(4).cuda()]
         target = tensors[0] + tensors[1]
         tensor = tensors[rank].clone()
+
         dist.all_reduce(tensor, op=dist.ReduceOp.SUM)
         self.assertEqual(tensor, target)
 
@@ -68,7 +69,7 @@ class FP8OpTestCase(MultiProcessTestCase):
         target = torch.tensor([0b01010101, 0b01100010], dtype=torch.uint8, device='cuda')
 
         tensor = tensors[rank].clone()
-        FP8Op.enable_fp8(Dtypes.kfloat8_e4m3)
+        DistOp.enable_fp8(Dtypes.kfloat8_e4m3)
         dist.all_reduce(tensor, op=dist.ReduceOp.SUM)
         self.assertEqual(tensor, target)
-        FP8Op.disable_fp8()
+        DistOp.disable_fp8()

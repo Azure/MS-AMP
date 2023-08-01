@@ -55,4 +55,4 @@ ADD . .
 RUN python3 -m pip install . && \
     make postinstall
 
-ENV LD_PRELOAD="/usr/local/lib/libmsampfp8.so:/usr/local/lib/libnccl.so:${LD_PRELOAD}"
+ENV LD_PRELOAD="/usr/local/lib/libmsampdist.so:/usr/local/lib/libnccl.so:${LD_PRELOAD}"
