@@ -8,7 +8,6 @@ import os
 import torch
 import torch.nn as nn
 import torch.distributed as dist
-from torch.nn.parallel._replicated_tensor_ddp_utils import _ddp_replicated_tensor
 from torch.testing._internal.common_distributed import MultiProcessTestCase, skip_if_lt_x_gpu, requires_nccl
 
 from msamp.nn import LinearReplacer, model_state
@@ -54,7 +53,7 @@ class DistributedTestCast(MultiProcessTestCase):
     @decorator.cuda_test
     def test_fp8_ddp(self):
         """Test FP8DistributedDataParallel."""
-        model_state.use_torch_ddp = True
+        model_state.use_fp8_ddp = True
         rank = self.rank
         store = dist.FileStore(self.file_name, self.world_size)
         torch.cuda.set_device(rank)
@@ -62,17 +61,23 @@ class DistributedTestCast(MultiProcessTestCase):
 
         fake_model = FakeNet().cuda()
         model = LinearReplacer.replace(fake_model)
+        try:
+            # ddp_with_replicated_tensor is set in MultiProcessTestCase and should disabled. We catch exception because
+            # replicated_tensor_ddp_utils is not available in torch 2.
+            from torch.nn.parallel._replicated_tensor_ddp_utils import _set_ddp_with_replicated_tensor
+            _set_ddp_with_replicated_tensor(False)
+        except Exception:
+            pass
 
-        with _ddp_replicated_tensor(False):
-            model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank])
-            assert isinstance(model, FP8DistributedDataParallel)
-            # input is different for each rank.
-            input = torch.randn(20, 10).cuda() + rank
-            output = model(input)
-            output.sum().backward()
-            assert fake_model.fc1.weight.grad.value.dtype == torch.uint8
-            # after backward, the grad should be same for each rank. And we call all_reduce to check it.
-            expect_grad = self.world_size * fake_model.fc1.weight.grad.value.clone()
-            dist.all_reduce(fake_model.fc1.weight.grad.value)
-            assert torch.equal(expect_grad, fake_model.fc1.weight.grad.value)
-        model_state.use_torch_ddp = False
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank])
+        assert isinstance(model, FP8DistributedDataParallel)
+        # input is different for each rank.
+        input = torch.randn(20, 10).cuda() + rank
+        output = model(input)
+        output.sum().backward()
+        assert fake_model.fc1.weight.grad.value.dtype == torch.uint8
+        # after backward, the grad should be same for each rank. And we call all_reduce to check it.
+        expect_grad = self.world_size * fake_model.fc1.weight.grad.value.clone()
+        dist.all_reduce(fake_model.fc1.weight.grad.value)
+        assert torch.equal(expect_grad, fake_model.fc1.weight.grad.value)
+        model_state.use_fp8_ddp = False

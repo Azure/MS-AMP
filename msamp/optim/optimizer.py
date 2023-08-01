@@ -44,7 +44,7 @@ class LBOptimizer(Optimizer):
 
     def all_reduce_grads(self, model):
         """All-reduce gradients of parameters."""
-        if model_state.use_torch_ddp:
+        if model_state.use_fp8_ddp:
             return
         scaling_params = [p for p in model.parameters() if isinstance(p, ScalingParameter)]
         grads = [p.grad for p in scaling_params if p.grad is not None]
