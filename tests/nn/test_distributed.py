@@ -19,10 +19,12 @@ from tests.helper import decorator
 class FakeNet(nn.Module):
     """A fake network for testing."""
     def __init__(self):
+        """Constructor."""
         super().__init__()
         self.fc1 = nn.Linear(10, 10)
 
     def forward(self, x):
+        """Forward function."""
         return self.fc1(x)
 
 

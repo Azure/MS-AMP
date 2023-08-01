@@ -27,10 +27,10 @@ class _ScalingTensorReducer:
         """
         parameters = list(parameters)
         if not all(isinstance(p, ScalingTensor) for p in parameters):
-            raise ValueError("All parameters must be ScalingTensor")
+            raise ValueError('All parameters must be ScalingTensor')
         # Check if the devices of parameters are same.
         if not all(p.device == parameters[0].device for p in parameters):
-            raise ValueError("All parameters must be on the same device")
+            raise ValueError('All parameters must be on the same device')
         self.device = parameters[0].device
         self.parameters = parameters
         self.param_to_id = {p: i for i, p in enumerate(parameters)}
@@ -46,7 +46,7 @@ class _ScalingTensorReducer:
     def reset_buckets(self):
         """Reset the buckets after all parameters are reduced."""
         if len(self.bucket_unreduced_param_ids) > 0:
-            raise RuntimeError("some gradients not reduced: {}".format(list(self.bucket_unreduced_param_ids.keys())))
+            raise RuntimeError('some gradients not reduced: {}'.format(list(self.bucket_unreduced_param_ids.keys())))
         self.bucket_unreduced_param_ids = {k: set(v) for k, v in self.bucket_to_param_ids.items()}
 
     def wait(self):
@@ -114,7 +114,7 @@ class _ScalingTensorReducer:
             try:
                 unreduced_param_ids.remove(param_id)
             except KeyError:
-                raise RuntimeError("gradient is already reduced")
+                raise RuntimeError('gradient is already reduced')
             if len(unreduced_param_ids) == 0:
                 # the bucket is full, reduce it
                 self._reduce_bucket(bucket_id)
@@ -181,17 +181,19 @@ class _ScalingTensorReducer:
 
             flat_fp8_grads = self.buffer.narrow(0, bucket_start, bucket_end - bucket_start)
 
-        # step 5: allreduce the gradients
-        torch.cuda.default_stream().wait_stream(self.reduction_stream)
-        FP8Op.enable_fp8(wgrad_qtype)
-        dist_handle = dist.all_reduce(flat_fp8_grads, dist.ReduceOp.SUM, self.process_group, async_op=True)
-        self.dist_handles.append(dist_handle)
-        FP8Op.disable_fp8()
+            # step 5: allreduce the gradients
+            torch.cuda.default_stream().wait_stream(self.reduction_stream)
+            FP8Op.enable_fp8(wgrad_qtype)
+            dist_handle = dist.all_reduce(flat_fp8_grads, dist.ReduceOp.SUM, self.process_group, async_op=True)
+            FP8Op.disable_fp8()
+            self.dist_handles.append(dist_handle)
 
 
 class _DDPSink(torch.autograd.Function):
-    """A class for running various functions in DDP, such as reset buckets before forward and wait for allreduce after
-    backward. """
+    """A class for running various functions in DDP.
+
+    Such functions are reset buckets before forward and wait for allreduce after backward.
+    """
     @staticmethod
     def forward(ctx, reducer, empty, *inputs):
         """Reset the buckets and return the inputs.

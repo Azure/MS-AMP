@@ -189,8 +189,7 @@ class LinearReplacer:
         for module_name, module in model.named_modules():
             for param_name, param in module.named_parameters(recurse=False):
                 if isinstance(param, ScalingParameter):
-                    # Create expected format
-                    fqn = f"{module_name}.{param_name}"
+                    fqn = f'{module_name}.{param_name}'
                     fp8_names.append(fqn)
         torch.nn.parallel.DistributedDataParallel._set_params_and_buffers_to_ignore_for_model(model, fp8_names)
 
