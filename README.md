@@ -79,7 +79,7 @@ Before using MS-AMP, you need to preload msampfp8 library and it's depdencies:
 
 ```bash
 NCCL_LIBRARY=/usr/lib/x86_64-linux-gnu/libnccl.so # Change as needed
-export LD_PRELOAD="/usr/local/lib/libmsampfp8.so:${NCCL_LIBRARY}:${LD_PRELOAD}"
+export LD_PRELOAD="/usr/local/lib/libmsampdist.so:${NCCL_LIBRARY}:${LD_PRELOAD}"
 ```
 
 After that, you can verify the installation by running:
