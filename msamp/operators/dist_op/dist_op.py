@@ -31,12 +31,12 @@ class DistOp:
             cls.lib.enable_fp8_e5m2()
 
     @classmethod
-    def all_reduce(cls, qtype, tensor, op, group=None, async_op=False):
+    def all_reduce(cls, tensor, qtype, op, group=None, async_op=False):
         """All reduce tensor.
 
         Args:
-            qtype (Qtype): qtype of the tensor.
             tensor (Tensor): tensor to be reduced.
+            qtype (Qtype): qtype of the tensor.
             op (ReduceOp): reduce operation.
             async_op (bool): whether to wait for the operation to finish.
 
