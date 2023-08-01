@@ -33,16 +33,19 @@ class DistOp:
     @classmethod
     def all_reduce(cls, qtype, tensor, op, group=None, async_op=False):
         """All reduce tensor.
-        
+
         Args:
             qtype (Qtype): qtype of the tensor.
             tensor (Tensor): tensor to be reduced.
             op (ReduceOp): reduce operation.
             async_op (bool): whether to wait for the operation to finish.
+
+        Returns:
+            Return a process group collective work handle if async_op is True, otherwise None.
         """
         if not Dtypes.is_fp8_qtype(qtype):
             return dist.all_reduce(tensor, op, group, async_op)
-        
+
         cls.enable_fp8(qtype)
         ret = dist.all_reduce(tensor, op, group, async_op)
         cls.disable_fp8()
