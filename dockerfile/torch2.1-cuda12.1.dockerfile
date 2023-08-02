@@ -41,7 +41,7 @@ ENV PATH="${PATH}" \
 WORKDIR /opt/msamp
 
 ADD third_party third_party
-RUN cd third_party/nccl && \
+RUN cd third_party/msccl && \
     make -j ${NUM_MAKE_JOBS} src.build NVCC_GENCODE="\
     -gencode=arch=compute_70,code=sm_70 \
     -gencode=arch=compute_80,code=sm_80 \
