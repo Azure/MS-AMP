@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-"""Tests for fp8_op module."""
+"""Tests for dist_op module."""
 
 import os
 

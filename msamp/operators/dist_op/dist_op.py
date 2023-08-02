@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-"""fp8_op module."""
+"""dist_op module."""
 
 import os
 import ctypes
@@ -11,7 +11,7 @@ from msamp.common.dtype import Dtypes
 
 
 class DistOp:
-    """MSAMP FP8 library wrapper class."""
+    """MSAMP Dist library wrapper class."""
     lib_path = '/usr/local/lib/libmsamp_dist.so'
     lib = None
 
@@ -22,7 +22,7 @@ class DistOp:
 
     @classmethod
     def enable_fp8(cls, qtype):
-        """Enable fp8. It means uint8/int8 will be treated as e4m3/e5m2 fp8 in ncclAllReduce."""
+        """Enable fp8. It means uint8/int8 will be treated as e4m3/e5m2 fp8 in ncclAllReduce/ncclReduce."""
         if not Dtypes.is_fp8_qtype(qtype):
             raise RuntimeError(f'qtype {qtype} is not supported in enable_fp8.')
         if qtype == Dtypes.kfloat8_e4m3:
@@ -58,8 +58,8 @@ class DistOp:
         Args:
             tensor (Tensor): tensor to be reduced.
             qtype (Qtype): qtype of the tensor.
-            op (ReduceOp): reduce operation.
             dst (int): destination rank.
+            op (ReduceOp): reduce operation.
             async_op (bool): whether to wait for the operation to finish.
 
         Returns:
@@ -75,7 +75,7 @@ class DistOp:
 
     @classmethod
     def load_dist_lib(cls):
-        """Load msamp fp8 lib."""
+        """Load msamp dist lib."""
         if not os.path.exists(cls.lib_path):
             raise RuntimeError(f'Cannot find {cls.lib_path}, please build msamp dist lib first.')
         try:
