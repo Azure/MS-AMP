@@ -56,3 +56,27 @@ ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count,
   }
 
 }
+
+/**
+ * It will override the ncclReduce function in nccl library if this library is set to LD_PRELOAD.
+*/
+#undef ncclReduce
+extern "C"
+ncclResult_t  ncclReduce(const void* sendbuff, void* recvbuff, size_t count, ncclDataType_t datatype,
+  ncclRedOp_t op, int root, ncclComm_t comm, cudaStream_t stream)
+{
+  using ncclReduceFuncType = ncclResult_t (*)
+    (const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, int, ncclComm_t, cudaStream_t);
+  ncclReduceFuncType real_nccl_reduce = reinterpret_cast<ncclReduceFuncType>(dlsym(RTLD_NEXT, "ncclReduce"));
+  if (real_nccl_reduce == nullptr) {
+    printf("MSAMP_DistOp: Failed to find ncclReduce symbol");
+    return ncclSystemError;
+  }
+  if (gFP8Mode == kFP8E4M3) {
+    return real_nccl_reduce(sendbuff, recvbuff, count, ncclFp8E4M3, op, root, comm, stream);
+  } else if (gFP8Mode == kFp8E5M2) {
+    return real_nccl_reduce(sendbuff, recvbuff, count, ncclFp8E5M2, op, root, comm, stream);
+  } else {
+    return real_nccl_reduce(sendbuff, recvbuff, count, datatype, op, root, comm, stream);
+  }
+}

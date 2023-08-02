@@ -31,7 +31,7 @@ class DistOp:
             cls.lib.enable_fp8_e5m2()
 
     @classmethod
-    def all_reduce(cls, tensor, qtype, op, group=None, async_op=False):
+    def all_reduce(cls, tensor, qtype, op=dist.ReduceOp.SUM, group=None, async_op=False):
         """All reduce tensor.
 
         Args:
@@ -48,6 +48,28 @@ class DistOp:
 
         cls.enable_fp8(qtype)
         ret = dist.all_reduce(tensor, op, group, async_op)
+        cls.disable_fp8()
+        return ret
+
+    @classmethod
+    def reduce(cls, tensor, qtype, dst, op=dist.ReduceOp.SUM, group=None, async_op=False):
+        """Reduce tensor.
+
+        Args:
+            tensor (Tensor): tensor to be reduced.
+            qtype (Qtype): qtype of the tensor.
+            op (ReduceOp): reduce operation.
+            dst (int): destination rank.
+            async_op (bool): whether to wait for the operation to finish.
+
+        Returns:
+            Return a process group collective work handle if async_op is True, otherwise None.
+        """
+        if not Dtypes.is_fp8_qtype(qtype):
+            return dist.reduce(tensor, dst, op, group, async_op)
+
+        cls.enable_fp8(qtype)
+        ret = dist.reduce(tensor, dst, op, group, async_op)
         cls.disable_fp8()
         return ret
 
