@@ -191,7 +191,6 @@ def main():
     if args.enable_msamp:
         print(f'msamp is enabled, opt_level: {args.opt_level}')
         model, optimizer = msamp.initialize(model, optimizer, opt_level=args.opt_level)
-        msamp.nn.model_state.use_fp8_ddp = True
 
     model = torch.nn.parallel.DistributedDataParallel(
         model, device_ids=[args.local_rank], output_device=args.local_rank

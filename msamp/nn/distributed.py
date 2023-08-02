@@ -236,14 +236,12 @@ class FP8DistributedDataParallel(torch.nn.parallel.DistributedDataParallel):
             kwargs (dict): The rest arguments for DistributedDataParallel.
         """
         super().__init__(module, **kwargs)
-        if model_state.use_fp8_ddp:
-            scaling_params = [p for p in self.parameters() if p.requires_grad and isinstance(p, ScalingTensor)]
-            self.scaling_tensor_reducer = _ScalingTensorReducer(
-                scaling_params, self.process_group, self.bucket_bytes_cap
-            )
+        model_state.use_fp8_ddp = True
+        scaling_params = [p for p in self.parameters() if p.requires_grad and isinstance(p, ScalingTensor)]
+        self.scaling_tensor_reducer = _ScalingTensorReducer(scaling_params, self.process_group, self.bucket_bytes_cap)
 
     def forward(self, *inputs, **kwargs):
-        """Apply _DDPSlin in forward function.
+        """Apply _DDPSink in forward function.
 
         Args:
             inputs (tuple): The input tensors.

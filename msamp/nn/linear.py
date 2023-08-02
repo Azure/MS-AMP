@@ -176,7 +176,6 @@ class LinearReplacer:
         model = cls._replace(model, weight_qtype)
         fp8_named_weights = [(k, p) for k, p in model.named_parameters() if isinstance(p, ScalingParameter)]
 
-        # fp8_names = [k for k, _ in fp8_named_weights]
         fp8_weights = [p for _, p in fp8_named_weights]
         TensorDist.broadcast(fp8_weights, src=src_rank, group=group)
 
