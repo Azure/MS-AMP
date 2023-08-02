@@ -12,7 +12,7 @@ from msamp.common.dtype import Dtypes
 
 class DistOp:
     """MSAMP FP8 library wrapper class."""
-    lib_path = '/usr/local/lib/libmsampdist.so'
+    lib_path = '/usr/local/lib/libmsamp_dist.so'
     lib = None
 
     @classmethod
