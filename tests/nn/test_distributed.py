@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.distributed as dist
 from torch.testing._internal.common_distributed import MultiProcessTestCase, skip_if_lt_x_gpu, requires_nccl
 
-from msamp.nn import LinearReplacer, model_state
+from msamp.nn import LinearReplacer
 from msamp.nn.distributed import FP8DistributedDataParallel
 from tests.helper import decorator
 
@@ -53,7 +53,6 @@ class DistributedTestCast(MultiProcessTestCase):
     @decorator.cuda_test
     def test_fp8_ddp(self):
         """Test FP8DistributedDataParallel."""
-        model_state.use_fp8_ddp = True
         rank = self.rank
         store = dist.FileStore(self.file_name, self.world_size)
         torch.cuda.set_device(rank)
@@ -80,4 +79,3 @@ class DistributedTestCast(MultiProcessTestCase):
         expect_grad = self.world_size * fake_model.fc1.weight.grad.value.clone()
         dist.all_reduce(fake_model.fc1.weight.grad.value)
         assert torch.equal(expect_grad, fake_model.fc1.weight.grad.value)
-        model_state.use_fp8_ddp = False
