@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from msamp.common.dtype import Dtypes
 from msamp.common.tensor import ScalingTensor
 from msamp.operators.gemm import Gemm
-from msamp.nn import model_state
+from msamp.nn.state import model_state
 
 
 class _FP8GemmFunction(torch.autograd.Function):
