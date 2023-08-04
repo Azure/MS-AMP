@@ -80,3 +80,25 @@ ncclResult_t  ncclReduce(const void* sendbuff, void* recvbuff, size_t count, ncc
     return real_nccl_reduce(sendbuff, recvbuff, count, datatype, op, root, comm, stream);
   }
 }
+
+/**
+ * It will override the ncclReduceScatter function in nccl library if this library is set to LD_PRELOAD.
+*/
+#undef ncclReduceScatter
+ncclResult_t ncclReduceScatter(const void* sendbuff, void* recvbuff, size_t recvcount,
+    ncclDataType_t datatype, ncclRedOp_t op, ncclComm* comm, cudaStream_t stream) {
+  using ncclReduceScatterFuncType = ncclResult_t (*)
+    (const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, ncclComm*, cudaStream_t);
+  ncclReduceScatterFuncType real_nccl_reduce_scatter = reinterpret_cast<ncclReduceScatterFuncType>(dlsym(RTLD_NEXT, "ncclReduceScatter"));
+  if (real_nccl_reduce_scatter == nullptr) {
+    printf("MSAMPFP8: Failed to find ncclReduceScatter symbol");
+    return ncclSystemError;
+  }
+  if (gFP8Mode == kFP8E4M3) {
+    return real_nccl_reduce_scatter(sendbuff, recvbuff, recvcount, ncclFp8E4M3, op, comm, stream);
+  } else if (gFP8Mode == kFp8E5M2) {
+    return real_nccl_reduce_scatter(sendbuff, recvbuff, recvcount, ncclFp8E5M2, op, comm, stream);
+  } else {
+    return real_nccl_reduce_scatter(sendbuff, recvbuff, recvcount, datatype, op, comm, stream);
+  }
+}
