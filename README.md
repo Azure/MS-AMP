@@ -46,10 +46,10 @@ cd MS-AMP
 git submodule update --init --recursive
 ```
 
-If you want to train model with multiple GPU, you need to install specific nccl to support FP8.
+If you want to train model with multiple GPU, you need to install MSCCL to support FP8.
 
 ```bash
-cd third_party/nccl
+cd third_party/msccl
 
 # V100
 make -j src.build NVCC_GENCODE="-gencode=arch=compute_70,code=sm_70"
