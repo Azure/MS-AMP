@@ -61,13 +61,12 @@ class _ScalingTensorReducer:
         return torch.empty((buffer_size, ), dtype=torch.uint8, device=self.device)
 
     def _build_buckets(self, parameters):
-        """Split the parameters into muitple buckets in reverse order.
+        """Split the parameters into multiple buckets in reverse order.
 
         Args:
             parameters (list): A list of ScalingTensor.
         """
         bucket_bytes = 0
-        total_bytes = 0
         bucket_id = 0
         bucket_offset = 0
         param_id_to_bucket_id = {}
@@ -79,9 +78,9 @@ class _ScalingTensorReducer:
             param_id_to_bucket_id[param_id] = bucket_id
             bucket_to_param_ids.setdefault(bucket_id, []).append(param_id)
             bucket_bytes += nbytes
-            total_bytes += nbytes
             if bucket_bytes >= self.bucket_bytes_cap:
                 bucket_to_range[bucket_id] = (bucket_offset, bucket_offset + bucket_bytes)
+                bucket_offset += bucket_bytes
                 bucket_id += 1
                 bucket_bytes = 0
 
