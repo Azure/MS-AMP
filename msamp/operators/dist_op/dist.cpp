@@ -91,7 +91,7 @@ ncclResult_t ncclReduceScatter(const void* sendbuff, void* recvbuff, size_t recv
     (const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, ncclComm*, cudaStream_t);
   ncclReduceScatterFuncType real_nccl_reduce_scatter = reinterpret_cast<ncclReduceScatterFuncType>(dlsym(RTLD_NEXT, "ncclReduceScatter"));
   if (real_nccl_reduce_scatter == nullptr) {
-    printf("MSAMPFP8: Failed to find ncclReduceScatter symbol");
+    printf("MSAMP_DistOp: Failed to find ncclReduceScatter symbol");
     return ncclSystemError;
   }
   if (gFP8Mode == kFP8E4M3) {
