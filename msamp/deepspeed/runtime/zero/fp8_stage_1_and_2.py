@@ -467,7 +467,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
                 grad_slice = tensor_to_reduce.narrow(0, int(bucket_offset), int(numel))
                 dst_rank = dist.get_global_rank(real_dp_process_group[i], dst)
                 async_handle = DistOp.reduce(
-                    grad_slice, Dtypes.kfloat8_e4m3, dst=dst_rank, group=real_dp_process_group[i], async_op=True
+                    grad_slice, WEIGHT_GRAD_QTYPE, dst=dst_rank, group=real_dp_process_group[i], async_op=True
                 )
                 async_handles.append(async_handle)
             for handle in async_handles:
