@@ -8,7 +8,6 @@ from deepspeed.runtime.pipe.engine import PipelineEngine, schedule
 from deepspeed.runtime.engine import MEMORY_OPT_ALLREDUCE_SIZE
 from deepspeed.runtime.zero.config import ZeroStageEnum
 
-from msamp.nn import model_state
 from msamp.deepspeed.runtime.engine import MSAMPDeepSpeedEngine
 
 
@@ -32,7 +31,6 @@ class MSAMPPipelineEngine(MSAMPDeepSpeedEngine, PipelineEngine):
     @instrument_w_nvtx
     def allreduce_gradients(self, bucket_size=MEMORY_OPT_ALLREDUCE_SIZE):
         """Allreduce gradients across pipeline stages."""
-        model_state.ready_to_all_reduce_grads = False
         # Pass (PP) gas boundary flag to optimizer (required for zero)
         self.optimizer.is_gradient_accumulation_boundary = self.is_gradient_accumulation_boundary()
         # ZeRO stage >= 2 communicates during non gradient accumulation boundaries as well

@@ -13,7 +13,6 @@ from deepspeed.runtime.zero.stage_1_and_2 import all_gather_dp_groups, DeepSpeed
     get_accelerator, move_to_cpu, logger, see_memory_usage
 from msamp.common.tensor import ScalingTensor, ScalingMeta
 from msamp.common.dtype import Dtypes
-from msamp.nn import model_state
 from msamp.common.utils import TransformerEngineWrapper
 
 SINGLE_PARTITION_OF_FP8_GROUPS = 'single_partition_of_fp8_groups'
@@ -279,7 +278,6 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
         self.reduce_ipg_grads()
         self.report_ipg_memory_usage('In ipg_epilogue after reduce_ipg_grads', 0)
         self.fp8_reduce_ipg_grads()
-        model_state.ready_to_all_reduce_grads = False
 
         # if dist.get_rank() == 0:
         #    logger.info("Params already reduced %s", self.params_already_reduced)
