@@ -16,7 +16,7 @@ from msamp.operators.dist_op import DistOp
 
 
 class DistOpTestCase(MultiProcessTestCase):
-    """A class for FP8Op test cases."""
+    """A class for DistOp test cases."""
     def setUp(self):
         """Hook method for setting up the test fixture before exercising it."""
         super().setUp()
@@ -52,6 +52,17 @@ class DistOpTestCase(MultiProcessTestCase):
         dist.all_reduce(tensor, op=dist.ReduceOp.SUM)
         self.assertEqual(tensor, target)
 
+        # test max and min
+        target = torch.maximum(tensors[0], tensors[1])
+        tensor = tensors[rank].clone()
+        dist.all_reduce(tensor, op=dist.ReduceOp.MAX)
+        self.assertEqual(tensor, target)
+
+        target = torch.minimum(tensors[0], tensors[1])
+        tensor = tensors[rank].clone()
+        dist.all_reduce(tensor, op=dist.ReduceOp.MIN)
+        self.assertEqual(tensor, target)
+
     @requires_nccl()
     @skip_if_lt_x_gpu(2)
     def test_reduce(self):
@@ -66,6 +77,23 @@ class DistOpTestCase(MultiProcessTestCase):
         tensor = tensors[rank].clone()
 
         dist.reduce(tensor, dst=0, op=dist.ReduceOp.SUM)
+        if rank == 0:
+            self.assertEqual(tensor, target)
+        else:
+            self.assertEqual(tensor, tensors[rank])
+
+        # test max and min
+        target = torch.maximum(tensors[0], tensors[1])
+        tensor = tensors[rank].clone()
+        dist.reduce(tensor, dst=0, op=dist.ReduceOp.MAX)
+        if rank == 0:
+            self.assertEqual(tensor, target)
+        else:
+            self.assertEqual(tensor, tensors[rank])
+
+        target = torch.minimum(tensors[0], tensors[1])
+        tensor = tensors[rank].clone()
+        dist.reduce(tensor, dst=0, op=dist.ReduceOp.MIN)
         if rank == 0:
             self.assertEqual(tensor, target)
         else:
@@ -97,6 +125,16 @@ class DistOpTestCase(MultiProcessTestCase):
         DistOp.all_reduce(tensor, Dtypes.kfloat8_e4m3, op=dist.ReduceOp.SUM)
         self.assertEqual(tensor, target)
 
+        # test max and min
+        tensor = tensors[rank].clone()
+        target = torch.tensor([0b01010000, 0b01011100], dtype=torch.uint8, device='cuda')
+        DistOp.all_reduce(tensor, Dtypes.kfloat8_e4m3, op=dist.ReduceOp.MAX)
+        self.assertEqual(tensor, target)
+
+        tensor = tensors[rank].clone()
+        target = torch.tensor([0b01001010, 0b01011000], dtype=torch.uint8, device='cuda')
+        DistOp.all_reduce(tensor, Dtypes.kfloat8_e4m3, op=dist.ReduceOp.MIN)
+
     @requires_nccl()
     @skip_if_lt_x_gpu(2)
     @decorator.cuda_test
@@ -124,6 +162,23 @@ class DistOpTestCase(MultiProcessTestCase):
 
         tensor = tensors[rank].clone()
         DistOp.reduce(tensor, Dtypes.kfloat8_e4m3, dst=1, op=dist.ReduceOp.SUM)
+        if rank == 1:
+            self.assertEqual(tensor, target)
+        else:
+            self.assertEqual(tensor, tensors[rank])
+
+        # test max and min
+        tensor = tensors[rank].clone()
+        target = torch.tensor([0b01010000, 0b01011100], dtype=torch.uint8, device='cuda')
+        DistOp.reduce(tensor, Dtypes.kfloat8_e4m3, dst=1, op=dist.ReduceOp.MAX)
+        if rank == 1:
+            self.assertEqual(tensor, target)
+        else:
+            self.assertEqual(tensor, tensors[rank])
+
+        tensor = tensors[rank].clone()
+        target = torch.tensor([0b01001010, 0b01011000], dtype=torch.uint8, device='cuda')
+        DistOp.reduce(tensor, Dtypes.kfloat8_e4m3, dst=1, op=dist.ReduceOp.MIN)
         if rank == 1:
             self.assertEqual(tensor, target)
         else:
