@@ -1,86 +1,87 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-"""DistOp module."""
+"""dist_op module."""
 
-from torch.distributed import ReduceOp as TorchReduceOp
-from msamp.common.utils import DistUtil
+import os
+import ctypes
+
+import torch.distributed as dist
 from msamp.common.dtype import Dtypes
-import msamp_dist_op
 
 
 class DistOp:
-    """Distributed operators to support FP8 collective operations."""
-    _comm = None
-    _qtype_to_nccltype = {
-        Dtypes.kfloat16: 6,
-        Dtypes.kfloat32: 7,
-        Dtypes.kbfloat16: 9,
-        Dtypes.kfloat8_e4m3: 10,
-        Dtypes.kfloat8_e5m2: 11,
-    }
-    _torch_reduce_op_to_nccl_reduce_op = {
-        TorchReduceOp.SUM: 0,    # ncclSum,
-        TorchReduceOp.PRODUCT: 1,    # ncclProd,
-        TorchReduceOp.MIN: 2,    # ncclMin,
-        TorchReduceOp.MAX: 3,    # ncclMax,
-        TorchReduceOp.AVG: 4,    # ncclAvg,
-    }
+    """MSAMP Dist library wrapper class."""
+    lib_path = '/usr/local/lib/libmsamp_dist.so'
+    lib = None
 
     @classmethod
-    def _get_global_comm(cls):
-        """Get the communicator.
-
-        Return:
-            ncclCommPtr: The communicator ptr.
-        """
-        if cls._comm is None:
-            rank = DistUtil.get_rank()
-            world_size = DistUtil.get_world_size()
-            nccl_uid = [None]
-            if rank == 0:
-                nccl_uid[0] = msamp_dist_op.get_nccl_uid()
-            DistUtil.broadcast_object_list(nccl_uid, src=0)
-            cls._comm = msamp_dist_op.get_communicator(nccl_uid[0], rank, world_size)
-        return cls._comm
+    def disable_fp8(cls):
+        """Disable fp8. It means uint8/int8 will not be treated as fp8 in ncclAllReduce."""
+        cls.lib.disable_fp8()
 
     @classmethod
-    def _get_nccl_reduce_op(cls, op):
-        """Get the nccl reduce op.
+    def enable_fp8(cls, qtype):
+        """Enable fp8. It means uint8/int8 will be treated as e4m3/e5m2 fp8 in ncclAllReduce/ncclReduce."""
+        if not Dtypes.is_fp8_qtype(qtype):
+            raise RuntimeError(f'qtype {qtype} is not supported in enable_fp8.')
+        if qtype == Dtypes.kfloat8_e4m3:
+            cls.lib.enable_fp8_e4m3()
+        elif qtype == Dtypes.kfloat8_e5m2:
+            cls.lib.enable_fp8_e5m2()
+
+    @classmethod
+    def all_reduce(cls, tensor, qtype, op=dist.ReduceOp.SUM, group=None, async_op=False):
+        """All reduce tensor.
 
         Args:
-            op (int): one of the values from torch.distributed.ReduceOp enum.
+            tensor (Tensor): tensor to be reduced.
+            qtype (Qtype): qtype of the tensor.
+            op (ReduceOp): reduce operation.
+            async_op (bool): whether to wait for the operation to finish.
 
-        Return:
-            int: The nccl reduce op.
+        Returns:
+            Return a process group collective work handle if async_op is True, otherwise None.
         """
-        if op not in cls._torch_reduce_op_to_nccl_reduce_op:
-            raise ValueError('Unsupported reduce op: {}'.format(op))
-        return cls._torch_reduce_op_to_nccl_reduce_op[op]
+        if not Dtypes.is_fp8_qtype(qtype):
+            return dist.all_reduce(tensor, op, group, async_op)
+
+        cls.enable_fp8(qtype)
+        ret = dist.all_reduce(tensor, op, group, async_op)
+        cls.disable_fp8()
+        return ret
 
     @classmethod
-    def reduce(cls, tensor, dst, qtype, op):
-        """Function of reduce.
+    def reduce(cls, tensor, qtype, dst, op=dist.ReduceOp.SUM, group=None, async_op=False):
+        """Reduce tensor.
 
         Args:
-            tensor (torch.Tensor): tensor to reduce.
-            dst (int): the destination rank to reduce.
-            qtype (Dtypes.QType): the data type.
-            op (int): one of the values from torch.distributed.ReduceOp enum.
+            tensor (Tensor): tensor to be reduced.
+            qtype (Qtype): qtype of the tensor.
+            dst (int): destination rank.
+            op (ReduceOp): reduce operation.
+            async_op (bool): whether to wait for the operation to finish.
+
+        Returns:
+            Return a process group collective work handle if async_op is True, otherwise None.
         """
-        msamp_dist_op.reduce(
-            tensor, tensor, dst, cls._get_nccl_reduce_op(op), cls._get_global_comm(), cls._qtype_to_nccltype[qtype]
-        )
+        if not Dtypes.is_fp8_qtype(qtype):
+            return dist.reduce(tensor, dst, op, group, async_op)
+
+        cls.enable_fp8(qtype)
+        ret = dist.reduce(tensor, dst, op, group, async_op)
+        cls.disable_fp8()
+        return ret
 
     @classmethod
-    def all_reduce(cls, tensor, qtype, op):
-        """Function of allreduce .
+    def load_dist_lib(cls):
+        """Load msamp dist lib."""
+        if not os.path.exists(cls.lib_path):
+            raise RuntimeError(f'Cannot find {cls.lib_path}, please build msamp dist lib first.')
+        try:
+            cls.lib = ctypes.cdll.LoadLibrary(cls.lib_path)
+        except Exception as e:
+            raise RuntimeError(f'Cannot load {cls.lib_path}, exception: {e}')
 
-        Args:
-            tensor (torch.Tensor): tensor to reduce.
-            qtype (Dtypes.QType): the data type.
-            op (int): one of the values from torch.distributed.ReduceOp enum.
-        """
-        msamp_dist_op.all_reduce(
-            [tensor], [tensor], cls._get_nccl_reduce_op(op), [cls._get_global_comm()], cls._qtype_to_nccltype[qtype]
-        )
+
+DistOp.load_dist_lib()
