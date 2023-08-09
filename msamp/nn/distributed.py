@@ -12,7 +12,7 @@ from msamp.common.tensor import ScalingTensor, ScalingMeta
 from msamp.common.dtype import Dtypes, Floating
 from msamp.common.utils import TransformerEngineWrapper
 from msamp.nn.state import model_state
-from msamp.operators.fp8_op import FP8Op
+from msamp.operators.dist_op import DistOp
 
 
 class _ScalingTensorReducer:
@@ -182,9 +182,9 @@ class _ScalingTensorReducer:
 
             # step 5: allreduce the gradients
             torch.cuda.default_stream().wait_stream(self.reduction_stream)
-            FP8Op.enable_fp8(wgrad_qtype)
-            dist_handle = dist.all_reduce(flat_fp8_grads, dist.ReduceOp.SUM, self.process_group, async_op=True)
-            FP8Op.disable_fp8()
+            dist_handle = DistOp.all_reduce(
+                flat_fp8_grads, wgrad_qtype, dist.ReduceOp.SUM, self.process_group, async_op=True
+            )
             self.dist_handles.append(dist_handle)
 
 
