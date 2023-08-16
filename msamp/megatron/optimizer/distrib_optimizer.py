@@ -10,22 +10,8 @@ from msamp.common.tensor import ScalingTensor, ScalingMeta
 from msamp.operators.dist_op import DistOp
 
 from megatron.optimizer.optimizer import MixedPrecisionOptimizer, _zero_grad_group_helper
+from megatron.optimizer.distrib_optimizer import DistributedOptimizer, Range
 
-class Range:
-    """
-    A range represents a start and end points for indexing a shard
-    from a full tensor.
-    """
-    def __init__(self, start, end):
-        self.start = start
-        self.end = end
-        self.size = end - start
-    def normalize(self, start = 0):
-        return Range(start, start + self.size)
-    def __str__(self):
-        return "%d,%d [%d]" % (self.start, self.end, self.size)
-    def __len__(self):
-        return self.end - self.start
     
 class FP8DistributedOptimizer(MixedPrecisionOptimizer):
     """Distributed optimizer, for all data types (fp16, bf16, and fp32).
@@ -63,63 +49,6 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
     wgrad_dtype = torch.fp8e4m3
 
     @classmethod
-    def build_model_gbuf_param_range_map(cls, model, dtype, gbuf_world_range):
-        """
-        Build mapping from param reference to grad buffer shard ranges.
-
-        This method builds a mapping from parameter references to grad
-        buffer shard ranges, specific to each data-parallel (DP) rank's
-        set of 'owned' parameters. Each grad buffer (padded to be an even
-        multiple of DP-world-size) is conceptually divided into DP-world-size
-        contiguous regions, where each DP rank 'owns' a contiguous regions.
-        Ownership in this sense means DP rank is responsible for reducing
-        the relevant subset of grads, and updating the relevant subset of
-        params.
-
-        This conceptual partitioning of the grad buffer does NOT respect
-        parameter boundaries, and as such it is assumed that each created
-        range references a shard (or subset) of the full parameter. It is
-        easiest to think of each DP rank as operating (i.e., reducing,
-        gathering) purely on views into the grad buffer, for all model-to-
-        main & main-to-model operations.
-
-        This method creates three ranges:
-        - The param's range within the entire grad buffer (i.e., world index).
-        - The param's range within the DP rank's local view of the grad buffer.
-        - The param's range within itself (i.e., its shard).
-        """
-
-        # Param range map.
-        param_world_index_map = model._grad_buffer_param_index_map[dtype]
-        param_range_map = {}
-        for param, param_world_indexes in param_world_index_map.items():
-
-            # Param range.
-            param_world_start, param_world_end = param_world_indexes
-            param_local_start = max(
-                0,
-                param_world_start - gbuf_world_range.start)
-            param_local_end = min(
-                gbuf_world_range.size,
-                param_world_end - gbuf_world_range.start)
-
-            # Add param, if within local gbuf range.
-            if param_local_end > param_local_start:
-                param_local_range = Range(param_local_start, param_local_end)
-                param_world_range = param_local_range.normalize(
-                    param_local_start + gbuf_world_range.start)
-                sub_param_start = max(0, gbuf_world_range.start-param_world_start)
-                sub_param_range = param_local_range.normalize(sub_param_start)
-                param_range_map[param] = {
-                    "gbuf_world" : param_world_range,
-                    "gbuf_local" : param_local_range,
-                    "param" : sub_param_range,
-                }
-
-        return param_range_map
-
-
-    @classmethod
     def build_model_gbuf_range(cls, model, dtype):
         """
         Build mapping between params and their grad buffers.
@@ -152,7 +81,7 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
         gbuf_local_range = gbuf_world_range.normalize()
 
         # Get each param's ranges.
-        param_range_map = cls.build_model_gbuf_param_range_map(model,
+        param_range_map = DistributedOptimizer.build_model_gbuf_param_range_map(model,
                                                                dtype,
                                                                gbuf_world_range)
 
@@ -170,7 +99,7 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
             partitions = []
             for i in range(data_parallel_world_size):
                 gbuf_world_range = gbuf_world_all_ranges[i]
-                param_range_map = cls.build_model_gbuf_param_range_map(model,
+                param_range_map = DistributedOptimizer.build_model_gbuf_param_range_map(model,
                                                                        dtype,
                                                                        gbuf_world_range)
                 partitions.append(param_range_map)
@@ -190,71 +119,6 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
             dtype : cls.build_model_gbuf_range(model, dtype)
             for dtype in model._grad_buffers
         }
-
-
-    @classmethod
-    def build_model_param_gbuf_map(cls, model_gbuf_ranges):
-        """
-        Create a reverse of the model_gbuf_ranges, for referencing in
-        opposite direction.
-        """
-        param_gbuf_map = {}
-        for model_index, model_gbuf_range_map in enumerate(model_gbuf_ranges):
-            for dtype, gbuf_range_map in model_gbuf_range_map.items():
-                for param, param_range_map in gbuf_range_map["param_map"].items():
-                    param_gbuf_map[param] = (model_index, dtype)
-        return param_gbuf_map
-
-
-    @classmethod
-    def build_optimizer_group_ranges(cls, param_groups, model_gbuf_ranges):
-        """
-        Create optimizer groups.
-
-        Given the set of parameter shard ranges that are owned by the current
-        data-parallel (DP) rank, gather the set of parameters that will be
-        used (in the method below) to create the current DP's optimizer
-        groups.
-        """
-
-        num_groups = len(param_groups)
-
-        # Param group map.
-        # World param group map.
-        # - Store a mapping of <model_parameter:group_index> for all parameters
-        #   across all DP ranks. This is necessary because it is our first
-        #   cross reference between the DDP mappings and the optimizer group
-        #   parameters. This mapping only for use in the next step of building
-        #   the local mapping over this DP rank's parameters.
-        world_param_group_map = {}
-        for group_index, group in enumerate(param_groups):
-            for param in group["params"]:
-                assert param.requires_grad
-                world_param_group_map[param] = group_index
-
-        # Optimizer group ranges & param-group mapping.
-        # - Build a mapping from groups to their contained parameters, and also
-        #   from parameters to their containing group index and order within
-        #   the group. The group index and order are particularly important for
-        #   saving and loading checkpoints.
-        local_param_group_map = {}
-        group_ranges = [ {"params": []} for _ in param_groups ]
-        for model_gbuf_range_map in model_gbuf_ranges:
-            for dtype, gbuf_range_map in model_gbuf_range_map.items():
-                for param in gbuf_range_map["param_map"]:
-                    group_index = world_param_group_map[param]
-                    group_range = group_ranges[group_index]
-                    group_range["params"].append(param)
-                    local_param_group_map[param] = \
-                        (group_index, len(group_range["params"]) - 1)
-
-        # Squeeze zero-size group ranges.
-        for group_index, group_range in enumerate(group_ranges):
-            group_range["orig_group"] = param_groups[group_index]
-            group_range["orig_group_idx"] = param_groups[group_index]
-
-        return local_param_group_map, group_ranges
-
 
     @classmethod
     def build_model_and_main_param_groups(cls,
@@ -439,12 +303,12 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
         for model_index, model in enumerate(self.models):
             self.model_gbuf_ranges.append(self.build_model_gbuf_range_map(model))
         self.model_param_gbuf_map = \
-            self.build_model_param_gbuf_map(self.model_gbuf_ranges)
+            DistributedOptimizer.build_model_param_gbuf_map(self.model_gbuf_ranges)
 
         # Optimizer ranges.
         self.model_param_group_index_map, self.opt_group_ranges = \
-            self.build_optimizer_group_ranges(self.optimizer.param_groups,
-                                              self.model_gbuf_ranges)
+            DistributedOptimizer.build_optimizer_group_ranges(self.optimizer.param_groups,
+                                                              self.model_gbuf_ranges)
 
         # Allocate main param shards.
         (
