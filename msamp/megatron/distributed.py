@@ -1,8 +1,6 @@
 import math
 import torch
 
-import megatron
-
 from megatron.core import mpu
 from megatron.model.distributed import MemoryBuffer, DistributedDataParallelBase
 
