@@ -1,10 +1,13 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+"""The layers module msamp.megatron."""
+
 import torch
 from torch.cuda.amp import custom_bwd, custom_fwd
 
 from megatron.core.parallel_state import (
-    get_tensor_model_parallel_group,
-    get_tensor_model_parallel_world_size,
-    get_global_memory_buffer
+    get_tensor_model_parallel_group, get_tensor_model_parallel_world_size, get_global_memory_buffer
 )
 from msamp.common.dtype import Dtypes
 from msamp.common.tensor import ScalingTensor
@@ -12,12 +15,24 @@ from msamp.operators.gemm import Gemm
 
 
 class FP8LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
-    """See linear_with_grad_accumulation_and_async_allreduce"""
-
+    """A linear function with FP8 support, grad accumulation and async communication."""
     @staticmethod
     @custom_fwd
-    def forward(ctx, input, weight, bias, gradient_accumulation_fusion,
-                async_grad_allreduce, sequence_parallel):
+    def forward(ctx, input, weight, bias, gradient_accumulation_fusion, async_grad_allreduce, sequence_parallel):
+        """Forward pass.
+
+        Args:
+            ctx: Context to store arbitrary data which can be retrieved during the backward pass.
+            input (torch.Tensor): Input tensor.
+            weight (ScalingTensor): Weight tensor.
+            bias (torch.Tensor): Bias tensor.
+            gradient_accumulation_fusion (bool): Whether to fuse gradient accumulation.
+            async_grad_allreduce (bool): Whether to use asynchronous all-reduce.
+            sequence_parallel (bool): Whether to use sequence parallel.
+
+        Returns:
+            torch.Tensor: Output tensor.
+        """
         ctx.use_bias = bias is not None
         ctx.gradient_accumulation_fusion = gradient_accumulation_fusion
         ctx.async_grad_allreduce = async_grad_allreduce
@@ -56,11 +71,8 @@ class FP8LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function
             dim_size[0] = dim_size[0] * world_size
 
             all_gather_buffer = \
-                get_global_memory_buffer().get_tensor(dim_size, input.dtype, "mpu")
-            torch.distributed._all_gather_base(
-                all_gather_buffer,
-                input,
-                group=tp_group)
+                get_global_memory_buffer().get_tensor(dim_size, input.dtype, 'mpu')
+            torch.distributed._all_gather_base(all_gather_buffer, input, group=tp_group)
             total_input = all_gather_buffer
         else:
             total_input = input
@@ -80,6 +92,14 @@ class FP8LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function
     @staticmethod
     @custom_bwd
     def backward(ctx, grad_output):
+        """Backward pass.
+
+        Args:
+            grad_output (torch.Tensor): Output gradient tensor.
+
+        Returns:
+            A tuple of gradients of the arguments.
+        """
         input_fp8 = ctx.input_fp8
         weight_fp8 = ctx.weight_fp8
         input = input_fp8.value
@@ -96,11 +116,10 @@ class FP8LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function
             dim_size[0] = dim_size[0] * world_size
 
             all_gather_buffer = \
-                get_global_memory_buffer().get_tensor(dim_size, input.dtype, "mpu")
+                get_global_memory_buffer().get_tensor(dim_size, input.dtype, 'mpu')
             handle = torch.distributed._all_gather_base(
-                all_gather_buffer,
-                input,
-                group=get_tensor_model_parallel_group(), async_op=True)
+                all_gather_buffer, input, group=get_tensor_model_parallel_group(), async_op=True
+            )
 
             # Here we rely on CUDA_DEVICE_MAX_CONNECTIONS=1 to ensure that the
             # gather is scheduled before the input gradient computation
@@ -127,27 +146,25 @@ class FP8LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function
 
         if ctx.async_grad_allreduce:
             # Asynchronous all-reduce
-            handle = torch.distributed.all_reduce(
-                    grad_input, group=get_tensor_model_parallel_group(), async_op=True)
+            handle = torch.distributed.all_reduce(grad_input, group=get_tensor_model_parallel_group(), async_op=True)
             # Here we rely on CUDA_DEVICE_MAX_CONNECTIONS=1 to ensure that the
             # all-reduce is scheduled before the weight gradient computation
 
         if ctx.sequence_parallel:
             assert not ctx.async_grad_allreduce
             dim_size = list(input.size())
-            sub_grad_input = torch.empty(dim_size, dtype=grad_input.dtype,
-                                         device=torch.cuda.current_device(),
-                                         requires_grad=False)
+            sub_grad_input = torch.empty(
+                dim_size, dtype=grad_input.dtype, device=torch.cuda.current_device(), requires_grad=False
+            )
             # reduce_scatter
-            handle = torch.distributed._reduce_scatter_base(sub_grad_input, grad_input,
-                                                            group=get_tensor_model_parallel_group(),
-                                                            async_op=True)
+            handle = torch.distributed._reduce_scatter_base(
+                sub_grad_input, grad_input, group=get_tensor_model_parallel_group(), async_op=True
+            )
             # Here we rely on CUDA_DEVICE_MAX_CONNECTIONS=1 to ensure that the
             # reduce scatter is scheduled before the weight gradient computation
 
-
         assert not ctx.gradient_accumulation_fusion, \
-            "gradient_accumulation_fusion not supported for FP8LinearWithGradAccumulationAndAsyncCommunication"
+            'gradient_accumulation_fusion not supported for FP8LinearWithGradAccumulationAndAsyncCommunication'
         # MS-AMP: compute wgrad
         total_input_fp8_t = total_input_fp8.fp8_transpose()
         wgrad_qtype = output_qtype

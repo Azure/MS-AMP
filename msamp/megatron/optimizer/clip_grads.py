@@ -1,13 +1,22 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+"""clip_grads module in msamp.megatron package."""
+
 import torch
 from torch import inf
 import amp_C
 from apex.multi_tensor_apply import multi_tensor_applier
 
-def clip_grad_norm_fp8(parameters, grads_for_norm,
-                        max_norm, norm_type=2,
-                        model_parallel_group=None):
-    """Clips gradient norm of an iterable of parameters whose gradients
-       are in fp32.
+
+def clip_grad_norm_fp8(
+    parameters,
+    grads_for_norm,    # noqa: C901
+    max_norm,
+    norm_type=2,
+    model_parallel_group=None
+):
+    """Clips gradient norm of an iterable of parameters whose gradients are in fp32 and fp8.
 
     This is adapted from torch.nn.utils.clip_grad.clip_grad_norm_ and
     added functionality to handle model parallel parameters. Note that
@@ -27,7 +36,6 @@ def clip_grad_norm_fp8(parameters, grads_for_norm,
     Returns:
         Total norm of the parameters (viewed as a single vector).
     """
-
     if isinstance(parameters, torch.Tensor):
         parameters = [parameters]
     if isinstance(grads_for_norm, torch.Tensor):
@@ -54,9 +62,7 @@ def clip_grad_norm_fp8(parameters, grads_for_norm,
         total_norm = max(grad.abs().max() for grad in grads_for_norm)
         total_norm_cuda = torch.cuda.FloatTensor([float(total_norm)])
         # Take max across all model-parallel GPUs.
-        torch.distributed.all_reduce(total_norm_cuda,
-                                     op=torch.distributed.ReduceOp.MAX,
-                                     group=model_parallel_group)
+        torch.distributed.all_reduce(total_norm_cuda, op=torch.distributed.ReduceOp.MAX, group=model_parallel_group)
         total_norm = total_norm_cuda[0].item()
 
     else:
@@ -69,7 +75,6 @@ def clip_grad_norm_fp8(parameters, grads_for_norm,
                 else:
                     fp8_grads_for_norm.append(grad)
 
-
             dummy_overflow_buf = torch.cuda.IntTensor([0])
             # Use apex's multi-tensor applier for efficiency reasons.
             # Multi-tensor applier takes a function and a list of list
@@ -79,35 +84,30 @@ def clip_grad_norm_fp8(parameters, grads_for_norm,
                     amp_C.multi_tensor_l2norm,
                     dummy_overflow_buf,
                     [torch_grads_for_norm],
-                    False # no per-parameter norm
+                    False    # no per-parameter norm
                 )
             else:
                 grad_norm = torch.cuda.FloatTensor([0])
             # Since we will be summing across data parallel groups,
             # we need the pow(norm-type).
-            total_norm = grad_norm ** norm_type
+            total_norm = grad_norm**norm_type
 
             for grad in fp8_grads_for_norm:
                 grad_norm = torch.norm(grad.float(), norm_type)
-                total_norm += grad_norm ** norm_type
+                total_norm += grad_norm**norm_type
         else:
             for grad in grads_for_norm:
                 grad_norm = torch.norm(grad, norm_type)
-                total_norm += grad_norm ** norm_type
+                total_norm += grad_norm**norm_type
 
         # Sum across all model-parallel GPUs.
-        torch.distributed.all_reduce(total_norm,
-                                     op=torch.distributed.ReduceOp.SUM,
-                                     group=model_parallel_group)
-        total_norm = total_norm.item() ** (1.0 / norm_type)
+        torch.distributed.all_reduce(total_norm, op=torch.distributed.ReduceOp.SUM, group=model_parallel_group)
+        total_norm = total_norm.item()**(1.0 / norm_type)
 
     # Scale.
     clip_coeff = max_norm / (total_norm + 1.0e-6)
     if clip_coeff < 1.0:
         dummy_overflow_buf = torch.cuda.IntTensor([0])
-        multi_tensor_applier(amp_C.multi_tensor_scale,
-                             dummy_overflow_buf,
-                             [grads, grads],
-                             clip_coeff)
+        multi_tensor_applier(amp_C.multi_tensor_scale, dummy_overflow_buf, [grads, grads], clip_coeff)
 
     return total_norm
