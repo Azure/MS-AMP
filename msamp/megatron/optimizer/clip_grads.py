@@ -9,12 +9,8 @@ import amp_C
 from apex.multi_tensor_apply import multi_tensor_applier
 
 
-def clip_grad_norm_fp8(
-    parameters,
-    grads_for_norm,    # noqa: C901
-    max_norm,
-    norm_type=2,
-    model_parallel_group=None
+def clip_grad_norm_fp8(    # noqa: C901
+    parameters, grads_for_norm, max_norm, norm_type=2, model_parallel_group=None
 ):
     """Clips gradient norm of an iterable of parameters whose gradients are in fp32 and fp8.
 

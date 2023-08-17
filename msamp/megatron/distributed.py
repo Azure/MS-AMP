@@ -18,11 +18,8 @@ class FP8DistributedDataParallel(DistributedDataParallelBase):
     wgrad_qtype = Dtypes.kfloat8_e4m3
     wgrad_dtype = torch.fp8e4m3
 
-    def __init__(
-        self,
-        module,    # noqa: C901
-        accumulate_allreduce_grads_in_fp32,
-        use_contiguous_buffers
+    def __init__(    # noqa: C901
+        self, module, accumulate_allreduce_grads_in_fp32, use_contiguous_buffers
     ):
         """DDP with contiguous buffers options to store and accumulate gradients.
 
