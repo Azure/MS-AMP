@@ -93,7 +93,7 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
             'max_range_size': max_gbuf_range_size,
         }
 
-        # MS-AMP
+        # MS-AMP: Add all partitions' param range map in data.
         if dtype == cls.wgrad_dtype:
             partitions = []
             for i in range(data_parallel_world_size):
@@ -154,7 +154,7 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
             shard_fp32_groups.append(shard_fp32_params_this_group)
             shard_fp32_from_float16_groups.append(shard_fp32_from_float16_params_this_group)
 
-            # MS-AMP
+            # MS-AMP: fp8 params of this group.
             model_fp8_groups_this_group = []
             shard_fp8_groups_this_group = []
             shard_hp_from_fp8_groups_this_group = []
@@ -171,7 +171,7 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
                 gbuf_range = model_gbuf_ranges[model_index][dtype]
                 param_range = gbuf_range['param_map'][model_param]['param']
 
-                # MS-AMP
+                # MS-AMP: fp8 param.
                 if not torch.is_tensor(model_param):
                     # Scaling Tensor
                     assert isinstance(model_param, ScalingTensor)
@@ -301,7 +301,7 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
             self.model_gbuf_ranges, self.model_param_gbuf_map, self.opt_group_ranges
         )
 
-        # MS-AMP
+        # MS-AMP: Cast all ScalingTensor params to FP8.
         for _, model in enumerate(self.models):
             for p in model.parameters():
                 if not torch.is_tensor(p):
@@ -449,10 +449,12 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
         # Scale grad buffers by '1 / data_parallel_world_size'.
         for model in self.models:
             for dtype, gbuf in model._grad_buffers.items():
-                if dtype != self.wgrad_dtype:    # MS-AMP
+                # MS-AMP: Ignore FP8 for special process.
+                if dtype != self.wgrad_dtype:
                     gbuf.data /= data_parallel_world_size
 
-        # MS-AMP
+        # MS-AMP: For FP8, there is a scaling factor for each parameter. So we need to all reduce scaling factors,
+        # re-quantize and then reduce-scatter.
         if hasattr(model, '_fp8_main_grad_scales'):
             with ScalingMeta.in_time_scaling_context(enabled=False):
                 for model_id, model in enumerate(self.models):
@@ -474,7 +476,7 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
         # Reduce-scatter all grads.
         gbuf_view_items = self.get_model_grad_buffer_dp_views()
         for index, (model_index, dtype, gbuf, gbuf_views) in enumerate(gbuf_view_items):
-
+            # Call DistOp.enable_fp8/disable_fp8 for FP8 parameters.
             if gbuf.dtype == self.wgrad_dtype:
                 DistOp.enable_fp8(self.wgrad_qtype)
             torch.distributed._reduce_scatter_base(
@@ -520,7 +522,7 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
                 for param, (buf_start, buf_end) in param_map.items():
                     param_buf = self.param_buffers[model_id][dtype]
                     param_buf_shard = param_buf[buf_start:buf_end]
-                    # MS-AMP
+                    # MS-AMP: Use value property for FP8 parameter.
                     if dtype != self.wgrad_dtype:
                         param.view(-1).detach().copy_(param_buf_shard)
                     else:
@@ -528,8 +530,7 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
                                 (param.shape, param_buf_shard.shape, dtype, buf_start, buf_end, param_buf.shape)
                         param.value.view(-1).detach().copy_(param_buf_shard)
 
-        # MS-AMP
-        # synchonize scale_inv
+        # MS-AMP: All-gather scale_invs after all-gather parameters.
         for model_id, model in enumerate(self.models):
             scale_invs = []
             fp8_params = []
@@ -606,9 +607,8 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
         copy_group_grads(self.model_float16_groups, self.shard_fp32_from_float16_groups)
         copy_group_grads(self.model_fp32_groups, self.shard_fp32_groups)
 
-        # MS-AMP
+        # MS-AMP: Copy FP8 param's grad to master_weight.grad
         def fp8_copy_group_grads(model_groups, shard_main_groups):
-            # copy weight.grad to master_weight.grad
             for model_group, shard_main_group in zip(model_groups, shard_main_groups):
                 for model_param, shard_main_param in zip(model_group, shard_main_group):
                     param_range_map = self.get_model_param_range_map(model_param)
@@ -650,7 +650,7 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
         copy_group_params(self.shard_fp32_from_float16_groups, self.model_float16_groups)
         copy_group_params(self.shard_fp32_groups, self.model_fp32_groups)
 
-        # MS-AMP
+        # MS-AMP: Copy master weight's params to model FP8 params.
         def fp8_copy_group_params(shard_main_groups, model_groups):
             for shard_main_group, model_group in zip(shard_main_groups, model_groups):
                 for shard_main_param, model_param in zip(shard_main_group, model_group):

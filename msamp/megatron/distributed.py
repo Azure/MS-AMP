@@ -4,8 +4,8 @@
 """The DistributedDataParallel which supports FP8."""
 
 import math
-import torch
 
+import torch
 from megatron.core import mpu
 from megatron.model.distributed import MemoryBuffer, DistributedDataParallelBase
 
@@ -90,6 +90,7 @@ class FP8DistributedDataParallel(DistributedDataParallelBase):
             # store the start index for the gradients.
             for param in self.module.parameters():
                 if param.requires_grad:
+                    # Skip ScalingTensor.
                     if not torch.is_tensor(param):
                         continue
                     dtype = _get_buffer_type(param)
@@ -102,9 +103,11 @@ class FP8DistributedDataParallel(DistributedDataParallelBase):
                         type_num_elements[dtype] + param.data.nelement(),
                     )
 
+            # Create MemoryBuffer for FP8.
             self._grad_buffer_num_params = [0 for _ in range(data_parallel_world_size)]
             if len(fp8_params) > 0:
                 self._grad_buffer_param_index_map[self.wgrad_dtype] = {}
+                # Sort fp8 params by size and assign to the shard with latest parameters sequencially.
                 fp8_params_with_size = [
                     (p, (-p.numel(), i % data_parallel_world_size)) for i, p in enumerate(fp8_params)
                 ]
@@ -131,6 +134,8 @@ class FP8DistributedDataParallel(DistributedDataParallelBase):
                 scaling_grads = []
                 t = 0
                 pre_scale = 1.0 / math.sqrt(data_parallel_world_size)
+
+                # Create main_grad(ScalingTensor) for each param.
                 for pi in range(data_parallel_world_size):
                     start = pi * max_fp8_mems
                     for p in fp8_partitions[pi]:
@@ -166,7 +171,7 @@ class FP8DistributedDataParallel(DistributedDataParallelBase):
                     self.grad_accs.append(grad_acc)
 
     def _fp8_make_param_hook(self, param):
-        """Create the all-reduce hook for backprop."""
+        """Create the all-reduce hook for backprop for FP8 parameter."""
 
         # Hook used for back-prop.
         def param_hook(*unused):
