@@ -38,7 +38,7 @@ classifiers=[
 ]
 dependencies = [
     "torch",
-    "transformer-engine@git+https://github.com/NVIDIA/TransformerEngine.git@v0.7#egg=transformer-engine",
+    "transformer-engine@git+https://github.com/NVIDIA/TransformerEngine.git@v0.11#egg=transformer-engine",
     "colorlog>=6.7.0",
     "deepspeed==0.9.2",
     "mpi4py",

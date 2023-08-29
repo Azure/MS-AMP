@@ -140,6 +140,7 @@ class Gemm:
                 workspace.shape[0],
                 accumulate,
                 use_split_accumulator,
+                0,
             )
         else:
             # do gemm on device that doesn't supported fp8.
@@ -165,6 +166,7 @@ class Gemm:
                 workspace.shape[0],
                 accumulate,
                 False,
+                0,
             )
 
         if pN > 0 or pM > 0:
