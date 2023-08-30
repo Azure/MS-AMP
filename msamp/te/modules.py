@@ -33,25 +33,18 @@ def set_activation_dtype(self, inp):
             (inp.dtype == param.dtype) if param is not None and not isinstance(param, ScalingTensor) else True
             for param in self.parameters()
         )
-    ), (
-        'Data type for activations and weights must '
-        'match when outside of autocasted region'
-    )
-    assert all(
-        (
-            (inp.dtype == buf.dtype) if buf is not None else True
-            for buf in self.buffers()
-        )
-    ), (
-        'Data type for activations and buffers must '
-        'match when outside of autocasted region'
-    )
+    ), ('Data type for activations and weights must '
+        'match when outside of autocasted region')
+    assert all(((inp.dtype == buf.dtype) if buf is not None else True for buf in self.buffers())
+               ), ('Data type for activations and buffers must '
+                   'match when outside of autocasted region')
     self.activation_dtype = inp.dtype
 
 
 class MSAMPTransformerEngineBaseModule:
     """A base module for MS-AMP transformer engine modules."""
     def set_fp8_weights(self):
+        """Initializes FP8 weights for the module as class attributes."""
         # when is_first_microbatch is not None
         # call every microbatch
         # cache weight_fp8, weight_t_fp8 for gradient accumulation
@@ -63,10 +56,7 @@ class MSAMPTransformerEngineBaseModule:
                 weight_cast_attr = f'weight{i}_fp8'
                 weight_transpose_attr = f'weight{i}_t_fp8'
 
-                if (
-                    hasattr(self, weight_cast_attr)
-                    and getattr(self, weight_cast_attr).shape == shape
-                ):
+                if (hasattr(self, weight_cast_attr) and getattr(self, weight_cast_attr).shape == shape):
                     return
 
                 setattr(
@@ -126,14 +116,17 @@ class MSAMPTransformerEngineBaseModule:
 
 
 class MSAMPLinear(MSAMPTransformerEngineBaseModule, te.Linear, ScalingModule):
+    """MS-AMP Linear module."""
     pass
 
 
 class MSAMPLayerNormLinear(MSAMPTransformerEngineBaseModule, te.LayerNormLinear, ScalingModule):
+    """MS-AMP LayerNormLinear module."""
     pass
 
 
 class MSAMPLayerNormMLP(MSAMPTransformerEngineBaseModule, te.LayerNormMLP, ScalingModule):
+    """MS-AMP LayerNormMLP module."""
     pass
 
 
@@ -148,15 +141,34 @@ class CtxWrapper:
         self.__dict__['ctx'] = ctx
 
     def __getattr__(self, name):
+        """Get attribute by name.
+
+        Args:
+            name (str): Attribute name.
+
+        Returns:
+            Attribute value.
+        """
         return self.__dict__.get(name, getattr(self.__dict__['ctx'], name))
 
     def __setattr__(self, name, value):
+        """Set attribute by name.
+
+        Args:
+            name (str): Attribute name.
+            value (object): Attribute value.
+        """
         if name in self.__dict__:
             self.__dict__[name] = value
         else:
             setattr(self.ctx, name, value)
 
     def save_for_backward(self, *args):
+        """Save tensors for backward.
+
+        Args:
+            args (tuple): Tensors to save.
+        """
         torch_args = []
         scaling_args = []
         for a in args:
@@ -171,6 +183,7 @@ class CtxWrapper:
 
     @property
     def saved_tensors(self):
+        """Get saved tensors."""
         tensors = list(self.ctx.saved_tensors)
         for i, v in enumerate(self.ctx.scaling_args):
             if v is not None:
@@ -205,7 +218,7 @@ class TeModuleOverrider:
         te.transformer.LayerNormMLP = MSAMPLayerNormMLP
 
     @staticmethod
-    def _override_function(mod, func_name):  # noqa: C901
+    def _override_function(mod, func_name):    # noqa: C901
         """Override a function in a module.
 
         Args:
@@ -241,7 +254,7 @@ class TeModuleOverrider:
                         v.grad += grads[i]
                     v.backward_grad_update(v.grad)
                     grads[i] = None
-                return (None,) + tuple(grads)
+                return (None, ) + tuple(grads)
 
         class Wrapper:
             EMPTY_TENSOR = torch.tensor([], requires_grad=True)

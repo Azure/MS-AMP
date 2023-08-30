@@ -12,7 +12,7 @@ import transformer_engine.pytorch.cpp_extensions as texcpp
 from tests.helper import decorator
 from msamp.common.dtype import Dtypes
 from msamp.common.tensor import ScalingMeta
-from msamp.te import extension  # noqa: F401
+from msamp.te import extension    # noqa: F401
 
 
 class TeExtentionOverriderTestCase(unittest.TestCase):
@@ -39,8 +39,9 @@ class TeExtentionOverriderTestCase(unittest.TestCase):
         input_cast_1 = torch.empty(self.size, device=self.device, dtype=torch.uint8)
         transpose_cast_1 = torch.empty(self.size, device=self.device, dtype=torch.uint8)
 
-        tex.fused_cast_transpose(input, meta.scale, meta.amax, meta.scale_inv, input_cast_1,
-                                 transpose_cast_1, tex.DType.kFloat8E4M3)
+        tex.fused_cast_transpose(
+            input, meta.scale, meta.amax, meta.scale_inv, input_cast_1, transpose_cast_1, tex.DType.kFloat8E4M3
+        )
         assert torch.equal(input_cast_1.t(), transpose_cast_1)
 
         # cast with ScalingTensor
@@ -49,8 +50,9 @@ class TeExtentionOverriderTestCase(unittest.TestCase):
         transpose_cast_2 = torch.empty(self.size, device=self.device, dtype=torch.uint8)
         scale_inv = torch.ones((), device=self.device)
 
-        tex.fused_cast_transpose(scaling_input, None, None, scale_inv, input_cast_2,
-                                 transpose_cast_2, tex.DType.kFloat8E4M3)
+        tex.fused_cast_transpose(
+            scaling_input, None, None, scale_inv, input_cast_2, transpose_cast_2, tex.DType.kFloat8E4M3
+        )
         assert torch.equal(input_cast_2.t(), transpose_cast_2)
 
         assert torch.equal(input_cast_1, input_cast_2)
