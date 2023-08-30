@@ -10,6 +10,7 @@ import transformer_engine.pytorch as te
 
 from tests.helper import decorator
 from msamp.te.replacer import TeReplacer
+from msamp.nn import ScalingParameter
 
 
 class TeReplacerTestCase(unittest.TestCase):
@@ -33,13 +34,22 @@ class TeReplacerTestCase(unittest.TestCase):
         te_transformer.to(dtype=self.dtype).cuda()
         model = TeReplacer.replace(te_transformer)
 
-        msamp_modules = []
+        print(f'model: {model}')
+        msamp_module_cnt = 0
 
         def _check_model(model):
             if type(model) in TeReplacer.module_weight_names:
-                msamp_modules.append(model)
+                nonlocal msamp_module_cnt
+                msamp_module_cnt += 1
+                weights = TeReplacer.module_weight_names[type(model)]
+                for weight in weights:
+                    if not hasattr(model, weight):
+                        continue
+                    weight = getattr(model, weight)
+                    assert isinstance(weight, ScalingParameter)
+
             for _, child in list(model.named_children()):
                 _check_model(child)
 
         _check_model(model)
-        assert len(msamp_modules) == 3
+        assert msamp_module_cnt == 3
