@@ -6,7 +6,7 @@
 import torch
 import torch.distributed as dist
 
-from msamp.common.dtype import Dtypes, Floating
+from msamp.common.dtype import Dtypes
 from msamp.common.utils import DistUtil
 from msamp.common.utils import TransformerEngineWrapper
 
@@ -76,8 +76,9 @@ class TypeCast:
         Return:
             torch.Tensor: tensor whose dtype is torch.float16.
         """
-        meta.amax[0] = input.abs().max()
         in_time = meta.is_in_time_scaling()
+        if in_time or sync:
+            meta.amax[0] = input.abs().max()
         if sync:
             # convert NAN to INF since NCCL-ReduceMax ignores NAN
             # notice: nan and posinf must be INF
@@ -86,13 +87,12 @@ class TypeCast:
             if world_size > 1:
                 dist.all_reduce(meta.amax[0], op=dist.ReduceOp.MAX, group=meta.group)
         if in_time or sync:
-            # notice: we scale the tensor with qtype FP8-E4M3.
-            meta.reset_scaling_factor(qtype=Dtypes.kfloat8_e4m3)
-        meta.scale.clamp_(max=Floating.qfp_max[meta.qtype])
-
+            meta.reset_scaling_factor()
         meta.scale_inv.data.copy_(torch.reciprocal(meta.scale))    # scale_inv = 1 / scale
-        input_fp16 = (input * meta.scale).to(torch.float16)
-        return input_fp16
+        dtype = Dtypes.get_dtype_from_qtype(meta.qtype)
+        # reshape scale to the tensor with the shape of (1,)
+        # to avoid overflow when scale is larger than the maximum of qtype
+        return (input * meta.scale.view((1, ))).to(dtype)
 
     @staticmethod
     def cast_from_fp8(input, meta, otype):
@@ -111,13 +111,12 @@ class TypeCast:
         if input.dtype != torch.uint8:
             raise ValueError('The dtype of input tensor is not torch.uint8.')
 
-        shape = input.shape
         return TransformerEngineWrapper.cast_from_fp8(
             input.view(1, -1),
             meta.scale_inv,
             meta.qtype,
             otype,
-        ).view(shape)
+        ).view_as(input)
 
     @staticmethod
     def cast_from_fp16(input, meta, otype):
@@ -132,13 +131,6 @@ class TypeCast:
             torch.Tensor: tensor whose type is otype.
         """
         dtype = Dtypes.get_dtype_from_qtype(otype)
-        if input.dtype == dtype:
-            # return a copy
-            input = input.clone()
-        else:
-            input = input.to(dtype)
-        if meta.scale_inv != 1:
-            input.mul_(meta.scale_inv)
-        return input
+        return (input * meta.scale_inv.view((1, ))).to(dtype)
 
     cast_from_fp32 = cast_from_fp16

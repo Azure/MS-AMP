@@ -36,13 +36,12 @@ RUN apt-get update && \
 
 ARG NUM_MAKE_JOBS=
 ENV PATH="${PATH}" \
-    LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH}" \
-    PYTHONOPTIMIZE=1
+    LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH}"
 
 WORKDIR /opt/msamp
 
 ADD third_party third_party
-RUN cd third_party/nccl && \
+RUN cd third_party/msccl && \
     make -j ${NUM_MAKE_JOBS} src.build NVCC_GENCODE="\
     -gencode=arch=compute_70,code=sm_70 \
     -gencode=arch=compute_80,code=sm_80 \
@@ -55,3 +54,5 @@ RUN python3 -m pip install --upgrade pip && \
 ADD . .
 RUN python3 -m pip install . && \
     make postinstall
+
+ENV LD_PRELOAD="/usr/local/lib/libmsamp_dist.so:/usr/local/lib/libnccl.so:${LD_PRELOAD}"

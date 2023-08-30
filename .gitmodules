@@ -1,4 +1,4 @@
-[submodule "third_party/nccl"]
-	path = third_party/nccl
-	url = https://github.com/yzygitzh/nccl.git
-	branch = ziyyang/fp8-support
+[submodule "third_party/msccl"]
+	path = third_party/msccl
+	url = https://github.com/Azure/msccl-executor-nccl
+	branch = msccl-v2.17

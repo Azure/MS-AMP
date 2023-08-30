@@ -5,3 +5,4 @@ inline-quotes = single
 multiline-quotes = double
 docstring-quotes = double
 docstring-convention = google
+per-file-ignores = *.py:D202

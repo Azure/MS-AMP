@@ -48,4 +48,6 @@ Floating.qfp_max = {
     Dtypes.kfloat8_e4m3: Floating._get_fp_max(exp=4, man=3, inf_existed=False),
     Dtypes.kfloat8_e5m2: Floating._get_fp_max(exp=5, man=2),
     Dtypes.kfloat16: Floating._get_fp_max(exp=5, man=10),    # E5M10
+    Dtypes.kbfloat16: Floating._get_fp_max(exp=8, man=7),    # E8M7
+    Dtypes.kfloat32: Floating._get_fp_max(exp=8, man=23),    # E8M23
 }

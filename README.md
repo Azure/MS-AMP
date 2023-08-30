@@ -6,7 +6,8 @@ Features:
 
 - Support O1 optimization: Apply FP8 to weights and weight gradients and support FP8 in communication.
 - Support O2 optimization: Support FP8 for two optimizers(Adam and AdamW).
-- Provide three training examples using FP8: Swin-Transformer, DeiT and RoBERTa.
+- Support O3 optimization: Support FP8 in DeepSpeed ZeRO optimizer.
+- Provide four training examples using FP8: Swin-Transformer, DeiT, RoBERTa and GPT-3.
 
 MS-AMP has the following benefit comparing with Transformer Engine:
 
@@ -28,10 +29,10 @@ MS-AMP has the following benefit comparing with Transformer Engine:
 - CUDA version 11 or later (which can be checked by running `nvcc --version`).
 - PyTorch version 1.13 or later (which can be checked by running `python -c "import torch; print(torch.__version__)"`).
 
-We strongly recommend using [PyTorch NGC Container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch). For example, to start PyTorch 1.13 container, run the following command:
+We strongly recommend using [PyTorch NGC Container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch). For example, to start PyTorch 1.14 container, run the following command:
 
 ```
-sudo docker run -it -d --name=msamp --privileged --net=host --ipc=host --gpus=all nvcr.io/nvidia/pytorch:22.09-py3 bash
+sudo docker run -it -d --name=msamp --privileged --net=host --ipc=host --gpus=all nvcr.io/nvidia/pytorch:22.12-py3 bash
 sudo docker exec -it msamp bash
 ```
 
@@ -45,10 +46,10 @@ cd MS-AMP
 git submodule update --init --recursive
 ```
 
-If you want to train model with multiple GPU, you need to install specific nccl to support FP8.
+If you want to train model with multiple GPU, you need to install MSCCL to support FP8.
 
 ```bash
-cd third_party/nccl
+cd third_party/msccl
 
 # V100
 make -j src.build NVCC_GENCODE="-gencode=arch=compute_70,code=sm_70"
@@ -61,16 +62,24 @@ apt-get update
 apt install build-essential devscripts debhelper fakeroot
 make pkg.debian.build
 dpkg -i build/pkg/deb/libnccl2_*.deb
+dpkg -i build/pkg/deb/libnccl-dev_2*.deb
 
 cd -
 ```
 
 Then, you can install MS-AMP from source.
 
-```
+```bash
 python3 -m pip install --upgrade pip
 python3 -m pip install .
 make postinstall
+```
+
+Before using MS-AMP, you need to preload msampfp8 library and it's depdencies:
+
+```bash
+NCCL_LIBRARY=/usr/lib/x86_64-linux-gnu/libnccl.so # Change as needed
+export LD_PRELOAD="/usr/local/lib/libmsamp_dist.so:${NCCL_LIBRARY}:${LD_PRELOAD}"
 ```
 
 After that, you can verify the installation by running:
@@ -113,7 +122,17 @@ for batch_idx, (data, target) in enumerate(train_loader):
     scaler.step(optimizer)
 ```
 
-A runnable, comprehensive MNIST example demonstrating good practices can be found [here](./examples). For more examples, please go to [MS-AMP-Examples](https://github.com/Azure/MS-AMP-Examples).
+For applying MS-AMP to DeepSpeed ZeRO, add a "msamp" section in deepspeed config file:
+
+```json
+"msamp": {
+  "enabled": true,
+  "opt_level": "O3"
+}
+```
+
+Runnable, comprehensive examples demonstrating good practices can be found [here](./examples).
+For more examples, please go to [MS-AMP-Examples](https://github.com/Azure/MS-AMP-Examples).
 
 ### Optimization Level
 
@@ -123,13 +142,16 @@ Currently MS-AMP supports two optimization levels: O1 and O2. Try both, and see 
 
 - O2: From O1 to O2, our main focus is on enabling the use of low-bit data formats for auxiliary tensors in the Adam/AdamW optimizer without any loss in accuracy. Specifically, we are able to maintain accuracy by representing the first-order optimizer state in FP8 and the second-order state in FP16. This optimization has the potential to save up to 62.5% of GPU memory for the optimizer when the model size is particularly large.
 
+- O3: This optimization level is specifically designed for ZeRO-optimizer in advanced distributed traning framework DeepSpeed. ZeRO separates model weights into regular weights and master weights, with the former used for network forward/backward on each GPU, and the latter used for model updating in the optimizer. This separation allows us to use 8-bit data precision for regular weights and weight broadcasting, which reduces GPU memory and bandwidth usage even further.
+
 Here are details of different MS-AMP optimization levels:
-| Optimization Level  | Computation(GEMM) | Comm  | Weight | Weight Gradient | Optimizer States |
-| ------------------- | -----------       | ----- | ------ | --------------- | ---------------- |
-| FP16 AMP            | FP16              | FP32  | FP32   | FP32            | FP32+FP32        |
-| Nvidia TE           | FP8               | FP32  | FP32   | FP32            | FP32+FP32        |
-| MS-AMP O1           | FP8               | FP8   | FP16   | FP8             | FP32+FP32        |
-| MS-AMP O2           | FP8               | FP8   | FP16   | FP8             | FP8+FP16         |
+| Optimization Level  | Computation(GEMM) | Comm  | Weight | Master Weight  | Weight Gradient | Optimizer States |
+| ------------------- | -----------       | ----- | ------ | -------------  | --------------- | ---------------- |
+| FP16 AMP            | FP16              | FP32  | FP32   | N/A            | FP32            | FP32+FP32        |
+| Nvidia TE           | FP8               | FP32  | FP32   | N/A            | FP32            | FP32+FP32        |
+| MS-AMP O1           | FP8               | FP8   | FP16   | N/A            | FP8             | FP32+FP32        |
+| MS-AMP O2           | FP8               | FP8   | FP16   | N/A            | FP8             | FP8+FP16         |
+| MS-AMP O3           | FP8               | FP8   | FP8    | FP16           | FP8             | FP8+FP16         |
 
 ## Performance
 
