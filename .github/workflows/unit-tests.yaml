@@ -12,6 +12,7 @@ jobs:
     runs-on: [self-hosted, linux, x64, gpu]
     strategy:
       matrix:
+        include:
         # 1.14.0a0+410ce96
         - torch: "1.14"
           nvcr: 22.12-py3
