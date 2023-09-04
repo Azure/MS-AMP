@@ -36,8 +36,7 @@ RUN apt-get update && \
 
 ARG NUM_MAKE_JOBS=
 ENV PATH="${PATH}" \
-    LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH}" \
-    MAX_JOBS=1
+    LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH}"
 
 WORKDIR /opt/msamp
 
@@ -49,8 +48,9 @@ RUN cd third_party/msccl && \
     -gencode=arch=compute_90,code=sm_90" && \
     make install
 # cache TE build to save time in CI
+ENV MAX_JOBS=1
 RUN python3 -m pip install --upgrade pip && \
-    python3 -m pip install git+https://github.com/NVIDIA/TransformerEngine.git@v0.7
+    python3 -m pip install flash-attn==1.0.9 git+https://github.com/NVIDIA/TransformerEngine.git@v0.11
 
 ADD . .
 RUN python3 -m pip install . && \
