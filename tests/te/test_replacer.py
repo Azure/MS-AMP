@@ -58,13 +58,16 @@ class TeReplacerTestCase(unittest.TestCase):
         _check_model(model)
         assert msamp_module_cnt == 3
 
-        fp8_format = Format.HYBRID
-        fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo='max')
-        x = torch.rand(self.sequence_length, self.batch_size, self.hidden_size).cuda().to(dtype=self.dtype)
-        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-            y = model(x, attention_mask=None)
-            assert y.shape == (self.sequence_length, self.batch_size, self.hidden_size)
-        y.sum().backward()
-
         scaling_params = [p for p in model.parameters() if isinstance(p, ScalingParameter)]
         assert len(scaling_params) == 4
+
+        if te.fp8.is_fp8_available():
+            # Do a forward pass to make sure the model is working.
+            fp8_format = Format.HYBRID
+            fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo='max')
+            x = torch.rand(self.sequence_length, self.batch_size, self.hidden_size).cuda().to(dtype=self.dtype)
+
+            with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+                y = model(x, attention_mask=None)
+                assert y.shape == (self.sequence_length, self.batch_size, self.hidden_size)
+            y.sum().backward()
