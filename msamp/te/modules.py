@@ -215,6 +215,9 @@ class TeModuleOverrider:
 
         te.attention.Linear = MSAMPLinear
         te.attention.LayerNormLinear = MSAMPLayerNormLinear
+
+        te.transformer.Linear = MSAMPLinear
+        te.transformer.LayerNormLinear = MSAMPLayerNormLinear
         te.transformer.LayerNormMLP = MSAMPLayerNormMLP
 
     @staticmethod

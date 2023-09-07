@@ -12,7 +12,7 @@ from msamp.common.dtype import Dtypes
 from msamp.common.tensor import ScalingTensor
 
 
-class TeExtentionOverrider:
+class TeExtensionOverrider:
     """An Overrider to override some extension functions in transformer engine."""
     dtype_map = {
         tex.DType.kFloat8E4M3: Dtypes.kfloat8_e4m3,
@@ -24,10 +24,11 @@ class TeExtentionOverrider:
 
     original_fused_cast_transpose = tex.fused_cast_transpose
     original_cast_to_fp8 = te.cpp_extensions.cast_to_fp8
+    original_fp8_cast_transpose_fused = te.cpp_extensions.fp8_cast_transpose_fused
 
-    @classmethod
+    @staticmethod
     @torch.no_grad()
-    def fused_cast_transpose(cls, input, scale, amax, scale_inv, input_cast, input_transpose, otype):
+    def fused_cast_transpose(input, scale, amax, scale_inv, input_cast, input_transpose, otype):
         """Fused cast and transpose, support ScalingTensor.
 
         Args:
@@ -40,7 +41,7 @@ class TeExtentionOverrider:
             otype (tex.DType): Output type.
         """
         if isinstance(input, ScalingTensor):
-            qtype = TeExtentionOverrider.dtype_map[otype]
+            qtype = TeExtensionOverrider.dtype_map[otype]
             if input_transpose is not None:
                 sv = input.cast(qtype)
                 # data should be contiguous, and TE does not check it.
@@ -55,11 +56,45 @@ class TeExtentionOverrider:
                 input_cast.data = v
             scale_inv.copy_(sv.meta.scale_inv)
         else:
-            cls.original_fused_cast_transpose(input, scale, amax, scale_inv, input_cast, input_transpose, otype)
+            TeExtensionOverrider.original_fused_cast_transpose(
+                input, scale, amax, scale_inv, input_cast, input_transpose, otype
+            )
 
-    @classmethod
+    @staticmethod
     @torch.no_grad()
-    def cast_to_fp8(cls, inp, fp8_meta_tensor, fp8_tensor, otype, out=None):
+    def fp8_cast_transpose_fused(inp, fp8_meta_tensor, fp8_tensor, dtype, cast_out=None, transpose_out=None):
+        """Cast + Transpose with FP8 output, support ScalingTensor.
+
+        Args:
+            inp (torch.Tensor or ScalingTensor): Input tensor.
+            fp8_meta_tensor: tex.FP8TensorMeta
+            fp8_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors]
+            dtype: tex.DType
+            cast_out (torch.Tensor, optional): Output tensor.
+            transpose_out (torch.Tensor, optional): Output tensor.
+
+        Returns:
+            Union[Tuple[torch.Tensor, torch.Tensor], None]: Output tensor.
+        """
+        if isinstance(inp, ScalingTensor):
+            qtype = TeExtensionOverrider.dtype_map[dtype]
+            sv = inp.cast(qtype)
+            v = sv.value
+            t = sv.t().contiguous().value
+            if transpose_out is not None:
+                transpose_out.data = t
+            if cast_out is not None:
+                cast_out.data = v
+            fp8_meta_tensor.scale_inv[fp8_tensor].copy_(sv.meta.scale_inv)
+            return v, t
+
+        return TeExtensionOverrider.original_fp8_cast_transpose_fused(
+            inp, fp8_meta_tensor, fp8_tensor, dtype, cast_out, transpose_out
+        )
+
+    @staticmethod
+    @torch.no_grad()
+    def cast_to_fp8(inp, fp8_meta_tensor, fp8_tensor, otype, out=None):
         """Cast to fp8, support ScalingTensor.
 
         Args:
@@ -73,7 +108,7 @@ class TeExtentionOverrider:
             torch.Tensor: Output tensor.
         """
         if isinstance(inp, ScalingTensor):
-            qtype = TeExtentionOverrider.dtype_map[otype]
+            qtype = TeExtensionOverrider.dtype_map[otype]
             sv = inp.cast(qtype)
             v = sv.value
             if out is not None:
@@ -82,14 +117,15 @@ class TeExtentionOverrider:
             return v
 
         if out is None:
-            return cls.original_cast_to_fp8(inp, fp8_meta_tensor, fp8_tensor, otype)
-        return cls.original_cast_to_fp8(inp, fp8_meta_tensor, fp8_tensor, otype, out)
+            return TeExtensionOverrider.original_cast_to_fp8(inp, fp8_meta_tensor, fp8_tensor, otype)
+        return TeExtensionOverrider.original_cast_to_fp8(inp, fp8_meta_tensor, fp8_tensor, otype, out)
 
     @staticmethod
     def override():
         """Override transformer engine extension functions."""
-        tex.fused_cast_transpose = TeExtentionOverrider.fused_cast_transpose
-        te.cpp_extensions.cast_to_fp8 = TeExtentionOverrider.cast_to_fp8
+        tex.fused_cast_transpose = TeExtensionOverrider.fused_cast_transpose
+        te.cpp_extensions.cast_to_fp8 = TeExtensionOverrider.cast_to_fp8
+        te.cpp_extensions.fp8_cast_transpose_fused = TeExtensionOverrider.fp8_cast_transpose_fused
 
 
-TeExtentionOverrider.override()
+TeExtensionOverrider.override()

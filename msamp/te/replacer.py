@@ -14,7 +14,7 @@ class TeReplacer:
     """A replacer to replace the weights with ScalingParameter in transformer engine modules."""
     module_weight_names = {
         MSAMPLinear: ['weight'],
-        MSAMPLayerNormLinear: ['weight'],
+        MSAMPLayerNormLinear: ['weight', 'query_weight', 'key_weight', 'value_weight'],
         MSAMPLayerNormMLP: ['fc1_weight', 'fc2_weight'],
     }
 
@@ -27,7 +27,6 @@ class TeReplacer:
                 for wname in weight_names:
                     if not hasattr(model, wname):
                         continue
-                    # assert hasattr(model, wname), [k for k, v in model.named_parameters()]
                     weight = getattr(model, wname)
                     requires_grad = weight.requires_grad
                     sp = ScalingParameter(weight.data.cast(Dtypes.kfloat16), requires_grad=requires_grad)
