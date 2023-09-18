@@ -383,27 +383,28 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
             if self.grad_scaler:
                 self.grad_scaler.load_state_dict(state_dict['grad_scaler'])
             else:
-                print_rank_0('***WARNING*** fould the grad scaler in the '
-                             'checkpoint but it is None in the class. '
-                             'Skipping loading grad scaler ...')
+                print_rank_0(
+                    '***WARNING*** fould the grad scaler in the '
+                    'checkpoint but it is None in the class. '
+                    'Skipping loading grad scaler ...'
+                )
 
         # Copy data for the main params.
         for current_group, saved_group in zip(
-                self.shard_fp32_from_float16_groups,
-                state_dict['shard_fp32_from_float16_groups']):
+            self.shard_fp32_from_float16_groups, state_dict['shard_fp32_from_float16_groups']
+        ):
             for current_param, saved_param in zip(current_group, saved_group):
                 current_param.data.copy_(saved_param.data)
 
-        for current_group, saved_group in zip(
-                self.shard_hp_from_fp8_groups,
-                state_dict['shard_hp_from_fp8_groups']):
+        for current_group, saved_group in zip(self.shard_hp_from_fp8_groups, state_dict['shard_hp_from_fp8_groups']):
             for current_param, saved_param in zip(current_group, saved_group):
                 if current_param.data.qtype == saved_param.data.qtype:
                     current_param.data.copy_(saved_param.data)
                 else:
                     # when the data type of optimizer's master weight and checkpoint's is different
-                    current_param.data.copy_(saved_param.data.to(current_param.data.device)
-                                             .cast(current_param.data.qtype))
+                    current_param.data.copy_(
+                        saved_param.data.to(current_param.data.device).cast(current_param.data.qtype)
+                    )
 
     def zero_grad(self, set_to_none=True):
         """Zero grads.
