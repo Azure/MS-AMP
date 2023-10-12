@@ -1,0 +1,77 @@
+---
+id: installation
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+
+# Installation
+
+## Requirements
+Here're the system requirements for MS-AMP.
+* Latest version of Linux, you're highly encouraged to use Ubuntu 18.04 or later.
+* Nvidia GPU(e.g. V100/A100/H100) and compatible drivers should be installed correctly.
+*  Driver version can be checked by running `nvidia-smi`.
+* Python version 3.7 or later (which can be checked by running `python3 --version`).
+* Pip version 18.0 or later (which can be checked by running `python3 -m pip --version`).
+* CUDA version 11 or later (which can be checked by running `nvcc --version`).
+* PyTorch version 1.13 or later (which can be checked by running `python -c "import torch; print(torch.__version__)"`).
+
+We strongly recommend using [PyTorch NGC Container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch). For example, to start PyTorch 1.14 container, run the following command:
+
+```bash
+sudo docker run -it -d --name=msamp --privileged --net=host --ipc=host --gpus=all nvcr.io/nvidia/pytorch:22.12-py3 bash
+sudo docker exec -it msamp bash
+```
+
+## Install MS-AMP
+You can clone the source from GitHub.
+
+```bash
+git clone https://github.com/Azure/MS-AMP.git
+cd MS-AMP
+git submodule update --init --recursive
+```
+
+If you want to train model with multiple GPU, you need to install MSCCL to support FP8.
+
+```bash
+cd third_party/msccl
+
+# V100
+make -j src.build NVCC_GENCODE="-gencode=arch=compute_70,code=sm_70"
+# A100
+make -j src.build NVCC_GENCODE="-gencode=arch=compute_80,code=sm_80"
+# H100
+make -j src.build NVCC_GENCODE="-gencode=arch=compute_90,code=sm_90"
+
+apt-get update
+apt install build-essential devscripts debhelper fakeroot
+make pkg.debian.build
+dpkg -i build/pkg/deb/libnccl2_*.deb
+dpkg -i build/pkg/deb/libnccl-dev_2*.deb
+
+cd -
+```
+
+Then, you can install MS-AMP from source.
+
+```bash
+python3 -m pip install --upgrade pip
+python3 -m pip install .
+make postinstall
+```
+
+Before using MS-AMP, you need to preload msampfp8 library and it's depdencies:
+
+```bash
+NCCL_LIBRARY=/usr/lib/x86_64-linux-gnu/libnccl.so # Change as needed
+export LD_PRELOAD="/usr/local/lib/libmsamp_dist.so:${NCCL_LIBRARY}:${LD_PRELOAD}"
+```
+
+After that, you can verify the installation by running:
+
+```bash
+python3 -c "import msamp; print(msamp.__version__)"
+```

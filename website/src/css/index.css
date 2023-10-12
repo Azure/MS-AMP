@@ -1,0 +1,30 @@
+/* Copyright (c) Microsoft Corporation.
+   Licensed under the MIT License. */
+
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ */
+
+:root {
+  --ifm-color-primary: #ce8fb8;
+  --ifm-color-primary-dark: #c377a9;
+  --ifm-color-primary-darker: #be6ba1;
+  --ifm-color-primary-darkest: #aa4a89;
+  --ifm-color-primary-light: #d9a7c7;
+  --ifm-color-primary-lighter: #deb3cf;
+  --ifm-color-primary-lightest: #eed8e6;
+  --ifm-code-font-size: 95%;
+}
+
+.docusaurus-highlight-code-line {
+  background-color: rgba(0, 0, 0, 0.1);
+  display: block;
+  margin: 0 calc(-1 * var(--ifm-pre-padding));
+  padding: 0 var(--ifm-pre-padding);
+}
+
+html[data-theme='dark'] .docusaurus-highlight-code-line {
+  background-color: rgba(0, 0, 0, 0.3);
+}
