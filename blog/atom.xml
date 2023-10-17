@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <id>https://azure.github.io/MS-AMP/blog</id>
+    <title>MS-AMP Blog</title>
+    <updated>2023-07-20T00:00:00.000Z</updated>
+    <generator>https://github.com/jpmonette/feed</generator>
+    <link rel="alternate" href="https://azure.github.io/MS-AMP/blog"/>
+    <subtitle>MS-AMP Blog</subtitle>
+    <icon>https://azure.github.io/MS-AMP/img/favicon.ico</icon>
+    <entry>
+        <title type="html"><![CDATA[Releasing MS-AMP v0.2]]></title>
+        <id>release-msamp-v0.2</id>
+        <link href="https://azure.github.io/MS-AMP/blog/release-msamp-v0.2"/>
+        <updated>2023-07-20T00:00:00.000Z</updated>
+        <summary type="html"><![CDATA[We are very happy to announce that MS-AMP 0.2.0 version is officially released today!]]></summary>
+    </entry>
+</feed>
