@@ -33,6 +33,9 @@ class TeReplacerTestCase(unittest.TestCase):
     @decorator.cuda_test
     def test_replace(self):
         """Test replace function in TeReplacer."""
+        # fused attention need cuda version >= 12.1
+        if torch.version.cuda < '12.1':
+            return
         te_transformer = te.TransformerLayer(
             self.hidden_size, self.ffn_hidden_size, self.num_attention_heads, fuse_qkv_params=True
         )
