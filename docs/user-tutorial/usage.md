@@ -45,5 +45,5 @@ For applying MS-AMP to DeepSpeed ZeRO, add a "msamp" section in deepspeed config
 }
 ```
 
-Runnable, comprehensive examples demonstrating good practices can be found [here](./examples).
+Runnable, comprehensive examples demonstrating good practices can be found [here](https://azure.github.io//MS-AMP/docs/getting-started/run-msamp).
 For more examples, please go to [MS-AMP-Examples](https://github.com/Azure/MS-AMP-Examples).
