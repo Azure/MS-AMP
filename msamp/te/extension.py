@@ -4,7 +4,6 @@
 """MS-AMP te.extension module."""
 
 import torch
-
 import transformer_engine.pytorch as te
 import transformer_engine_extensions as tex
 
