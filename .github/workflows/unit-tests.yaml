@@ -13,9 +13,6 @@ jobs:
     strategy:
       matrix:
         include:
-        # 1.13.0a0+d0d6b1f
-        - torch: "1.13"
-          nvcr: 22.09-py3
         # 1.14.0a0+410ce96
         - torch: "1.14"
           nvcr: 22.12-py3
