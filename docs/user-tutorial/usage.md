@@ -20,22 +20,6 @@ model, optimizer = msamp.initialize(model, optimizer, opt_level="O2")
 ...
 ```
 
-For distributed training job, you need to add `optimizer.all_reduce_grads(model)` after backward to reduce gradients in process group.
-
-Example:
-
-```python
-scaler = torch.cuda.amp.GradScaler()
-for batch_idx, (data, target) in enumerate(train_loader):
-    data, target = data.to(device), target.to(device)
-    optimizer.zero_grad()
-    output = model(data)
-    loss = loss(output, target)
-    scaler.scale(loss).backward()
-    optimizer.all_reduce_grads(model)
-    scaler.step(optimizer)
-```
-
 For applying MS-AMP to DeepSpeed ZeRO, add a "msamp" section in deepspeed config file:
 
 ```json

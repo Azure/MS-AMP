@@ -16,12 +16,12 @@ Here're the system requirements for MS-AMP.
 * Python version 3.7 or later (which can be checked by running `python3 --version`).
 * Pip version 18.0 or later (which can be checked by running `python3 -m pip --version`).
 * CUDA version 11 or later (which can be checked by running `nvcc --version`).
-* PyTorch version 1.13 or later (which can be checked by running `python -c "import torch; print(torch.__version__)"`).
+* PyTorch version 1.14 or later (which can be checked by running `python -c "import torch; print(torch.__version__)"`).
 
-We strongly recommend using [PyTorch NGC Container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch). For example, to start PyTorch 1.14 container, run the following command:
+We strongly recommend using [PyTorch NGC Container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch). For example, to start PyTorch 2.1 container, run the following command:
 
 ```bash
-sudo docker run -it -d --name=msamp --privileged --net=host --ipc=host --gpus=all nvcr.io/nvidia/pytorch:22.12-py3 bash
+sudo docker run -it -d --name=msamp --privileged --net=host --ipc=host --gpus=all nvcr.io/nvidia/pytorch:23.04-py3 bash
 sudo docker exec -it msamp bash
 ```
 

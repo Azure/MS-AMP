@@ -6,7 +6,7 @@ id: introduction
 
 ## Features
 
-__MS-AMP__ is an automatic mixed precision package for deep learning developed by Microsoft:
+__MS-AMP__ is an automatic mixed precision package for deep learning developed by Microsoft.
 
 Features:
 
