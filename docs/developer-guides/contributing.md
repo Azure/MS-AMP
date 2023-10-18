@@ -27,8 +27,8 @@ MS-AMP is an open-source project. Your participation and contribution are highly
 #### What content can be added to MS-AMP
 
 1. Bug fixes for existing features.
-2. Performance improvement.
-3. New features such as support for new distributed training framework.
+1. Performance improvement.
+1. New features such as support for new distributed training framework.
 
    If you would like to contribute a new feature on MS-AMP, please submit your proposal first. In [GitHub Issues](https://github.com/azure/MS-AMP/issues) module, choose `Enhancement Request` to finish the submission. If the proposal is accepted, you can submit pull requests to origin `main` branch.
 
@@ -37,7 +37,7 @@ MS-AMP is an open-source project. Your participation and contribution are highly
 If you would like to contribute to the project, please follow below steps of joint development on GitHub.
 
 1. `Fork` the repo first to your personal GitHub account.
-2. Checkout from main branch for feature development.
-3. When you finish the feature, please fetch the latest code from origin repo, merge to your branch and resolve conflict.
-4. Submit pull requests to origin main branch.
-5. Please note that there might be comments or questions from reviewers. It will need your help to update the pull request.
+1. Checkout from main branch for feature development.
+1. When you finish the feature, please fetch the latest code from origin repo, merge to your branch and resolve conflict.
+1. Submit pull requests to origin main branch.
+1. Please note that there might be comments or questions from reviewers. It will need your help to update the pull request.

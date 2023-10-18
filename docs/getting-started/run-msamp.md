@@ -3,9 +3,11 @@ id: run-msamp
 ---
 
 # Run examples
+
 After installing MS-AMP, you can run several simple examples using MS-AMP. Please note that before running these commands, you need to change work directory to [examples](https://github.com/Azure/MS-AMP/tree/main/examples).
 
 ## MNIST
+
 ### 1. Run mnist using single GPU
 
 ```bash
