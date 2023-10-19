@@ -4,7 +4,7 @@ __MS-AMP__ is an automatic mixed precision package for deep learning developed b
 
 📢 [v0.2.0](https://github.com/Azure/MS-AMP/releases/tag/v0.2.0) has been released!
 
-## _Check [aka.ms/msamp](https://aka.ms/msamp) for more details._
+## _Check [aka.ms/msamp](https://aka.ms/msamp/doc) for more details._
 
 ## Trademarks
 
