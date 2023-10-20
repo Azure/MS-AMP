@@ -20,6 +20,7 @@ module.exports = {
       collapsed: false,
       items: [
         'user-tutorial/usage',
+        'user-tutorial/optimization-level',
         'user-tutorial/container-images',
       ],
     },
