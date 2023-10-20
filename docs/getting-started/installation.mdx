@@ -11,7 +11,7 @@ import TabItem from '@theme/TabItem';
 ## Requirements
 Here're the system requirements for MS-AMP.
 * Latest version of Linux, you're highly encouraged to use Ubuntu 18.04 or later.
-* Nvidia GPU(e.g. V100/A100/H100) and compatible drivers should be installed correctly.
+* Nvidia GPU(e.g. H100/A100) and compatible drivers should be installed correctly.
 *  Driver version can be checked by running `nvidia-smi`.
 * Python version 3.7 or later (which can be checked by running `python3 --version`).
 * Pip version 18.0 or later (which can be checked by running `python3 -m pip --version`).
@@ -39,8 +39,6 @@ If you want to train model with multiple GPU, you need to install MSCCL to suppo
 ```bash
 cd third_party/msccl
 
-# V100
-make -j src.build NVCC_GENCODE="-gencode=arch=compute_70,code=sm_70"
 # A100
 make -j src.build NVCC_GENCODE="-gencode=arch=compute_80,code=sm_80"
 # H100
