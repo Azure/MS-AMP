@@ -4,7 +4,6 @@ on:
   push:
     branches:
     - main
-    - yuxiang/website
   pull_request:
     branches:
     - main
