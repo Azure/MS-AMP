@@ -1,0 +1,81 @@
+---
+id: using-docker
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+
+# Using Docker
+
+MS-AMP provides a Dockerfile to simplify the process of setting up the development environment. Here are some guides on how to build images and start containers during development
+
+## Build image
+
+You need to [clone the code](./development.md#set-up) first before building the image.
+
+<Tabs
+  groupId='gpu-platform'
+  defaultValue='cuda-12.1'
+  values={[
+    {label: 'CUDA-12.1', value: 'cuda-12.1'},
+    {label: 'CUDA-11.8', value: 'cuda-11.8'},
+  ]
+}>
+<TabItem value='cuda-12.1'>
+
+```bash
+export DOCKER_BUILDKIT=1
+docker buildx build \
+  --platform linux/amd64 --cache-to type=inline,mode=max \
+  --tag msamp-dev-cuda121 --file dockerfile/torch2.1-cuda12.1.dockerfile .
+```
+
+</TabItem>
+<TabItem value='cuda-11.8'>
+
+```bash
+export DOCKER_BUILDKIT=1
+docker buildx build \
+  --platform linux/amd64 --cache-to type=inline,mode=max \
+  --tag msamp-dev-cuda118 --file dockerfile/torch1.14-cuda11.8.dockerfile .
+```
+
+</TabItem>
+</Tabs>
+
+## Run container
+
+<Tabs
+  groupId='gpu-platform'
+  defaultValue='cuda-12.1'
+  values={[
+    {label: 'CUDA-12.1', value: 'cuda-12.1'},
+    {label: 'CUDA-11.8', value: 'cuda-11.8'},
+  ]
+}>
+<TabItem value='cuda-12.1'>
+
+```bash
+docker run \
+  -itd --name=msamp-dev \
+  --privileged --net=host --ipc=host \
+  --gpus=all \
+  -w /root -v /mnt:/mnt \
+  msamp-dev-cuda121 bash
+```
+
+</TabItem>
+<TabItem value='cuda-11.8'>
+
+```bash
+docker run \
+  -itd --name=msamp-dev \
+  --privileged --net=host --ipc=host \
+  --gpus=all \
+  -w /root -v /mnt:/mnt \
+  msamp-dev-cuda118 bash
+```
+
+</TabItem>
+</Tabs>

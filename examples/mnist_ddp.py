@@ -71,8 +71,6 @@ def train(args, model, device, train_loader, optimizer, epoch):
             output = model(data)
         loss = F.nll_loss(output, target)
         scaler.scale(loss).backward()
-        if hasattr(optimizer, 'all_reduce_grads'):
-            optimizer.all_reduce_grads(model)
         scaler.step(optimizer)
         scaler.update()
         if dist.get_rank() == 0:
