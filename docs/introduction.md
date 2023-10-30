@@ -26,7 +26,7 @@ MS-AMP has the following benefit comparing with Transformer Engine:
 
 ### Model performance
 
-We evaluated the training loss and validation performance of four typical models, GPT-3, Swin-Transformer, DeiT and RoBERTa, using both MS-AMP and FP16 AMP/BF16. Our observations showed that the models trained with MS-AMP achieved comparable performance to those trained using FP16 AMP/BF16. This demonstrates the effectiveness of the mixed FP8 in MS-AMP.
+We evaluated the training loss and validation performance of four typical models, GPT-3, Swin-Transformer, DeiT and RoBERTa, using both MS-AMP and FP16/BF16 AMP. Our observations show that the models trained with MS-AMP achieved comparable performance to those trained using FP16/BF16 AMP. This demonstrates the effectiveness of the mixed FP8 in MS-AMP.
 
 Here are the results for GPT-3, Swin-T, DeiT-S and RoBERTa-B.
 
@@ -34,9 +34,9 @@ Here are the results for GPT-3, Swin-T, DeiT-S and RoBERTa-B.
 
 ![image](./assets/performance.png)
 
-### System peroformance
+### System performance
 
-MS-AMP preserves high-precision's accuracy while using only a fraction of the memory footprint on a range of tasks, including GPT-3, DeiT and Swin Transformer. For example, when training GPT-175B on NVIDIA H100 platform, MS-AMP achieves a notable 42% reduction in real memory usage compared with BF16 mixed-precision aproch and reduces training time by 17% compared with Transformer Engine. For small models, MS-AMP with O2 mode can achieve 44% memory saving for Swin-1.0B and 26% memory saving for ViT-1.2B, comparing with FP16 AMP.
+MS-AMP preserves high-precision's accuracy while using only a fraction of the memory footprint on a range of tasks, including GPT-3, DeiT and Swin Transformer. For example, when training GPT-175B on NVIDIA H100 platform, MS-AMP achieves a notable 42% reduction in real memory usage compared with BF16 mixed-precision approach and reduces training time by 17% compared with Transformer Engine. For small models, MS-AMP with O2 mode can achieve 44% memory saving for Swin-1.0B and 26% memory saving for ViT-1.2B, comparing with FP16 AMP.
 
 Here are the resuls for GPT-3:
 
