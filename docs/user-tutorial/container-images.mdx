@@ -1,0 +1,32 @@
+---
+id: container-images
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+
+# Container Images
+
+MS-AMP provides a set of OCI-compliant container images, which are hosted on and [GitHub Container Registry](https://github.com/azure/MS-AMP/pkgs/container/msamp).
+
+You can use MS-AMP image by `ghcr.io/microsoft/msamp:${tag}`, available tags are listed below for all stable versions.
+
+## Stable tagged versions
+
+<Tabs
+  groupId='gpu-platform'
+  defaultValue='cuda'
+  values={[
+    {label: 'CUDA', value: 'cuda'}
+  ]
+}>
+<TabItem value='cuda'>
+
+| Tag               | Description                        |
+|-------------------|------------------------------------|
+| v0.2.0-cuda12.1   | MS-AMP v0.2.0 with CUDA 12.1       |
+| v0.2.0-cuda11.8   | MS-AMP v0.2.0 with CUDA 11.8       |
+
+</TabItem>
+</Tabs>

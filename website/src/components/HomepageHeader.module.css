@@ -1,0 +1,34 @@
+/* Copyright (c) Microsoft Corporation.
+   Licensed under the MIT License. */
+
+.heroBanner {
+  height: 75vh;
+  padding: 4rem 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  background-color: #2b3137;
+}
+
+@media screen and (max-width: 966px) {
+  .heroBanner {
+    padding: 2rem;
+  }
+}
+
+.heroTitle {
+  color: #fff;
+  font-size: 3rem;
+}
+
+.heroSubTitle {
+  color: #fff;
+  font-size: 1.5rem;
+  padding: 1rem 0;
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
