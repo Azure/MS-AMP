@@ -39,7 +39,7 @@ For enabling MS-AMP in DeepSpeed, add one line of code `from msamp import deepsp
 
 ## Usage in Megatron-DeepSpeed and Megatron-LM
 
-For applying MS-AMP to Megatron-DeepSpeed and Megatron-LM, you need to make some code changes. We provide a patch as a reference for the integration. Here is the instruction of integrating MS-AMP with Megatron-DeepSpeed and Megatron-LM and how to run [gpt-3](https://github.com/Azure/MS-AMP-Examples/tree/main/gpt3) with MS-AMP.
+For integrating MS-AMP with Megatron-DeepSpeed and Megatron-LM, you need to make some code changes. We provide a patch as a reference for the integration. Here is the instruction of integrating MS-AMP with Megatron-DeepSpeed/Megatron-LM and how to run [gpt-3](https://github.com/Azure/MS-AMP-Examples/tree/main/gpt3) with MS-AMP.
 
 Runnable, simple examples demonstrating good practices can be found [here](https://azure.github.io//MS-AMP/docs/getting-started/run-msamp).
 For more comprehensive examples, please go to [MS-AMP-Examples](https://github.com/Azure/MS-AMP-Examples).
