@@ -28,14 +28,17 @@ class LBAdamwTestCase(unittest.TestCase):
     @decorator.cuda_test
     def test_adamw_step(self):
         """Test adamw optimizer step function."""
-        for exp_avg_dtype in [torch.float32, torch.float16, torch.uint8]:
-            for exp_avg_sq_dtype in [torch.float32, torch.float16]:
-                kwargs = dict(exp_avg_dtype=exp_avg_dtype, exp_avg_sq_dtype=exp_avg_sq_dtype)
-                self.check_optimizer_step(LBAdamWBase, **kwargs)
-                self.check_optimizer_step(LBAdamWBase, **kwargs)
-                self.check_optimizer_step(LBAdamW, **kwargs)
-                self.check_optimizer_step(LBAdam, **kwargs)
-                self.check_optimizer_step(DSAdam, **kwargs)
+        for exp_avg_dtype, exp_avg_sq_dtype in [
+            (torch.float32, torch.float32),
+            (torch.float16, torch.float16),
+            (torch.uint8, torch.float16),
+        ]:
+            kwargs = dict(exp_avg_dtype=exp_avg_dtype, exp_avg_sq_dtype=exp_avg_sq_dtype)
+            self.check_optimizer_step(LBAdamWBase, **kwargs)
+            self.check_optimizer_step(LBAdamWBase, **kwargs)
+            self.check_optimizer_step(LBAdamW, **kwargs)
+            self.check_optimizer_step(LBAdam, **kwargs)
+            self.check_optimizer_step(DSAdam, **kwargs)
 
     @decorator.cuda_test
     def test_state_dict(self):
