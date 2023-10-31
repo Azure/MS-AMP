@@ -238,3 +238,6 @@ class LBAdamW(LBAdamWBase):
                 # param = param - step_size * (exp_avg / denom)
                 # param.addcdiv_(exp_avg, denom, value=-step_size)
                 param.add_(exp_avg_value / denom, alpha=-step_size)
+
+                if isinstance(params[i], ScalingTensor):
+                    params[i].copy_(param.cast(params[i].qtype, meta=params[i].meta))

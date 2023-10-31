@@ -28,10 +28,14 @@ class LBAdamwTestCase(unittest.TestCase):
     @decorator.cuda_test
     def test_adamw_step(self):
         """Test adamw optimizer step function."""
-        self.check_optimizer_step(LBAdamWBase)
-        self.check_optimizer_step(LBAdamW)
-        self.check_optimizer_step(LBAdam)
-        self.check_optimizer_step(DSAdam)
+        for exp_avg_dtype in [torch.float32, torch.float16, torch.uint8]:
+            for exp_avg_sq_dtype in [torch.float32, torch.float16]:
+                kwargs = dict(exp_avg_dtype=exp_avg_dtype, exp_avg_sq_dtype=exp_avg_sq_dtype)
+                self.check_optimizer_step(LBAdamWBase, **kwargs)
+                self.check_optimizer_step(LBAdamWBase, **kwargs)
+                self.check_optimizer_step(LBAdamW, **kwargs)
+                self.check_optimizer_step(LBAdam, **kwargs)
+                self.check_optimizer_step(DSAdam, **kwargs)
 
     @decorator.cuda_test
     def test_state_dict(self):
@@ -39,7 +43,7 @@ class LBAdamwTestCase(unittest.TestCase):
         self.check_optimizer_state_dict(LBAdamW)
         self.check_optimizer_state_dict(LBAdam)
 
-    def check_optimizer_step(self, optimizer_class, diff=3e-4):
+    def check_optimizer_step(self, optimizer_class, diff=3e-4, **kwargs):
         """Check the difference between torch.optim.AdamW and optimizer_class optimizers.
 
         Args:
@@ -63,7 +67,7 @@ class LBAdamwTestCase(unittest.TestCase):
         model2 = copy.deepcopy(linear)
         model2 = LinearReplacer.replace(model2, Dtypes.kfloat16)
 
-        opt2 = optimizer_class(model2.parameters())
+        opt2 = optimizer_class(model2.parameters(), **kwargs)
 
         for _ in range(4):
             output = model2(input)
