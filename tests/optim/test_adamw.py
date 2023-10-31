@@ -31,11 +31,12 @@ class LBAdamwTestCase(unittest.TestCase):
         dtypes = [torch.uint8, torch.int8, torch.float16]
         pairs = list(itertools.product(dtypes, dtypes)) + [[torch.float32, torch.float32]]
         for exp_avg_dtype, exp_avg_sq_dtype in pairs:
-            kwargs = dict(exp_avg_dtype=exp_avg_dtype, exp_avg_sq_dtype=exp_avg_sq_dtype)
-            self.check_optimizer_step(LBAdamWBase, **kwargs)
-            self.check_optimizer_step(LBAdamW, **kwargs)
-            self.check_optimizer_step(LBAdam, **kwargs)
-            self.check_optimizer_step(DSAdam, **kwargs)
+            with self.subTest(exp_avg_dtype=exp_avg_dtype, exp_avg_sq_dtype=exp_avg_sq_dtype):
+                kwargs = dict(exp_avg_dtype=exp_avg_dtype, exp_avg_sq_dtype=exp_avg_sq_dtype)
+                self.check_optimizer_step(LBAdamWBase, **kwargs)
+                self.check_optimizer_step(LBAdamW, **kwargs)
+                self.check_optimizer_step(LBAdam, **kwargs)
+                self.check_optimizer_step(DSAdam, **kwargs)
 
     @decorator.cuda_test
     def test_state_dict(self):
