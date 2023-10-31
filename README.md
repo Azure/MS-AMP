@@ -10,8 +10,9 @@ __MS-AMP__ is an automatic mixed precision package for deep learning developed b
 
 <details>
 <summary>
-<a href="https://arxiv.org/pdf/2310.18313.pdf">FP8-LM: Training FP8 Large Language Models</a> [<b>bib</b>]
+<a href="https://arxiv.org/pdf/2310.18313.pdf">FP8-LM: Training FP8 Large Language Models</a>
 </summary>
+
 ```bibtex
 @misc{fp8lm,
       title={FP8-LM: Training FP8 Large Language Models},
