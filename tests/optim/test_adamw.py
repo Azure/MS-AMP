@@ -8,6 +8,8 @@ import itertools
 import unittest
 import torch
 
+from functools import partial
+
 from msamp.common.dtype import Dtypes
 from msamp.common.tensor import TensorDist
 from msamp.optim import LBAdamW, LBAdam, LBAdamWBase, DSAdam
@@ -28,10 +30,15 @@ class LBAdamwTestCase(unittest.TestCase):
     @decorator.cuda_test
     def test_adamw_step(self):
         """Test adamw optimizer step function."""
-        self.check_optimizer_step(LBAdamWBase)
-        self.check_optimizer_step(LBAdamW)
-        self.check_optimizer_step(LBAdam)
-        self.check_optimizer_step(DSAdam)
+        dtypes = [torch.uint8, torch.float16]
+        pairs = list(itertools.product(dtypes, dtypes)) + [[torch.float32, torch.float32]]
+        for exp_avg_dtype, exp_avg_sq_dtype in pairs:
+            with self.subTest(exp_avg_dtype=exp_avg_dtype, exp_avg_sq_dtype=exp_avg_sq_dtype):
+                kwargs = dict(exp_avg_dtype=exp_avg_dtype, exp_avg_sq_dtype=exp_avg_sq_dtype)
+                self.check_optimizer_step(torch.optim.AdamW, partial(LBAdamWBase, **kwargs))
+                self.check_optimizer_step(torch.optim.AdamW, partial(LBAdamW, **kwargs))
+                self.check_optimizer_step(torch.optim.AdamW, partial(DSAdam, **kwargs))
+                self.check_optimizer_step(torch.optim.Adam, partial(LBAdam, **kwargs))
 
     @decorator.cuda_test
     def test_state_dict(self):
@@ -39,21 +46,24 @@ class LBAdamwTestCase(unittest.TestCase):
         self.check_optimizer_state_dict(LBAdamW)
         self.check_optimizer_state_dict(LBAdam)
 
-    def check_optimizer_step(self, optimizer_class, diff=3e-4):
-        """Check the difference between torch.optim.AdamW and optimizer_class optimizers.
+    def check_optimizer_step(self, optimizer_class1, optimizer_class2, diff=3e-4):
+        """Check the difference between optimizer_class1 and optimizer_class2 optimizers.
 
         Args:
-            optimizer_class (class): LBAdamWBase, LBAdamW or LBAdam.
-            diff (float, optional): The difference between torch.optim.AdamW and optimizer_class optimizers.
+            optimizer_class1 (class): Optimizer Class
+            optimizer_class2 (class): Optimizer Class
+            diff (float, optional): The difference between optimizer_class1 and optimizer_class2 optimizers.
         """
         input = torch.randn(4, 4, device='cuda')
         linear = torch.nn.Linear(4, 4).cuda()
+        wd = 1e-3
+        steps = 4
 
         # test torch.optim.AdamW
         model1 = copy.deepcopy(linear)
-        opt1 = torch.optim.AdamW(model1.parameters())
+        opt1 = optimizer_class1(model1.parameters(), weight_decay=wd)
 
-        for _ in range(4):
+        for _ in range(steps):
             output = model1(input)
             output.sum().backward()
             opt1.step()
@@ -63,9 +73,9 @@ class LBAdamwTestCase(unittest.TestCase):
         model2 = copy.deepcopy(linear)
         model2 = LinearReplacer.replace(model2, Dtypes.kfloat16)
 
-        opt2 = optimizer_class(model2.parameters())
+        opt2 = optimizer_class2(model2.parameters(), weight_decay=wd)
 
-        for _ in range(4):
+        for _ in range(steps):
             output = model2(input)
             output.sum().backward()
             opt2.all_reduce_grads(model2)
