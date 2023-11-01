@@ -4,7 +4,7 @@ id: optimization-level
 
 # Optimization Level
 
-Currently MS-AMP supports three optimization levels: O1 and O2 and O3. The three levels gradually incorporate 8-bit collective communcation, optimizer and distributed parallel training in an incremental manner. Users can directly set O1/O2 using `msamp.initialize` and set O3 in config file when using DeepSpeed.
+Currently MS-AMP supports three optimization levels: O1 and O2 and O3. The three levels gradually incorporate 8-bit collective communication, optimizer and distributed parallel training in an incremental manner. Users can directly set O1/O2 using `msamp.initialize` and set O3 in config file when using DeepSpeed.
 
 - O1: We found that directly transitioning weight gradients from FP32 to FP8 in the Transformer Engine leads to a decrease in accuracy. However, this issue is resolved in O1 through the implementation of FP8 for weight gradients and AllReduce communication. This optimization also has the added benefits of saving GPU memory and reducing communication bandwidth.
 
