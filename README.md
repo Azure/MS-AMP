@@ -23,6 +23,7 @@ __MS-AMP__ is an automatic mixed precision package for deep learning developed b
       primaryClass={cs.LG}
 }
 ```
+
 </details>
 
 ## Trademarks
