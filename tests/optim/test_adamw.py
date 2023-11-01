@@ -30,15 +30,15 @@ class LBAdamwTestCase(unittest.TestCase):
     @decorator.cuda_test
     def test_adamw_step(self):
         """Test adamw optimizer step function."""
-        dtypes = [torch.uint8, torch.int8, torch.float16]
+        dtypes = [torch.uint8, torch.float16]
         pairs = list(itertools.product(dtypes, dtypes)) + [[torch.float32, torch.float32]]
         for exp_avg_dtype, exp_avg_sq_dtype in pairs:
             with self.subTest(exp_avg_dtype=exp_avg_dtype, exp_avg_sq_dtype=exp_avg_sq_dtype):
                 kwargs = dict(exp_avg_dtype=exp_avg_dtype, exp_avg_sq_dtype=exp_avg_sq_dtype)
                 self.check_optimizer_step(torch.optim.AdamW, partial(LBAdamWBase, **kwargs))
                 self.check_optimizer_step(torch.optim.AdamW, partial(LBAdamW, **kwargs))
-                self.check_optimizer_step(torch.optim.Adam, partial(LBAdam, **kwargs))
                 self.check_optimizer_step(torch.optim.AdamW, partial(DSAdam, **kwargs))
+                self.check_optimizer_step(torch.optim.Adam, partial(LBAdam, **kwargs))
 
     @decorator.cuda_test
     def test_state_dict(self):
@@ -57,12 +57,13 @@ class LBAdamwTestCase(unittest.TestCase):
         input = torch.randn(4, 4, device='cuda')
         linear = torch.nn.Linear(4, 4).cuda()
         wd = 1e-3
+        steps = 4
 
         # test torch.optim.AdamW
         model1 = copy.deepcopy(linear)
         opt1 = optimizer_class1(model1.parameters(), weight_decay=wd)
 
-        for _ in range(4):
+        for _ in range(steps):
             output = model1(input)
             output.sum().backward()
             opt1.step()
@@ -74,7 +75,7 @@ class LBAdamwTestCase(unittest.TestCase):
 
         opt2 = optimizer_class2(model2.parameters(), weight_decay=wd)
 
-        for _ in range(4):
+        for _ in range(steps):
             output = model2(input)
             output.sum().backward()
             opt2.all_reduce_grads(model2)

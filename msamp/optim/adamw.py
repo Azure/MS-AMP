@@ -173,8 +173,7 @@ class LBAdamW(LBAdamWBase):
             for i, param in enumerate(params):
                 param, grad = param.float(), grads[i].float() if not maximize else -grads[i].float()
 
-                # Perform stepweight decay
-                # FP32/16 Tensor * float
+                # Perform step weight decay
                 if weight_decay != 0:
                     if self.use_adam:
                         grad = grad.add(param, alpha=weight_decay)
@@ -218,8 +217,7 @@ class LBAdamW(LBAdamWBase):
                 param, grad = param.float(), grads[i].float() if not maximize else -grads[i].float()
                 exp_avg_value, exp_avg_sq_value = exp_avgs[i]['state'], exp_avg_sqs[i]['state']
 
-                # Perform stepweight decay
-                # FP32/16 Tensor * float
+                # Perform step weight decay
                 if weight_decay != 0:
                     if self.use_adam:
                         grad = grad.add(param, alpha=weight_decay)
