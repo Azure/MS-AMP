@@ -94,6 +94,6 @@ def initialize(model, optimizer=None, opt_level='O1'):    # noqa: C901
     return cast_model, cast_optimizer
 
 
-__version__ = '0.2.0'
+__version__ = '0.3.0'
 __author__ = 'Microsoft'
 __all__ = ['clip_grad_norm_', 'initialize']
