@@ -91,7 +91,7 @@ module.exports = {
     announcementBar: {
       id: 'supportus',
       content:
-        '📢 <a href="https://azure.github.io/MS-AMP/blog/release-msamp-v0.2">v0.2.0</a> has been released! ' +
+        '📢 <a href="https://azure.github.io/MS-AMP/blog/release-msamp-v0.3">v0.3.0</a> has been released! ' +
         '⭐️ If you like MS-AMP, give it a star on <a target="_blank" rel="noopener noreferrer" href="https://github.com/Azure/MS-AMP">GitHub</a>! ⭐️',
     },
     algolia: {
