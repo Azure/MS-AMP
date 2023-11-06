@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmsamp_website=self.webpackChunkmsamp_website||[]).push([[735],{5336:function(e){e.exports=JSON.parse('{"allTagsPath":"/MS-AMP/blog/tags","slug":"announcement","name":"announcement","count":2,"permalink":"/MS-AMP/blog/tags/announcement"}')}}]);

@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmsamp_website=self.webpackChunkmsamp_website||[]).push([[535],{5641:function(e){e.exports=JSON.parse('{"title":"Recent posts","items":[{"title":"Releasing MS-AMP v0.3","permalink":"/MS-AMP/blog/release-msamp-v0.3"},{"title":"Releasing MS-AMP v0.2","permalink":"/MS-AMP/blog/release-msamp-v0.2"}]}')}}]);
