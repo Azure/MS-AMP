@@ -41,7 +41,16 @@ python -c 'import msamp;print(msamp.__version__)'
 We also provide stable Docker images [here](../user-tutorial/container-images.mdx). 
 
 ## Install from source
-You can clone the source from GitHub.
+
+We strongly recommend using [PyTorch NGC Container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch) to avoid messing up local environment.  
+For example, to start PyTorch 2.1 container, run the following command:
+
+```bash
+sudo docker run -it -d --name=msamp --privileged --net=host --ipc=host --gpus=all nvcr.io/nvidia/pytorch:23.04-py3 bash
+sudo docker exec -it msamp bash
+```
+
+Then, you can clone the source from GitHub.
 
 ```bash
 git clone https://github.com/Azure/MS-AMP.git
