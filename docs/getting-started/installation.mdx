@@ -18,15 +18,39 @@ Here're the system requirements for MS-AMP.
 * CUDA version 11 or later (which can be checked by running `nvcc --version`).
 * PyTorch version 1.14 or later (which can be checked by running `python -c "import torch; print(torch.__version__)"`).
 
-We strongly recommend using [PyTorch NGC Container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch). For example, to start PyTorch 2.1 container, run the following command:
+You can try MS-AMP in two ways: Using Docker or installing from source:  
+
+* Using Docker is a convenient way to get started with MS-AMP. You can use the pre-built Docker image to quickly set up an environment for running MS-AMP.  
+* On the other hand, installing from source gives you more control over the installation process and allows you to customize the installation to your needs.
+
+## Use Docker
+
+You can try the latest MS-AMP Docker container with the following commands:
+
+```bash
+sudo docker run -it -d --name=msampcu121 --privileged --net=host --ipc=host --gpus=all -v /:/hostroot ghcr.io/azure/msamp:main-cuda12.1 bash
+sudo docker exec -it msampcu121 bash
+```
+
+MS-AMP is pre-installed in Docker container and you can verify it by running:
+
+```bash
+python -c 'import msamp;print(msamp.__version__)'
+```
+
+We also provide stable Docker images [here](../user-tutorial/container-images.mdx). 
+
+## Install from source
+
+We strongly recommend using [PyTorch NGC Container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch) to avoid messing up local environment.  
+For example, to start PyTorch 2.1 container, run the following command:
 
 ```bash
 sudo docker run -it -d --name=msamp --privileged --net=host --ipc=host --gpus=all nvcr.io/nvidia/pytorch:23.04-py3 bash
 sudo docker exec -it msamp bash
 ```
 
-## Install MS-AMP
-You can clone the source from GitHub.
+Then, you can clone the source from GitHub.
 
 ```bash
 git clone https://github.com/Azure/MS-AMP.git
@@ -34,7 +58,7 @@ cd MS-AMP
 git submodule update --init --recursive
 ```
 
-If you want to train model with multiple GPU, you need to install MSCCL to support FP8.
+If you want to train model with multiple GPU, you need to install MSCCL to support FP8. Please note that the compilation of MSCCL may take ~40 minutes on A100 nodes and ~7 minutes on H100 node.
 
 ```bash
 cd third_party/msccl

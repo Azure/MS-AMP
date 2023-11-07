@@ -14,10 +14,10 @@ After installing MS-AMP, you can run several simple examples using MS-AMP. Pleas
 python mnist.py --enable-msamp --opt-level=O2
 ```
 
-### 2. Run mnist using multi GPUS in single node
+### 2. Run mnist using multi GPUs in single node
 
 ```bash
-torchrun --nproc_per_node=$GPUS mnist_ddp.py --enable-msamp --opt-level=O2
+torchrun --nproc_per_node=8 mnist_ddp.py --enable-msamp --opt-level=O2
 ```
 
 ## CIFAR10
