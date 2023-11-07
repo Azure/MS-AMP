@@ -25,7 +25,7 @@ You can try MS-AMP in two ways: Using Docker or installing from source:
 
 ## Use Docker
 
-You can try the lates MS-AMP Docker container with the following commands:
+You can try the latest MS-AMP Docker container with the following commands:
 
 ```bash
 sudo docker run -it -d --name=msampcu121 --privileged --net=host --ipc=host --gpus=all -v /:/hostroot ghcr.io/azure/msamp:main-cuda12.1 bash
@@ -49,7 +49,7 @@ cd MS-AMP
 git submodule update --init --recursive
 ```
 
-If you want to train model with multiple GPU, you need to install MSCCL to support FP8. Please note that the compilation of MSCCL may take ~40 minites on A100 nodes and ~7 minutes on H100 node.
+If you want to train model with multiple GPU, you need to install MSCCL to support FP8. Please note that the compilation of MSCCL may take ~40 minutes on A100 nodes and ~7 minutes on H100 node.
 
 ```bash
 cd third_party/msccl
