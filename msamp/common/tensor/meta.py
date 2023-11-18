@@ -6,7 +6,7 @@
 import copy
 import torch
 
-from msamp.common.dtype import Floating
+from msamp.common.dtype import Floating, Dtypes
 
 
 class ScalingMeta:
