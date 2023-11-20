@@ -137,6 +137,21 @@ class TransformerEngineWrapper:
         return tex.cast_from_fp8(input, scale_inv, itype, otype)
 
     @staticmethod
+    def add_to_fp8(fp8_tensor, scale, scale_inv, amax, otype, other):
+        """Add high precision tensor to FP8 format.
+
+        Args:
+            fp8_tensor (torch.Tensor): the tensor to be added.
+            scale (torch.Tensor): the tensor scale.
+            scale_inv (torch.Tensor): the inverses of tensor scale.
+            amax (torch.Tensor): the tensor amax.
+            otype (QType): the fp8 tensor type.
+            other (torch.Tensor): the high precision tensor to add.
+        """
+        otype = TransformerEngineWrapper._to_te_dtype(otype)
+        tex.add_to_fp8(fp8_tensor, scale, scale_inv, amax, otype, other)
+
+    @staticmethod
     def fp8_fused_cast_transpose(input: torch.Tensor, qtype: QType,
                                  meta: ScalingMeta) -> Tuple[torch.Tensor, torch.Tensor]:
         """Fused cast and transpose for input tensor.

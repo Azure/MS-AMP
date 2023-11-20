@@ -134,3 +134,23 @@ class TypeCast:
         return (input * meta.scale_inv.view((1, ))).to(dtype)
 
     cast_from_fp32 = cast_from_fp16
+
+    @staticmethod
+    def add_to_fp8(fp8_tensor, meta, other):
+        """Add high precision tensor to FP8 format.
+
+        Args:
+            fp8_tensor (torch.Tensor): the fp8 tensor to be added.
+            meta (ScalingMeta): Scaling meta data used for cast.
+            other (torch.Tensor): the high precision tensor to add.
+        """
+        if not (fp8_tensor.is_cuda and fp8_tensor.is_contiguous):
+            raise ValueError('The fp8 tensor is not in cuda memory or contiguous.')
+        if not (other.is_cuda and other.is_contiguous):
+            raise ValueError('The other tensor is not in cuda memory or contiguous.')
+        TransformerEngineWrapper.add_to_fp8(fp8_tensor.view(1, -1),
+                                            meta.scale,
+                                            meta.scale_inv,
+                                            meta.amax[0],
+                                            meta.qtype,
+                                            other.view(1, -1))
