@@ -11,7 +11,7 @@ from megatron.model.distributed import MemoryBuffer, DistributedDataParallelBase
 
 from msamp.common.dtype import Dtypes
 from msamp.common.tensor import ScalingMeta, ScalingTensor
-
+from msamp.operators.arithmetic import Arithmetic
 
 class FP8DistributedDataParallel(DistributedDataParallelBase):
     """A DDP with contiguous buffers and FP8 spport."""
@@ -177,10 +177,7 @@ class FP8DistributedDataParallel(DistributedDataParallelBase):
         def param_hook(*unused):
             # Add the gradient to the buffer.
             if param.grad is not None:
-                param.main_grad.copy_(
-                    (param.main_grad.to(param.grad.dtype) +
-                     param.grad).cast(self.wgrad_qtype, meta=param.main_grad.meta)
-                )
+                Arithmetic.add_to_fp8(param.main_grad.value, param.main_grad.meta, param.grad)
                 # Now we can deallocate grad memory.
                 param.grad = None
 
