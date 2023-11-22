@@ -108,14 +108,6 @@ template <> __host__ __device__ float cast_dtype(const fp16 value) { return __ha
 
 template <> __host__ __device__ float cast_dtype(const bf16 value) { return __bfloat162float(value); }
 
-inline size_t product(const std::vector<size_t> &shape) {
-    size_t ret = 1;
-    for (const auto &elem : shape) {
-        ret *= elem;
-    }
-    return ret;
-}
-
 template <typename T>
 struct is_fp8 : std::false_type {};
 
