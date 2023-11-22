@@ -10,11 +10,10 @@ import torch
 from tests.helper import decorator
 from msamp.common.dtype import Dtypes
 from msamp.operators.arithmetic import Arithmetic
-from msamp.common.tensor import TypeCast
+
 
 class ArithmeticTestCase(unittest.TestCase):
     """A class for Arithmetic test cases."""
-
     def _check_scaling_tensor(self, scaling_tensor1, scaling_tensor2):
         assert torch.all(torch.eq(scaling_tensor1.value, scaling_tensor2.value))
         assert torch.all(torch.eq(scaling_tensor1.meta.scale, scaling_tensor2.meta.scale))

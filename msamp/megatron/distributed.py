@@ -13,6 +13,7 @@ from msamp.common.dtype import Dtypes
 from msamp.common.tensor import ScalingMeta, ScalingTensor
 from msamp.operators.arithmetic import Arithmetic
 
+
 class FP8DistributedDataParallel(DistributedDataParallelBase):
     """A DDP with contiguous buffers and FP8 spport."""
     wgrad_qtype = Dtypes.kfloat8_e4m3
