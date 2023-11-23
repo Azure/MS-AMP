@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 #include <torch/extension.h>
 #include <c10/cuda/CUDAStream.h>
 

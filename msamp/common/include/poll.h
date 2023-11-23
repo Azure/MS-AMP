@@ -1,3 +1,8 @@
+
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+// The file is from https://github.com/microsoft/mscclpp/blob/main/include/mscclpp/poll.hpp.
+
 #ifndef MSAMP_POLL_H_
 #define MSAMP_POLL_H_
 

@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+// The file is adapted from https://github.com/NVIDIA/TransformerEngine/blob/main/transformer_engine/common/util/vectorized_pointwise.h.
+
 #ifndef MSAMP_VECTORIZED_POINTWISE_H
 #define MSAMP_VECTORIZED_POINTWISE_H
 
@@ -172,6 +176,9 @@ class VectorizedStorer : public VectorizedAccessor<DType, nvec, aligned> {
 
 
 constexpr int unary_kernel_threads = 512;
+constexpr float e4m3_max = 448.0;
+constexpr float e5m2_max = 57344.0;
+
 extern __device__ msamp::DeviceSyncer device_syncer;
 
 template <int nvec, bool aligned,
@@ -186,6 +193,11 @@ __global__ void add_to_fp8_kernel(InputType *input,
                              ComputeType *amax,
                              const size_t N,
                              const size_t num_aligned_elements) {
+  if (threadIdx.x == 0 && blockIdx.x == 0) {
+    *amax = 0;
+  }
+  device_syncer.sync(gridDim.x, -1);
+
   // input is high precision, output is fp8
   VectorizedStorer<OutputType, nvec, aligned> output_storer(output, N);
   VectorizedStorer<InputType, nvec, aligned> input_storer(input, N);
@@ -206,16 +218,24 @@ __global__ void add_to_fp8_kernel(InputType *input,
     output_storer.load(tid, N);
 #pragma unroll
     for (int i = 0; i < nvec; ++i) {
-      const ComputeType val1 = static_cast<ComputeType>(output_storer.separate()[i]);
-      const ComputeType val2 = static_cast<ComputeType>(input_storer.separate()[i]);
+      const InputType val1 = static_cast<InputType>(input_storer.separate()[i]);
+      const ComputeType val2 = static_cast<ComputeType>(output_storer.separate()[i]);
 
-      ComputeType temp = val1 * s + val2;
+      InputType temp = static_cast<InputType>(val2 * s);
+
+      if constexpr (is_fp16<InputType>::value) {
+          temp = static_cast<ComputeType>(__hadd(temp, val1));
+      } else {
+          temp += val1;
+      }
+
       if constexpr (is_fp8<OutputType>::value) {
         __builtin_assume(max >= 0);
-        max = fmaxf(fabsf(static_cast<InputType>(temp)), max);
+        max = fmaxf(fabsf(temp), max);
       }
     }
   }
+
   if constexpr (is_fp8<OutputType>::value) {
     /* warp tile amax reduce*/
     max =  transformer_engine::reduce_max<unary_kernel_threads / THREADS_PER_WARP>(max, warp_id);
@@ -235,14 +255,10 @@ __global__ void add_to_fp8_kernel(InputType *input,
     sf = torch.where(torch.isfinite(amax), sf, scale)
     sf = torch.where(exp < 0, 1 / sf, sf)
   */
-  ComputeType fp_max = 0.0;
-  if (std::is_same<OutputType, fp8e4m3>::value) {
-    fp_max = 448.0;
-  } else if (std::is_same<OutputType, fp8e5m2>::value) {
-    fp_max = 57344.0;
-  }
-  
   ComputeType amax_value = *amax;
+
+  ComputeType fp_max = std::is_same<OutputType, fp8e4m3>::value ? e4m3_max : e5m2_max;
+
   ComputeType exp = floorf(log2f(fp_max/(amax_value)));
   ComputeType sf = roundf(powf(2, fabsf(exp)));
 
@@ -253,8 +269,6 @@ __global__ void add_to_fp8_kernel(InputType *input,
   if (exp < 0) {
     sf = 1 / sf;
   }
-
-  *scale = sf;
 
   // using new scaling factor to quantize the input
   for (size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -279,8 +293,11 @@ __global__ void add_to_fp8_kernel(InputType *input,
     }
     output_storer.store(tid, N);
   }
-  *scale_inv = 1.0 / sf;
 
+  if (threadIdx.x == 0 && blockIdx.x == 0) {
+      *scale = sf;
+      *scale_inv = 1.0 / sf;
+  }
 }
 
 

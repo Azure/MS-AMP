@@ -1,5 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
+// The file is from https://github.com/microsoft/mscclpp/blob/main/include/mscclpp/concurrency.hpp.
 
 #ifndef MSAMP_CONCURRENCY_H_
 #define MSAMP_CONCURRENCY_H_

@@ -3,6 +3,7 @@
 
 """Tests for arithmetic module."""
 
+import itertools
 import unittest
 
 import torch
@@ -23,22 +24,24 @@ class ArithmeticTestCase(unittest.TestCase):
     @decorator.cuda_test
     def test_add_to_fp8(self):
         """Test the function Arithmetic.add_to_fp8()."""
-
         torch.manual_seed(100)
-        sizes = (10000, 16384)
+        sizes = []
+        for i in range(1024, 8192, 1024):
+            for j in range(1024, 8192, 1024):
+                sizes.append((i, j))
 
-        for dtype in [torch.float16, torch.bfloat16, torch.float32]:
-            for qtype in [Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2]:
-                input1 = torch.rand(sizes, dtype=dtype, device='cuda')
-                input2 = torch.rand(sizes, dtype=dtype, device='cuda')
+        sizes = list(range(1024, 8193, 1024))
+        dtypes = [torch.float16, torch.bfloat16, torch.float32]
+        qtypes = [Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2]
+        for i, j, dtype, qtype, in itertools.product(sizes, sizes, dtypes, qtypes):
+            size = (i, j)
+            input1 = torch.rand(size, dtype=dtype, device='cuda')
+            scaling_tensor1 = input1.cast(qtype)
+            scaling_tensor2 = input1.cast(qtype)
 
-                scaling_tensor1 = input1.cast(qtype)
-                scaling_tensor2 = input1.cast(qtype)
-
-                self._check_scaling_tensor(scaling_tensor1, scaling_tensor2)
-
+            for i in range(10):
+                input2 = torch.rand(size, dtype=dtype, device='cuda')
                 meta = scaling_tensor1.meta
                 Arithmetic.add_to_fp8(scaling_tensor1.value, meta, input2)
                 scaling_tensor2.copy_((scaling_tensor2.to(dtype) + input2).cast(qtype, meta=scaling_tensor2.meta))
-
                 self._check_scaling_tensor(scaling_tensor1, scaling_tensor2)
