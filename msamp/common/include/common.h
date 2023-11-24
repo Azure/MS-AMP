@@ -118,12 +118,12 @@ template <>
 struct is_fp8<fp8e5m2> : std::true_type {};
 
 template <typename T>
-struct is_fp16 : std::false_type {};
+struct is_half : std::false_type {};
 
 template <>
-struct is_fp16<fp16> : std::true_type {};
+struct is_half<fp16> : std::true_type {};
 
 template <>
-struct is_fp16<bf16> : std::true_type {};
+struct is_half<bf16> : std::true_type {};
 
 #endif  // MSAMP_COMMON_H_

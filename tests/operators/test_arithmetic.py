@@ -16,20 +16,15 @@ from msamp.operators.arithmetic import Arithmetic
 class ArithmeticTestCase(unittest.TestCase):
     """A class for Arithmetic test cases."""
     def _check_scaling_tensor(self, scaling_tensor1, scaling_tensor2):
-        assert torch.all(torch.eq(scaling_tensor1.value, scaling_tensor2.value))
-        assert torch.all(torch.eq(scaling_tensor1.meta.scale, scaling_tensor2.meta.scale))
-        assert torch.all(torch.eq(scaling_tensor1.meta.scale_inv, scaling_tensor2.meta.scale_inv))
-        assert torch.all(torch.eq(scaling_tensor1.meta.amax, scaling_tensor2.meta.amax))
+        self.assertTrue(torch.all(torch.eq(scaling_tensor1.value, scaling_tensor2.value)))
+        self.assertTrue(torch.all(torch.eq(scaling_tensor1.meta.scale, scaling_tensor2.meta.scale)))
+        self.assertTrue(torch.all(torch.eq(scaling_tensor1.meta.scale_inv, scaling_tensor2.meta.scale_inv)))
+        self.assertTrue(torch.all(torch.eq(scaling_tensor1.meta.amax, scaling_tensor2.meta.amax)))
 
     @decorator.cuda_test
     def test_add_to_fp8(self):
         """Test the function Arithmetic.add_to_fp8()."""
         torch.manual_seed(100)
-        sizes = []
-        for i in range(1024, 8192, 1024):
-            for j in range(1024, 8192, 1024):
-                sizes.append((i, j))
-
         sizes = list(range(1024, 8193, 1024))
         dtypes = [torch.float16, torch.bfloat16, torch.float32]
         qtypes = [Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2]

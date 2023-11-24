@@ -223,7 +223,7 @@ __global__ void add_to_fp8_kernel(InputType *input,
 
       InputType temp = static_cast<InputType>(val2 * s);
 
-      if constexpr (is_fp16<InputType>::value) {
+      if constexpr (is_half<InputType>::value) {
           temp = static_cast<ComputeType>(__hadd(temp, val1));
       } else {
           temp += val1;
@@ -283,7 +283,7 @@ __global__ void add_to_fp8_kernel(InputType *input,
     
       InputType temp1 = static_cast<InputType>(val2 * s);
       
-      if constexpr (is_fp16<InputType>::value) {
+      if constexpr (is_half<InputType>::value) {
           temp1 = static_cast<ComputeType>(__hadd(temp1, val1));
       } else {
           temp1 += val1;
