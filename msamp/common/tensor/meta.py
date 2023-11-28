@@ -6,7 +6,7 @@
 import copy
 import torch
 
-from msamp.common.dtype import Floating
+from msamp.common.dtype import Floating, Dtypes
 
 
 class ScalingMeta:
@@ -104,9 +104,12 @@ class ScalingMeta:
         if qtype is None:
             qtype = self.qtype
 
-        fp_max = Floating.qfp_max[qtype]
-        sf = ScalingMeta.compute_scaling_factor(self.amax[0], self.scale, fp_max, 0)
-        self.scale.copy_(sf)
+        if qtype in [Dtypes.kfloat32, Dtypes.kbfloat16]:
+            self.scale.fill_(1)
+        else:
+            fp_max = Floating.qfp_max[qtype]
+            sf = ScalingMeta.compute_scaling_factor(self.amax[0], self.scale, fp_max, 0)
+            self.scale.copy_(sf)
 
     def copy_(self, src):
         """Copies the members from src into self and returns self.

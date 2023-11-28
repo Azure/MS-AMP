@@ -155,6 +155,15 @@ class ScalingTensorTestCase(unittest.TestCase):
                     self.assertTrue(torch.equal(tensor, tensor_bak))
 
     @decorator.cuda_test
+    def test_tensor_cast_to_scaling_fp32(self):
+        """Test cast function to ScalingFP32 or ScalingBF16 in ScalingTensor."""
+        for dtype in [Dtypes.kfloat32, Dtypes.kbfloat16]:
+            with self.subTest(dtype=dtype):
+                x = torch.tensor([1.0 / 512], dtype=torch.float32, device=self.device)
+                y = x.cast(dtype)
+                self.assertTrue(x == y.float())
+
+    @decorator.cuda_test
     def test_tensor_cast_with_exception_value(self):
         """Test cast function in ScalingTensor with exception value."""
         for dtype in [Dtypes.kfloat8_e4m3, Dtypes.kfloat8_e5m2, Dtypes.kfloat16, Dtypes.kbfloat16, Dtypes.kfloat32]:
