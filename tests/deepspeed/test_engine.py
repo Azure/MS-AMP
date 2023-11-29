@@ -174,6 +174,10 @@ class DeepSpeedEngineTestCase(unittest.TestCase):
         }
         model, _, _, _ = deepspeed.initialize(model=model, config=config)
 
+        for name, param in model.module.named_parameters():
+            if name.startswith('1.'):
+                param.requires_grad = False
+
         inputs = []
         num_inputs = 10
         for _ in range(num_inputs):

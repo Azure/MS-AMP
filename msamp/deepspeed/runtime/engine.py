@@ -319,7 +319,7 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
                 # sense in the future to support the ability to average not
                 # w.r.t. world size but with a different value.
                 if isinstance(param, ScalingTensor):
-                    meta = ScalingMeta(Dtypes.kfloat8_e4m3)
+                    meta = ScalingMeta(Dtypes.dtype_to_qtype[param.dtype])
                     param.grad = ScalingTensor(torch.zeros(param.size(), dtype=param.dtype, device=param.device), meta)
                 else:
                     param.grad = torch.zeros(param.size(), dtype=param.dtype, device=param.device)
@@ -469,4 +469,3 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
     def msamp_optlevel(self):
         """Return the opt level of MS-AMP."""
         return self._config.msamp_optlevel
-
