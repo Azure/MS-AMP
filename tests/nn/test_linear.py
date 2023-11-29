@@ -29,13 +29,14 @@ class LinearTestCase(unittest.TestCase):
         """Test FP8LInear forward function."""
         input = torch.randn((4, 4), device='cuda')
         linear = torch.nn.Linear(4, 8).cuda()
-        model = LinearReplacer.replace(linear, Dtypes.kfloat16)
+        for qtype in [Dtypes.kfloat32, Dtypes.kfloat16, Dtypes.kbfloat16]:
+            model = LinearReplacer.replace(linear, qtype)
 
-        output = linear(input)
-        fp8_output = model(input)
-        self.assertTrue(fp8_output.dtype == torch.float)
-        self.assertTrue(fp8_output.size() == torch.Size((4, 8)))
-        self.assertTrue(torch.allclose(output, fp8_output, 0, 0.1))
+            output = linear(input)
+            fp8_output = model(input)
+            self.assertTrue(fp8_output.dtype == torch.float32)
+            self.assertTrue(fp8_output.size() == torch.Size((4, 8)))
+            self.assertTrue(torch.allclose(output, fp8_output, 0, 0.1))
 
     @decorator.cuda_test
     def test_fp8linear_backward(self):
@@ -46,16 +47,17 @@ class LinearTestCase(unittest.TestCase):
 
         linear(input).sum().backward()
 
-        fp8linear = LinearReplacer.replace(linear_copy, Dtypes.kfloat16)
-        fp8linear(input).sum().backward()
+        for qtype in [Dtypes.kfloat32, Dtypes.kfloat16, Dtypes.kbfloat16]:
+            fp8linear = LinearReplacer.replace(linear_copy, qtype)
+            fp8linear(input).sum().backward()
 
-        # check bias.
-        self.assertTrue(isinstance(fp8linear.bias.grad, torch.Tensor))
-        self.assertTrue(torch.equal(fp8linear.bias.grad, linear.bias.grad))
+            # check bias.
+            self.assertTrue(isinstance(fp8linear.bias.grad, torch.Tensor))
+            self.assertTrue(torch.equal(fp8linear.bias.grad, linear.bias.grad))
 
-        # check weight.
-        self.assertTrue(isinstance(fp8linear.weight.grad, ScalingTensor))
-        self.assertTrue(fp8linear.weight.grad.size() == linear.weight.grad.size())
+            # check weight.
+            self.assertTrue(isinstance(fp8linear.weight.grad, ScalingTensor))
+            self.assertTrue(fp8linear.weight.grad.size() == linear.weight.grad.size())
 
     @decorator.cuda_test
     def test_fp8linear_accu_grad(self):

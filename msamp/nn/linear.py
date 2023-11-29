@@ -86,6 +86,7 @@ class LinearReplacer:
             in_features=linear.in_features,
             out_features=linear.out_features,
             use_bias=linear.bias is not None,
+            weight_qtype=weight_qtype,
             bias_type=bias_dtype
         ).cuda()
 
