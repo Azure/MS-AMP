@@ -29,7 +29,7 @@ class LinearTestCase(unittest.TestCase):
         """Test FP8LInear forward function."""
         input = torch.randn((4, 4), device='cuda')
         linear = torch.nn.Linear(4, 8).cuda()
-        for qtype in [Dtypes.float32, Dtypes.kfloat16, Dtypes.kbfloat16]:
+        for qtype in [Dtypes.kfloat32, Dtypes.kfloat16, Dtypes.kbfloat16]:
             model = LinearReplacer.replace(linear, qtype)
 
             output = linear(input)
@@ -47,7 +47,7 @@ class LinearTestCase(unittest.TestCase):
 
         linear(input).sum().backward()
 
-        for qtype in [Dtypes.float32, Dtypes.kfloat16, Dtypes.kbfloat16]:
+        for qtype in [Dtypes.kfloat32, Dtypes.kfloat16, Dtypes.kbfloat16]:
             fp8linear = LinearReplacer.replace(linear_copy, qtype)
             fp8linear(input).sum().backward()
 
