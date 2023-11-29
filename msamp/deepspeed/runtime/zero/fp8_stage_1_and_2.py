@@ -45,7 +45,6 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
                 else:
                     hp_params.append(p)
             self.fp8_param_groups.append(fp8_params)
-
             pg['params'] = hp_params
 
         assert len(self.fp8_param_groups) == len(init_optimizer.param_groups)
