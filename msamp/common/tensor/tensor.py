@@ -418,6 +418,15 @@ meta.dtype is {meta_dtype} (meta.qtype is {meta.qtype}).'
         return self.value.shape
 
     @property
+    def is_meta(self):
+        """Return is_meta property of tensor.
+
+        Return:
+            bool: the is_meta property of value tensor.
+        """
+        return self.value.is_meta
+
+    @property
     def size(self):
         """Return size function of tensor.
 
