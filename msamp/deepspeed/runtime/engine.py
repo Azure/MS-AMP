@@ -336,7 +336,7 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
                 non_expert_grads.append(grad_data)
 
         return non_expert_grads, expert_grads
-    
+
     @instrument_w_nvtx
     def backward(      # noqa: C901
         self,
