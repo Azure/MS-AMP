@@ -105,24 +105,6 @@ class LBAdamW(LBAdamWBase):
             exp_avg_sq_dtype=exp_avg_sq_dtype
         )
 
-    def _get_state_tensor(self, state, dtype):
-        """Get state dict from tensor and dtype.
-
-        Convert state to dtype since the caller in LBAdamWBase always pass state as a float32 tensor.
-
-        Args:
-            state (Tensor): state tensor.
-            dtype (torch.dtype): dtype of the state tensor.
-
-        Return:
-            dict: state dict contains state tensor and other scaling meta data if not float32.
-        """
-        state = state.to(dtype=dtype)
-
-        if dtype != torch.float32:
-            return dict(state=state, factor=1.0, amax=state.new_zeros((1, ), dtype=torch.float32))
-        return dict(state=state)
-
     def adamw_fn(   # noqa: C901
         self,
         params: List[Union[Tensor, ScalingTensor]],
@@ -162,11 +144,11 @@ class LBAdamW(LBAdamWBase):
         if amsgrad:
             raise ValueError('Only amsgrad=False is supported for now.')
 
-        if len(exp_avgs) > 0 and exp_avgs[0]['state'].dtype != torch.float32:
-            _exp_avg_amaxs = [exp_avg['amax'] for exp_avg in exp_avgs]
-            _exp_avg_sq_amaxs = [exp_avg_sq['amax'] for exp_avg_sq in exp_avg_sqs]
-            _exp_avg_inv_factors = [1.0 / exp_avg['factor'] for exp_avg in exp_avgs]
-            _exp_avg_sq_inv_factors = [1.0 / exp_avg_sq['factor'] for exp_avg_sq in exp_avg_sqs]
+        if len(exp_avgs) > 0 and exp_avgs[0].dtype != torch.float32:
+            _exp_avg_amaxs = [exp_avg.meta.amax for exp_avg in exp_avgs]
+            _exp_avg_sq_amaxs = [exp_avg_sq.meta.amax for exp_avg_sq in exp_avg_sqs]
+            _exp_avg_inv_factors = [1.0 / exp_avg.meta.scale for exp_avg in exp_avgs]
+            _exp_avg_sq_inv_factors = [1.0 / exp_avg_sq.meta.scale for exp_avg_sq in exp_avg_sqs]
             torch._foreach_zero_(_exp_avg_amaxs)
             torch._foreach_zero_(_exp_avg_sq_amaxs)
 
@@ -179,14 +161,13 @@ class LBAdamW(LBAdamWBase):
                         grad = grad.add(param, alpha=weight_decay)
                     else:
                         param.mul_(1 - lr * weight_decay)
-
                 assert param.is_contiguous()
                 assert grad.is_contiguous()
 
                 msamp_adamw.adamw_fp8_stage1_compute(
-                    param, grad, exp_avgs[i]['state'], _exp_avg_inv_factors[i], _exp_avg_amaxs[i], beta1,
-                    exp_avg_sqs[i]['state'], _exp_avg_sq_inv_factors[i], _exp_avg_sq_amaxs[i], beta2, eps,
-                    state_steps[i], lr, self.bias_correction
+                    param, grad, exp_avgs[i].value, _exp_avg_inv_factors[i], _exp_avg_amaxs[i], beta1,
+                    exp_avg_sqs[i].value, _exp_avg_sq_inv_factors[i], _exp_avg_sq_amaxs[i], beta2, eps, state_steps[i],
+                    lr, self.bias_correction
                 )
                 if isinstance(params[i], ScalingTensor):
                     params[i].copy_(param.cast(params[i].qtype, meta=params[i].meta))
@@ -195,27 +176,27 @@ class LBAdamW(LBAdamWBase):
                 amaxs, sq_amaxs = torch.cat(_exp_avg_amaxs), torch.cat(_exp_avg_sq_amaxs)
                 ones = amaxs.new_ones((1, ))
                 _new_exp_avg_factors = ScalingMeta.compute_scaling_factor(
-                    amaxs, ones, Floating.fp_maxs[exp_avgs[0]['state'].dtype], 0
+                    amaxs, ones, Floating.fp_maxs[exp_avgs[0].dtype], 0
                 ).tolist()
                 _new_exp_avg_sq_factors = ScalingMeta.compute_scaling_factor(
-                    sq_amaxs, ones, Floating.fp_maxs[exp_avg_sqs[0]['state'].dtype], 0
+                    sq_amaxs, ones, Floating.fp_maxs[exp_avg_sqs[0].dtype], 0
                 ).tolist()
 
             for i, param in enumerate(params):
                 grad = grads[i].float() if not maximize else -grads[i].float()
-                exp_avgs[i]['factor'] = _new_exp_avg_factors[i] if self.tensor_scale else 1.0
-                exp_avg_sqs[i]['factor'] = _new_exp_avg_sq_factors[i] if self.tensor_scale else 1.0
+                exp_avgs[i].meta.scale = _new_exp_avg_factors[i] if self.tensor_scale else 1.0
+                exp_avg_sqs[i].meta.scale = _new_exp_avg_sq_factors[i] if self.tensor_scale else 1.0
                 # update state
                 msamp_adamw.adamw_fp8_stage2_compute(
-                    grad, exp_avgs[i]['state'], _exp_avg_inv_factors[i], exp_avgs[i]['factor'], beta1,
-                    exp_avg_sqs[i]['state'], _exp_avg_sq_inv_factors[i], exp_avg_sqs[i]['factor'], beta2,
-                    state_steps[i], self.bias_correction
+                    grad, exp_avgs[i].value, _exp_avg_inv_factors[i], exp_avgs[i].meta.scale, beta1,
+                    exp_avg_sqs[i].value, _exp_avg_sq_inv_factors[i], exp_avg_sqs[i].meta.scale, beta2, state_steps[i],
+                    self.bias_correction
                 )
         else:
             # float
             for i, param in enumerate(params):
                 param, grad = param.float(), grads[i].float() if not maximize else -grads[i].float()
-                exp_avg_value, exp_avg_sq_value = exp_avgs[i]['state'], exp_avg_sqs[i]['state']
+                exp_avg_value, exp_avg_sq_value = exp_avgs[i], exp_avg_sqs[i]
 
                 # Perform step weight decay
                 if weight_decay != 0:

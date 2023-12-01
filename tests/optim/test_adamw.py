@@ -11,7 +11,7 @@ import torch
 from functools import partial
 
 from msamp.common.dtype import Dtypes
-from msamp.common.tensor import TensorDist
+from msamp.common.tensor import TensorDist, ScalingTensor
 from msamp.optim import LBAdamW, LBAdam, LBAdamWBase, DSAdam
 from msamp.nn import LinearReplacer
 from tests.helper import decorator
@@ -141,11 +141,11 @@ class LBAdamwTestCase(unittest.TestCase):
         self.assertEqual(state[0]['step'], 4)
 
         for i in range(0, 2):
-            exp_avg = state[i]['exp_avg']['state']
-            self.assertEqual(type(exp_avg), torch.Tensor)
+            exp_avg = state[i]['exp_avg']
+            self.assertEqual(type(exp_avg), ScalingTensor)
             self.assertEqual(exp_avg.dtype, torch.uint8)
-            exp_avg_sq = state[0]['exp_avg_sq']['state']
-            self.assertEqual(type(exp_avg_sq), torch.Tensor)
+            exp_avg_sq = state[i]['exp_avg_sq']
+            self.assertEqual(type(exp_avg_sq), ScalingTensor)
             self.assertEqual(exp_avg_sq.dtype, torch.float16)
 
         param_groups = state_dict1['param_groups']
