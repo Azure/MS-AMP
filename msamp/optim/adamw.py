@@ -151,8 +151,10 @@ class LBAdamW(LBAdamWBase):
             _exp_avg_sq_inv_factors = [1.0 / exp_avg_sq.meta.scale for exp_avg_sq in exp_avg_sqs]
             torch._foreach_zero_(_exp_avg_amaxs)
             torch._foreach_zero_(_exp_avg_sq_amaxs)
+
             for i, param in enumerate(params):
                 param, grad = param.float(), grads[i].float() if not maximize else -grads[i].float()
+
                 # Perform step weight decay
                 if weight_decay != 0:
                     if self.use_adam:
