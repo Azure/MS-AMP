@@ -542,7 +542,7 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
             # Weight Gradient Auto Scaling
             timers('wgrad-auto-scaling', log_level=1).start(barrier=args.barrier_with_L1_time)
 
-            # update pre_scale
+            # update pre_scale in this partition
             for model_group in self.model_fp8_groups:
                 for p in model_group:
                     g = p.main_grad
@@ -557,37 +557,26 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
                         else:
                             g.meta.pre_scale *= 2.0**(1.0 / args.wgrad_auto_scaling_window)
 
-            # synchonize pre_scale
+            # synchonize pre_scale in all partitions
             for model_id, model in enumerate(self.models):
                 # all fp8 gradients
-                fp8_grads = []
                 partitions = self.model_gbuf_ranges[model_id][torch.uint8]['partitions']
-                for part in partitions:
-                    for p in part.keys():
-                        fp8_grads.append(p.main_grad)
-                # all pre_scales in the partition `data_parallel_rank`
-                pre_scales = [p.main_grad.meta.pre_scale for p in partitions[data_parallel_rank].keys()]
+                fp8_grads = [[p.main_grad for p in part.keys()] for part in partitions]
+                # pre_scales in the partition `data_parallel_rank`
+                pre_scales = [g.meta.pre_scale for g in fp8_grads[data_parallel_rank]]
                 max_elems_per_rank = max(model._grad_buffer_num_params)
                 pre_scales = torch.tensor(pre_scales, dtype=torch.float32, device='cuda')
                 # padding to max_elems_per_rank
                 pad = max_elems_per_rank - pre_scales.numel()
                 pre_scales = F.pad(pre_scales, (0, pad))
-                output_pre_scales = pre_scales.new_empty((max_elems_per_rank * data_parallel_world_size, ))
+                output_pre_scales = pre_scales.new_empty((data_parallel_world_size, max_elems_per_rank))
                 torch.distributed._all_gather_base(output_pre_scales, pre_scales, group=data_parallel_group)
                 # pre_scales in all partitions
                 output_pre_scales = output_pre_scales.tolist()
                 # assign pre_scale to all fp8 gradients
-                j = 0
-                for i in range(data_parallel_world_size):
-                    start = i * max_elems_per_rank
-                    end = start + model._grad_buffer_num_params[i]
-                    for k in range(start, end):
-                        meta = fp8_grads[j].meta
-                        pre_scale = output_pre_scales[k]
-                        meta.pre_scale = pre_scale
-                        j += 1
-                if j != len(fp8_wgrads):
-                    raise RuntimeError('j != len(fp8_wgrads): {} != {}'.format(j, len(fp8_wgrads)))
+                for grads, pre_scales in zip(fp8_grads, output_pre_scales):
+                    for g, pre_scale in zip(grads, pre_scales):
+                        g.meta.pre_scale = pre_scale
 
             timers('wgrad-auto-scaling').stop()
 
