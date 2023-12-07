@@ -547,16 +547,15 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
                 for p in model_group:
                     g = p.main_grad
                     if g is not None and not torch.is_tensor(g):
-                        if g.qtype != WGRAD_QTYPE:
-                            raise TypeError('g.qtype != WGRAD_QTYPE: {} != {}'.format(g.qtype, WGRAD_QTYPE))
+                        if g.qtype != Dtypes.kfloat8_e4m3:
+                            raise TypeError('g.qtype != Dtypes.kfloat8_e4m3: {}'.format(g.qtype))
                         # stat overflow ratio
                         num_infs = torch.count_nonzero((g.value & 0x7f) == 126)
                         overflow_ratio = num_infs / g.numel()
-                        if args.wgrad_auto_scaling_ratio is not None:
-                            if overflow_ratio > args.wgrad_auto_scaling_ratio:
-                                g.meta.pre_scale /= 2.0
-                            else:
-                                g.meta.pre_scale *= 2.0**(1.0 / args.wgrad_auto_scaling_window)
+                        if overflow_ratio > args.wgrad_auto_scaling_ratio:
+                            g.meta.pre_scale /= 2.0
+                        else:
+                            g.meta.pre_scale *= 2.0**(1.0 / args.wgrad_auto_scaling_window)
 
             # synchonize pre_scale
             for model_id, model in enumerate(self.models):
