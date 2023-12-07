@@ -12,7 +12,7 @@ from msamp.common.dtype import Dtypes
 class Arithmetic:
     """Arithmetic operator for FP8 tensor."""
     @staticmethod
-    def add_to_fp8(fp8_tensor, meta, other):
+    def add_to_fp8(fp8_tensor, meta, other, pre_scale=1.0):
         """Add high presicon tensor to fp8_tensor in-place.
 
         Args:
@@ -32,4 +32,4 @@ class Arithmetic:
 
         is_e4m3 = meta.qtype == Dtypes.kfloat8_e4m3
 
-        msamp_arithmetic.add_to_fp8(fp8_tensor, meta.scale, meta.scale_inv, meta.amax[0], other, is_e4m3)
+        msamp_arithmetic.add_to_fp8(fp8_tensor, meta.scale, meta.scale_inv, meta.amax[0], pre_scale, other, is_e4m3)

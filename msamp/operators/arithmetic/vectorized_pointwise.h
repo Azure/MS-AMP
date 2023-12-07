@@ -191,6 +191,7 @@ __global__ void add_to_fp8_kernel(InputType *input,
                              ComputeType *scale,
                              ComputeType *scale_inv,
                              ComputeType *amax,
+                             ComputeType pre_scale,
                              const size_t N,
                              const size_t num_aligned_elements) {
   if (threadIdx.x == 0 && blockIdx.x == 0) {
@@ -262,6 +263,8 @@ __global__ void add_to_fp8_kernel(InputType *input,
   ComputeType exp = floorf(log2f(fp_max/(amax_value)));
   ComputeType sf = roundf(powf(2, fabsf(exp)));
 
+  sf *= pre_scale;
+
   if (amax_value <= 0 || !isfinite(amax_value)) {
     sf = *scale;
   }
@@ -280,9 +283,9 @@ __global__ void add_to_fp8_kernel(InputType *input,
     for (int i = 0; i < nvec; ++i) {
       const InputType val1 = static_cast<InputType>(input_storer.separate()[i]);
       const ComputeType val2 = static_cast<ComputeType>(output_storer.separate()[i]);
-    
+
       InputType temp1 = static_cast<InputType>(val2 * s);
-      
+
       if constexpr (is_half<InputType>::value) {
           temp1 = static_cast<ComputeType>(__hadd(temp1, val1));
       } else {
@@ -363,6 +366,7 @@ void VectorizedAddToFp8KernelLauncher(InputType *input,
                                       fp32 *scale,
                                       fp32 *scale_inv,
                                       fp32 *amax,
+                                      fp32 pre_scale,
                                       const size_t N,
                                       cudaStream_t stream) {
   if (N != 0) {
@@ -373,9 +377,9 @@ void VectorizedAddToFp8KernelLauncher(InputType *input,
     constexpr size_t threads = unary_kernel_threads;
     size_t num_blocks = DIVUP(num_aligned_elements, threads);
 
-    // We use DeviceSyncer to sync the amax value between blocks, the block number should be less than 
-    // (SMCount*MaxThreadsPerSM)/unary_kernel_threads, which is 132*2048/512 = 528 on H100 SXM. We set 
-    // max_blocks to half of 528 to make sure it works on other H100 GPUs.  
+    // We use DeviceSyncer to sync the amax value between blocks, the block number should be less than
+    // (SMCount*MaxThreadsPerSM)/unary_kernel_threads, which is 132*2048/512 = 528 on H100 SXM. We set
+    // max_blocks to half of 528 to make sure it works on other H100 GPUs.
     // constexpr size_t max_blocks = 65535;
     constexpr size_t max_blocks = 264;
     num_blocks = std::min(num_blocks, max_blocks);
@@ -383,16 +387,16 @@ void VectorizedAddToFp8KernelLauncher(InputType *input,
     switch (align) {
       case Alignment::SAME_ALIGNED:
         add_to_fp8_kernel<nvec, true, fp32><<<num_blocks, threads, 0, stream>>>(
-            input, output, scale, scale_inv, amax, N, num_aligned_elements);
+            input, output, scale, scale_inv, amax, pre_scale, N, num_aligned_elements);
         break;
       case Alignment::SAME_UNALIGNED:
         add_to_fp8_kernel<nvec, false, fp32><<<num_blocks, threads, 0, stream>>>(
-            input, output, scale, scale_inv, amax, N, num_aligned_elements);
+            input, output, scale, scale_inv, amax, pre_scale, N, num_aligned_elements);
         break;
       case Alignment::DIFFERENT: {
         // If the pointers are aligned differently we cannot vectorize
         add_to_fp8_kernel<1, true, fp32><<<num_blocks, threads, 0, stream>>>(
-            input, output, scale, scale_inv, amax, N, num_aligned_elements);
+            input, output, scale, scale_inv, amax, pre_scale, N, num_aligned_elements);
         break;
       }
     }
