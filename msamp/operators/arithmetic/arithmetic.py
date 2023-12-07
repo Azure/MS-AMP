@@ -19,6 +19,7 @@ class Arithmetic:
             fp8_tensor (torch.Tensor): fp8 tensor to add to.
             meta (ScalingTensorMeta): meta data of fp8_tensor.
             other (torch.Tensor): high precision tensor to add.
+            pre_scale (float, optional): Pre-scale factor, defaults to 1.0.
         """
         if not (fp8_tensor.is_cuda and fp8_tensor.is_contiguous):
             raise ValueError('The fp8 tensor is not in cuda memory or contiguous.')

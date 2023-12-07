@@ -22,6 +22,7 @@ class ScalingMeta:
             scale_inv (torch.Tensor, optional): The reciprocal of scaling tensor, defaults to None.
             amax (torch.Tensor, optional): Absolute maximum tensor, defaults to None.
             window_size (int, optional): Window size, defaults to 1.
+            pre_scale (float, optional): Pre-scale factor, defaults to 1.0.
             group (torch.distributed.ProcessGroup, optional): Distributed group, defaults to None.
         """
         self.qtype = qtype
