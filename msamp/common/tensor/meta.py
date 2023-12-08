@@ -23,7 +23,7 @@ class ScalingMeta:
             scale_inv (torch.Tensor, optional): The reciprocal of scaling tensor, defaults to None.
             amax (torch.Tensor, optional): Absolute maximum tensor, defaults to None.
             window_size (int, optional): Window size, defaults to 1.
-            pre_scale (float, optional): Pre-scale factor, defaults to 1.0.
+            pre_scale (torch.Tensor, optional): A pre-scale factor
             group (torch.distributed.ProcessGroup, optional): Distributed group, defaults to None.
         """
         self.qtype = qtype
@@ -47,6 +47,7 @@ class ScalingMeta:
             scale (torch.Tensor): Scale tensor.
             fp_max (float): The maximum value of float point.
             margin (int): Margin value.
+            pre_scale (torch.Tensor, optional): A pre-scale factor
 
         Returns:
             return new scaling tensor.
@@ -162,4 +163,5 @@ class ScalingMeta:
         """
         return f'ScalingMeta(qtype={self.qtype}, '\
                f'scale={self.scale.data:g}, scale_inv={self.scale_inv.data:g}, '\
+               f'pre_scale={self.pre_scale.data:g}, '\
                f'amax={self.amax.max():g}, window_size={self.window_size})'

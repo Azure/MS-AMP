@@ -191,7 +191,7 @@ __global__ void add_to_fp8_kernel(InputType *input,
                              ComputeType *scale,
                              ComputeType *scale_inv,
                              ComputeType *amax,
-                             ComputeType pre_scale,
+                             ComputeType *pre_scale,
                              const size_t N,
                              const size_t num_aligned_elements) {
   if (threadIdx.x == 0 && blockIdx.x == 0) {
@@ -263,14 +263,14 @@ __global__ void add_to_fp8_kernel(InputType *input,
   ComputeType exp = floorf(log2f(fp_max/(amax_value)));
   ComputeType sf = roundf(powf(2, fabsf(exp)));
 
-  sf *= pre_scale;
+  sf *= *pre_scale;
 
   if (amax_value <= 0 || !isfinite(amax_value)) {
     sf = *scale;
   }
 
   if (exp < 0) {
-    sf = 1 / sf;
+    sf = 1.0f / sf;
   }
 
   // using new scaling factor to quantize the input
@@ -299,7 +299,7 @@ __global__ void add_to_fp8_kernel(InputType *input,
 
   if (threadIdx.x == 0 && blockIdx.x == 0) {
       *scale = sf;
-      *scale_inv = 1.0 / sf;
+      *scale_inv = 1.0f / sf;
   }
 }
 
@@ -366,7 +366,7 @@ void VectorizedAddToFp8KernelLauncher(InputType *input,
                                       fp32 *scale,
                                       fp32 *scale_inv,
                                       fp32 *amax,
-                                      fp32 pre_scale,
+                                      fp32 *pre_scale,
                                       const size_t N,
                                       cudaStream_t stream) {
   if (N != 0) {

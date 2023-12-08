@@ -14,7 +14,7 @@ void add_to_fp8(at::Tensor fp8_tensor,
                 at::Tensor scale,
                 at::Tensor scale_inv,
                 at::Tensor amax,
-                float pre_scale,
+                at::Tensor pre_scale,
                 const at::Tensor& other,
                 bool is_e4m3) {
   const size_t N = other.numel();
@@ -30,7 +30,7 @@ void add_to_fp8(at::Tensor fp8_tensor,
         reinterpret_cast<fp32*>(scale.data_ptr()),
         reinterpret_cast<fp32*>(scale_inv.data_ptr()),
         reinterpret_cast<fp32*>(amax.data_ptr()),
-        pre_scale,
+        reinterpret_cast<fp32*>(pre_scale.data_ptr()),
         N,
         stream
       );
