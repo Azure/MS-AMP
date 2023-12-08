@@ -553,9 +553,9 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
                         num_infs = torch.count_nonzero((g.value & 0x7f) == 126)
                         overflow_ratio = num_infs / g.numel()
                         if overflow_ratio > args.wgrad_auto_scaling_ratio:
-                            g.meta.pre_scale /= 2.0
+                            g.meta.pre_scale.div_(2.0)
                         else:
-                            g.meta.pre_scale *= 2.0**(1.0 / args.wgrad_auto_scaling_window)
+                            g.meta.pre_scale.mul_(2.0**(1.0 / args.wgrad_auto_scaling_window))
 
             # synchonize pre_scale in all partitions
             for model_id, model in enumerate(self.models):
@@ -565,18 +565,16 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
                 # pre_scales in the partition `data_parallel_rank`
                 pre_scales = [g.meta.pre_scale for g in fp8_grads[data_parallel_rank]]
                 max_elems_per_rank = max(model._grad_buffer_num_params)
-                pre_scales = torch.tensor(pre_scales, dtype=torch.float32, device='cuda')
+                pre_scales = torch.cat(pre_scales)
                 # padding to max_elems_per_rank
                 pad = max_elems_per_rank - pre_scales.numel()
                 pre_scales = F.pad(pre_scales, (0, pad))
                 output_pre_scales = pre_scales.new_empty((data_parallel_world_size, max_elems_per_rank))
                 torch.distributed._all_gather_base(output_pre_scales, pre_scales, group=data_parallel_group)
-                # pre_scales in all partitions
-                output_pre_scales = output_pre_scales.tolist()
                 # assign pre_scale to all fp8 gradients
                 for grads, pre_scales in zip(fp8_grads, output_pre_scales):
                     for g, pre_scale in zip(grads, pre_scales):
-                        g.meta.pre_scale = pre_scale
+                        g.meta.pre_scale.copy_(pre_scale)
 
             timers('wgrad-auto-scaling').stop()
 

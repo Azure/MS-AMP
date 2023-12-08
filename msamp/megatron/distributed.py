@@ -141,7 +141,7 @@ class FP8DistributedDataParallel(DistributedDataParallelBase):
                     start = pi * max_fp8_mems
                     for p in fp8_partitions[pi]:
                         meta = ScalingMeta(self.wgrad_qtype, scale=scales[t], scale_inv=scale_invs[t], amax=amaxs[t])
-                        meta.pre_scale = pre_scale
+                        meta.pre_scale.fill_(pre_scale)
                         t += 1
                         p.main_grad = ScalingTensor(self._grad_buffers[self.wgrad_dtype].get(p.shape, start), meta)
                         self._grad_buffer_param_index_map[self.wgrad_dtype][p] = (start, start + p.numel())
