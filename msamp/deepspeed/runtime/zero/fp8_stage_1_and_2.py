@@ -34,6 +34,15 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
             **kwargs: Arbitrary keyword arguments.
         """
         self.fp8_param_groups = []
+        dtype = torch.float16
+        for pg in init_optimizer.param_groups:
+            for p in pg['params']:
+                if p.requires_grad and not isinstance(p, ScalingTensor):
+                    dtype = p.dtype
+                    break
+
+        fake_param = torch.nn.parameter.Parameter(torch.zeros((), dtype=dtype))
+        fake_index = 0
         for pg in init_optimizer.param_groups:
             fp8_params = []
             hp_params = []
@@ -45,6 +54,11 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
                 else:
                     hp_params.append(p)
             self.fp8_param_groups.append(fp8_params)
+            if len(hp_params) == 0:
+                param_names = args[0]
+                param_names[fake_param] = 'fake_' + str(fake_index)
+                fake_index += 1
+                hp_params.append(fake_param)
             pg['params'] = hp_params
 
         assert len(self.fp8_param_groups) == len(init_optimizer.param_groups)
@@ -139,7 +153,12 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
             torch.Tensor: flat fp8 groups.
         """
         partition_size = dist.get_world_size(group=self.dp_process_group)
-        ref_value = values_partitions[0][0]
+        ref_value = None
+        for partition in values_partitions:
+            if len(partition) > 0:
+                ref_value = partition[0]
+                break
+        assert ref_value
         dtype = ref_value.dtype
         assert all(v.dtype == dtype for v in chain(*values_partitions))
 
@@ -777,7 +796,12 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
                 continue
             partition_size = len(params_partitions)
             scale_invs_partitions = [[p.meta.scale_inv for p in ps] for ps in params_partitions]
-            ref_scale = scale_invs_partitions[0][0]
+            ref_scale = None
+            for partition in scale_invs_partitions:
+                if len(partition) > 0:
+                    ref_scale = partition[0]
+                    break
+
             align = self.fp8_nccl_start_alignment_factor
             max_flat_numels = (max_flat_numels + align - 1) // align * align
             for pi in range(partition_size):
