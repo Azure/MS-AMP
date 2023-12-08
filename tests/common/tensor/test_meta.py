@@ -59,3 +59,18 @@ class ScalingMetaTestCase(unittest.TestCase):
         meta = ScalingMeta(Dtypes.kfloat8_e4m3)
         self.assertFalse(meta.is_in_time_scaling())
         ScalingMeta.in_time_scaling = bak
+
+    def test_pre_scale(self):
+        """Test pre_scale in ScalingMeta."""
+        x = torch.randn((4, 4), device='cuda')
+        meta = ScalingMeta(Dtypes.kfloat8_e4m3)
+        qtype = Dtypes.kfloat8_e4m3
+        q1 = x.cast(qtype, meta)
+
+        r = 2
+        meta2 = ScalingMeta(Dtypes.kfloat8_e4m3)
+        meta2.pre_scale.fill_(r)
+        q2 = x.cast(qtype, meta2)
+        self.assertTrue(torch.allclose(q1.float(), q2.float()))
+        self.assertTrue(torch.allclose(q1.meta.scale, q2.meta.scale * r))
+        self.assertTrue(torch.allclose(q1.meta.scale_inv, q2.meta.scale_inv / r))

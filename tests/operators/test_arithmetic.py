@@ -31,10 +31,26 @@ class ArithmeticTestCase(unittest.TestCase):
         for i, j, dtype, qtype, in itertools.product(sizes, sizes, dtypes, qtypes):
             size = (i, j)
             input1 = torch.rand(size, dtype=dtype, device='cuda')
+
+            # w/o pre_scale
             scaling_tensor1 = input1.cast(qtype)
             scaling_tensor2 = input1.cast(qtype)
 
             for i in range(10):
+                input2 = torch.rand(size, dtype=dtype, device='cuda')
+                meta = scaling_tensor1.meta
+                Arithmetic.add_to_fp8(scaling_tensor1.value, meta, input2)
+                scaling_tensor2.copy_((scaling_tensor2.to(dtype) + input2).cast(qtype, meta=scaling_tensor2.meta))
+                self._check_scaling_tensor(scaling_tensor1, scaling_tensor2)
+
+            # w/ pre_scale
+            scaling_tensor1 = input1.cast(qtype)
+            scaling_tensor2 = input1.cast(qtype)
+
+            for i in range(10):
+                pre_scale = torch.rand(1).item()
+                scaling_tensor1.meta.pre_scale.fill_(pre_scale)
+                scaling_tensor2.meta.pre_scale.fill_(pre_scale)
                 input2 = torch.rand(size, dtype=dtype, device='cuda')
                 meta = scaling_tensor1.meta
                 Arithmetic.add_to_fp8(scaling_tensor1.value, meta, input2)
