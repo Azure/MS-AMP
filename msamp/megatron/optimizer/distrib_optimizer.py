@@ -351,28 +351,119 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
         return None
 
     def state_dict(self):
-        """The state dict must contain the fp32-from-float16 and fp16-from-fp8 shards."""
+        """
+        The state dict contains all non-DP-rank-dependent (i.e., non-parameter-
+        related) optimizer variables. The returned state dict can be stored in
+        the standard model/RNG checkpoint file. The parameter and dependent
+        optimizer state (e.g., exp_avg, exp_avg_sq) are stored in a separate
+        checkpoint file by calling 'save_parameter_state()'.
+        """
+
         state_dict = {}
-        state_dict['optimizer'] = self.optimizer.state_dict()
+
+        # Optimizer state (do not store parameter state here).
+        state_dict['optimizer'] = {
+            k : v
+            for k, v in self.optimizer.state_dict().items()
+            if k != "state"
+        }
+        for param_group in state_dict["optimizer"]["param_groups"]:
+            del param_group["params"]
+
+        # Grad scaler state.
         if self.grad_scaler:
             state_dict['grad_scaler'] = self.grad_scaler.state_dict()
-        # shared master weight
-        state_dict['shard_fp32_from_float16_groups'] = \
-            self.shard_fp32_from_float16_groups
-        state_dict['shard_hp_from_fp8_groups'] = \
-            self.shard_hp_from_fp8_groups
-        return state_dict
 
+        return state_dict
+    
     def load_state_dict(self, state_dict):
-        """Load the state dict."""
-        optimizer_key = 'optimizer'
-        if optimizer_key not in state_dict:
-            optimizer_key = 'optimizer_state_dict'
-            print_rank_0('***WARNING*** loading optimizer from '
-                         'an old checkpoint ...')
-        # convert optimizer states
-        ckpt_state_dict = state_dict[optimizer_key]
-        self.optimizer.load_state_dict(ckpt_state_dict)
+        """Load the state dict.
+
+        As detailed in state_dict(), the state dict contains all non-
+        parameter-related variables. This method is notably longer than
+        state_dict(), because the Torch optimizers state has yet to be
+        allocated at this point, and so we must do a cross referencing between
+        the optimizers state (and the ordering it expects for parameter state)
+        and this DP rank's shards. The optimizer at this point does not contain
+        any tensor dimension information, so we must get these dimensions from
+        the DP shards mapped during DistributedOptimizer.__init__().
+
+        The tensor parameter state is loaded via load_parameter_state(), and
+        so this method also must populate the loaded state dict with dummy
+        tensor data (i.e., via torch.empty() below). This will be overwritten
+        during load_parameter_state().
+
+        ** Note: Torch optimizer's state structure. **
+        The Torch optimizer stores its state in two levels. The top level is a
+        list of groups, where each group contains a list of integer indexes
+        (corresponding to parameters) that index into a master parameter list
+        that is shared by all groups. As such, three values are necessary for
+        maintaining this ordering:
+
+        - group_index : The group to which a parameter belongs.
+        - group_order : The index of a parameter within its group.
+        - state_order : The index of a parameter within the shared parameter
+            list.
+        """
+
+        # Get the Torch optimizer's state dict.
+        # - This 'inner' optimizer at this point is unallocated, and only
+        #   contains an integer odering of parameters within each group, and
+        #   the ordering of parameters within its flattened parameter state
+        #   list.
+        inner_state_dict = self.optimizer.state_dict()
+        state_dict_param_groups = [{
+            **group,
+            "params" : list(inner_state_dict["param_groups"][idx]["params"]),
+        } for idx, group in enumerate(state_dict["optimizer"]["param_groups"])]
+
+        # Allocate 'dummy' data for optimizer state (i.e., torch.empty() below)
+        # - Real data is overwritten during load_parameter_state().
+        state_dict_state = []
+        for gbuf_range_maps in self.model_gbuf_ranges:
+            for gbuf_range_map in gbuf_range_maps.values():
+                for model_param, param_range_map in \
+                    gbuf_range_map["param_map"].items():
+
+                    # Get parameter ordering information (see method docstring
+                    # for details).
+                    group_index, group_order = \
+                        self.model_param_group_index_map[model_param]
+                    state_order = inner_state_dict["param_groups"] \
+                        [group_index]["params"][group_order]
+
+                    # Allocate dummy tensors.
+                    numel = len(param_range_map["gbuf_world"])
+                    
+                    if isinstance(model_param, ScalingTensor):
+                        exp_avg_qtype = Dtypes.dtype_to_qtype(self.optimizer.exp_avg_dtype)
+                        exp_avg_sq_qtype = Dtypes.dtype_to_qtype(self.optimizer.exp_avg_sq_dtype)
+                        exp_avg = torch.empty((numel, ), dtype=torch.float32, device=torch.cuda.current_device()).cast(exp_avg_qtype)
+                        exp_avg_sq = torch.empty((numel, ), dtype=torch.float32, device=torch.cuda.current_device()).cast(exp_avg_sq_qtype)
+                        state_dict_state.append((state_order, {
+                            "exp_avg" : exp_avg,
+                            "exp_avg_sq" : exp_avg_sq,
+                        }))
+                    else:
+                        init_shard = lambda _ : torch.empty(
+                                (numel,),
+                                dtype=torch.float32,
+                                device=torch.cuda.current_device())
+
+                        state_dict_state.append((state_order, {
+                            "exp_avg" : init_shard(),
+                            "exp_avg_sq" : init_shard(),
+                        }))
+
+        # Sort by state order (see method docstring for details).
+        state_dict_state.sort(key = lambda s : s[0])
+        state_dict_state = {s[0]:s[1] for s in state_dict_state}
+
+        # Optimizer.
+        self.optimizer.load_state_dict({
+            "state" : state_dict_state,
+            "param_groups" : state_dict_param_groups,
+        })
 
         # Grad scaler.
         if 'grad_scaler' not in state_dict:
@@ -383,28 +474,186 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
             if self.grad_scaler:
                 self.grad_scaler.load_state_dict(state_dict['grad_scaler'])
             else:
-                print_rank_0(
-                    '***WARNING*** fould the grad scaler in the '
-                    'checkpoint but it is None in the class. '
-                    'Skipping loading grad scaler ...'
-                )
+                print_rank_0('***WARNING*** fould the grad scaler in the '
+                             'checkpoint but it is None in the class. '
+                             'Skipping loading grad scaler ...')
 
-        # Copy data for the main params.
-        for current_group, saved_group in zip(
-            self.shard_fp32_from_float16_groups, state_dict['shard_fp32_from_float16_groups']
-        ):
-            for current_param, saved_param in zip(current_group, saved_group):
-                current_param.data.copy_(saved_param.data)
+    def save_parameter_state(self, filename):
+        """Save parameter state (i.e., parameter & optimizer tensors).
 
-        for current_group, saved_group in zip(self.shard_hp_from_fp8_groups, state_dict['shard_hp_from_fp8_groups']):
-            for current_param, saved_param in zip(current_group, saved_group):
-                if current_param.data.qtype == saved_param.data.qtype:
-                    current_param.data.copy_(saved_param.data)
-                else:
-                    # when the data type of optimizer's master weight and checkpoint's is different
-                    current_param.data.copy_(
-                        saved_param.data.to(current_param.data.device).cast(current_param.data.qtype)
+        This method performs three steps:
+        - For each DP rank, copy param & optimizer shards to contiguous CPU
+          buffers. (e.g., one buffer each for main_param, exp_avg, and
+          exp_avg_sq).
+        - Gather contiguous buffers on DP rank 0 and concatenate to world
+          buffers.
+        - Save world buffers to disk (i.e., distrib_opt.pt).
+        """
+
+        # Data parallelism variables.
+        data_parallel_world_size = mpu.get_data_parallel_world_size()
+        data_parallel_rank = mpu.get_data_parallel_rank()
+        data_parallel_group_gloo = mpu.get_data_parallel_group_gloo()
+        data_parallel_global_ranks = list(mpu._DATA_PARALLEL_GLOBAL_RANKS)
+
+        # Collect param states.
+        state = {}
+        for model_idx, gbuf_range_maps in enumerate(self.model_gbuf_ranges):
+
+            # Iterate grad buffers (by data type).
+            dtype_state = {}
+            
+            # MS-AMP: We we FP8 + FP32 now, so we don't need this assert.
+            # assert len(gbuf_range_maps) == 1, "single dtype supported, for now."
+            
+            for dtype, gbuf_range_map in gbuf_range_maps.items():
+
+                # Compute local DP contiguous shard's size.
+                model = self.models[model_idx]
+                gbuf_world_numel = model._grad_buffers[dtype].numel_padded
+                gbuf_local_numel = int(gbuf_world_numel/data_parallel_world_size)
+                local_shards = {key:torch.empty((gbuf_local_numel,),
+                                             dtype=torch.float32,
+                                             device="cpu")
+                             for key in ("param", "exp_avg", "exp_avg_sq")}
+
+                # Build contiguous DP rank shards (for param + optim states).
+                for model_param, param_range_map in \
+                    gbuf_range_map["param_map"].items():
+
+                    # Main param & optimizer states.
+                    group_index, group_order = \
+                        self.model_param_group_index_map[model_param]
+                    main_param = self.optimizer.param_groups \
+                        [group_index]["params"][group_order]
+                    optim_state = self.optimizer.state[main_param]
+
+                    tensors = {
+                        "param" : main_param,
+                        **optim_state,
+                    }
+
+                    # Copy states into contiguous shard.
+                    gbuf_local_start = param_range_map["gbuf_local"].start
+                    gbuf_local_end = param_range_map["gbuf_local"].end
+                    for key in local_shards:
+                        # MS-AMP: Convert to float32 for ScalingTensor.
+                        local_shards[key][gbuf_local_start:gbuf_local_end] \
+                            .data.copy_(tensors[key].detach().float().view(-1).cpu())
+
+                # Gather contiguous shards on DP rank 0.
+                world_tensors = {}
+                for key, send_tensor in local_shards.items():
+
+                    # Gather tensor list.
+                    if data_parallel_rank == 0:
+                        recv_tensors = [torch.empty((gbuf_local_numel,),
+                                                    dtype=torch.float32,
+                                                    device="cpu")
+                                        for _ in range(data_parallel_world_size)]
+                    else:
+                        recv_tensors = None
+
+                    # Gather.
+                    torch.distributed.gather(
+                        send_tensor,
+                        recv_tensors,
+                        data_parallel_global_ranks[0],
+                        data_parallel_group_gloo,
                     )
+
+                    # Concatenate.
+                    if data_parallel_rank == 0:
+                        world_tensors[key] = torch.cat(recv_tensors)
+
+                # Collect world state.
+                dtype_state[dtype] = world_tensors
+            state[model_idx] = dtype_state
+
+        # Save param state.
+        if data_parallel_rank == 0:
+            torch.save(state, filename)
+
+    def load_parameter_state(self, filename):
+        """Load parameter state (i.e., parameter & optimizer tensors).
+
+        This method performs the reverse of save_parameter_state():
+        - Load world buffers from disk (i.e., distrib_opt.pt).
+        - Scatter contiguous buffers from DP rank 0 to each DP rank (each DP
+          rank receives its relevant subset of the world buffers).
+        - For each DP rank, copy param & optimizer shards from contiguous CPU
+          buffers. (e.g., one buffer each for main_param, exp_avg, and
+          exp_avg_sq).
+        """
+
+        # Data parallelism variables.
+        data_parallel_world_size = mpu.get_data_parallel_world_size()
+        data_parallel_rank = mpu.get_data_parallel_rank()
+        data_parallel_group_gloo = mpu.get_data_parallel_group_gloo()
+        data_parallel_global_ranks = list(mpu._DATA_PARALLEL_GLOBAL_RANKS)
+
+        # Load on DP rank 0.
+        if data_parallel_rank == 0:
+            loaded_state = torch.load(filename)
+
+        # Scatter tensors to all DP ranks.
+        for model_idx, gbuf_range_maps in enumerate(self.model_gbuf_ranges):
+            for dtype, gbuf_range_map in gbuf_range_maps.items():
+
+                # Compute local DP contiguous shard's size.
+                model = self.models[model_idx]
+                gbuf_world_numel = model._grad_buffers[dtype].numel_padded
+                gbuf_local_numel = int(gbuf_world_numel/data_parallel_world_size)
+
+                # Contiguous local shards (received from DP rank 0).
+                local_shards = {key:torch.empty((gbuf_local_numel,),
+                                                dtype=torch.float32,
+                                                device="cpu")
+                                for key in ("param", "exp_avg", "exp_avg_sq")}
+
+                # Scatter local shards from DP rank 0.
+                for key, recv_tensor in local_shards.items():
+
+                    # Scatter tensor list.
+                    if data_parallel_rank == 0:
+                        world_tensor = loaded_state[model_idx][dtype][key]
+                        gbuf_start_idxs = \
+                            list(range(0, gbuf_world_numel, gbuf_local_numel))
+                        send_tensors = [world_tensor[i:(i+gbuf_local_numel)]
+                                        for i in gbuf_start_idxs]
+                    else:
+                        send_tensors = None
+
+                    # Scatter.
+                    torch.distributed.scatter(
+                        recv_tensor,
+                        send_tensors,
+                        data_parallel_global_ranks[0],
+                        data_parallel_group_gloo,
+                    )
+
+                # Copy local contiguous shards to param/optim shards.
+                for model_param, param_range_map in \
+                    gbuf_range_map["param_map"].items():
+
+                    # Main param & optimizer states.
+                    group_index, group_order = \
+                        self.model_param_group_index_map[model_param]
+                    main_param = self.optimizer.param_groups \
+                        [group_index]["params"][group_order]
+                    optim_state = self.optimizer.state[main_param]
+
+                    tensors = {
+                        "param" : main_param,
+                        **optim_state,
+                    }
+
+                    # Copy states into contiguous shard.
+                    gbuf_local_start = param_range_map["gbuf_local"].start
+                    gbuf_local_end = param_range_map["gbuf_local"].end
+                    for key in local_shards:
+                        tensors[key].data.copy_(
+                            local_shards[key][gbuf_local_start:gbuf_local_end])
 
     def zero_grad(self, set_to_none=True):
         """Zero grads.
