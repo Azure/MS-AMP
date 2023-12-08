@@ -54,7 +54,8 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
                 else:
                     hp_params.append(p)
             self.fp8_param_groups.append(fp8_params)
-            # DeepSpeedZeroOptimizer will crash if there is no parameters in any parameter group, so add a fake parameter.
+            # DeepSpeedZeroOptimizer will crash if there is no parameters in any parameter group,
+            # so add a fake parameter.
             if len(hp_params) == 0:
                 param_names = args[0]
                 param_names[fake_param] = 'fake_' + str(fake_index)
