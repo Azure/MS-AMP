@@ -566,7 +566,7 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
                     # pre_scales in the partition `data_parallel_rank`
                     pre_scales = [g.meta.pre_scale for g in fp8_grads[data_parallel_rank]]
                     max_elems_per_rank = max(model._grad_buffer_num_params)
-                    pre_scales = torch.cat(pre_scales)
+                    pre_scales = torch.stack(pre_scales)
                     # padding to max_elems_per_rank
                     pad = max_elems_per_rank - pre_scales.numel()
                     pre_scales = F.pad(pre_scales, (0, pad))
