@@ -2,6 +2,7 @@
 # Licensed under the MIT License.
 
 """functional interface in MS-AMP."""
+import time
 
 import torch
 import torch.nn.functional as F
@@ -11,6 +12,29 @@ from msamp.common.tensor import ScalingTensor
 from msamp.operators.gemm import Gemm
 from msamp.nn.state import model_state
 
+from collections import defaultdict
+
+class Timer:
+    def __init__(self):
+        self.start = 0
+        self.times = 0
+        self.elaspse = 0
+        pass
+
+    def start(self):
+        torch.cuda.synchronize()
+        self.start = time.time()
+
+    def stop(self):
+        torch.cuda.synchronize()
+        self.times += 1
+        self.elaspse += time.time() - self.start
+    
+    def average(self):
+        return self.elaspse / self.times
+
+count_map = defaultdict(lambda: 0)
+timer_map = defaultdict(Timer)
 
 class _FP8GemmFunction(torch.autograd.Function):
     """A function provides fp8 gemm forward and backward computations."""
@@ -29,8 +53,13 @@ class _FP8GemmFunction(torch.autograd.Function):
         ctx.metas = metas
         model_state.check_metas_in_flat(metas)
         input_meta = metas['input']
+        timer_map['InputCast'].start()
         input_fp8 = input.cast(Dtypes.kfloat8_e4m3, meta=input_meta)
+        timer_map['InputCast'].stop()
+
+        timer_map['WeightCast'].start()
         weight_fp8 = weight.cast(Dtypes.kfloat8_e4m3)
+        timer_map['WeightCast'].stop()
 
         ctx.input_fp8 = input_fp8
         ctx.input_fp8.requires_grad = input.requires_grad
@@ -43,7 +72,14 @@ class _FP8GemmFunction(torch.autograd.Function):
         ctx.output_dtype = output_dtype
         ctx.output_qtype = output_qtype
 
+        timer_map['ForwardGemm'].start()
         out = Gemm.fp8_gemm(weight_fp8, input_fp8, output_qtype, use_split_accumulator=False)
+        timer_map['ForwardGemm'].stop()
+
+        if timer_map['ForwardGemm'].times % 1000 == 0 and torch.distributed.get_rank() == 0:
+            for k, v in timer_map.items():
+                print(f'k={k},v={v.elaspse}')
+
         return out
 
     @staticmethod
@@ -67,8 +103,10 @@ class _FP8GemmFunction(torch.autograd.Function):
         wgrad_meta = metas['wgrad']
         ograd_fp8, ograd_fp8_t = output_grad.fused_cast_transpose(Dtypes.kfloat8_e5m2, meta=ograd_meta)
 
+        count_map['TotalTimes'] += 1
         if ctx.input_fp8.requires_grad:
             weight_fp8_t = ctx.weight_fp8.fp8_transpose()
+            count_map['InputGrad'] += 1
             input_grad = Gemm.fp8_gemm(weight_fp8_t, ograd_fp8, ctx.output_qtype, use_split_accumulator=True)
         else:
             input_grad = None
@@ -78,6 +116,7 @@ class _FP8GemmFunction(torch.autograd.Function):
             wgrad_qtype = ctx.output_qtype
             # compute weight gradient
             if ctx.weight.grad is None:
+                count_map['WgradWhenNone'] += 1
                 wgrad = Gemm.fp8_gemm(
                     input_fp8_t,
                     ograd_fp8_t,
@@ -87,6 +126,7 @@ class _FP8GemmFunction(torch.autograd.Function):
             else:
                 # gradient accumulation, old_wgrad is FP32 or FP16 without tensor scaling.
                 old_wgrad = ctx.weight.grad.to(ctx.output_dtype)
+                count_map['WgradWhenNotNone'] += 1
                 wgrad = Gemm.fp8_gemm(
                     input_fp8_t,
                     ograd_fp8_t,
@@ -96,15 +136,18 @@ class _FP8GemmFunction(torch.autograd.Function):
                     use_split_accumulator=True,
                 )
                 del old_wgrad
-
             if model_state.use_fp8_ddp:
                 wgrad.meta = wgrad_meta
             else:
                 # wgrad above this line is torch.Tensor w/o tensor scaling
+                count_map['WgradCast'] += 1
                 wgrad = wgrad.cast(Dtypes.kfloat8_e4m3, meta=wgrad_meta, sync=True)
 
             ctx.weight.backward_grad_update(wgrad)
 
+        if count_map['TotalTimes'] % 100 == 0 and torch.distributed.get_rank() == 0:
+            #print(f'count_map: {count_map}')
+            pass
         return input_grad, None, None, None
 
 
