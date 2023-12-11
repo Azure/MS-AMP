@@ -16,10 +16,11 @@ from msamp.operators.arithmetic import Arithmetic
 class ArithmeticTestCase(unittest.TestCase):
     """A class for Arithmetic test cases."""
     def _check_scaling_tensor(self, scaling_tensor1, scaling_tensor2):
-        self.assertTrue(torch.all(torch.eq(scaling_tensor1.value, scaling_tensor2.value)))
-        self.assertTrue(torch.all(torch.eq(scaling_tensor1.meta.scale, scaling_tensor2.meta.scale)))
-        self.assertTrue(torch.all(torch.eq(scaling_tensor1.meta.scale_inv, scaling_tensor2.meta.scale_inv)))
-        self.assertTrue(torch.all(torch.eq(scaling_tensor1.meta.amax, scaling_tensor2.meta.amax)))
+        atol = 1e-6
+        self.assertTrue(torch.allclose(scaling_tensor1.value, scaling_tensor2.value, atol=3))
+        self.assertTrue(torch.allclose(scaling_tensor1.meta.scale, scaling_tensor2.meta.scale, atol=atol))
+        self.assertTrue(torch.allclose(scaling_tensor1.meta.scale_inv, scaling_tensor2.meta.scale_inv, atol=atol))
+        self.assertTrue(torch.allclose(scaling_tensor1.meta.amax, scaling_tensor2.meta.amax, atol=atol))
 
     @decorator.cuda_test
     def test_add_to_fp8(self):

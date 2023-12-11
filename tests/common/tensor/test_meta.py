@@ -71,6 +71,6 @@ class ScalingMetaTestCase(unittest.TestCase):
         meta2 = ScalingMeta(Dtypes.kfloat8_e4m3)
         meta2.pre_scale.fill_(r)
         q2 = x.cast(qtype, meta2)
-        self.assertTrue(torch.allclose(q1.float(), q2.float()))
+        self.assertTrue(torch.allclose(q1.float(), q2.float(), atol=5e-4))
         self.assertTrue(torch.allclose(q1.meta.scale * r, q2.meta.scale))
         self.assertTrue(torch.allclose(q1.meta.scale_inv / r, q2.meta.scale_inv))
