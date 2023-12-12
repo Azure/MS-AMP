@@ -186,7 +186,9 @@ class LBAdamW(LBAdamWBase):
             for i, param in enumerate(params):
                 grad = grads[i].float() if not maximize else -grads[i].float()
                 exp_avgs[i].meta.scale = _new_exp_avg_factors[i] if self.tensor_scale else 1.0
+                exp_avgs[i].meta.scale_inv.fill_(1.0 / exp_avgs[i].meta.scale)
                 exp_avg_sqs[i].meta.scale = _new_exp_avg_sq_factors[i] if self.tensor_scale else 1.0
+                exp_avg_sqs[i].meta.scale_inv.fill_(1.0 / exp_avg_sqs[i].meta.scale)
                 # update state
                 msamp_adamw.adamw_fp8_stage2_compute(
                     grad, exp_avgs[i].value, _exp_avg_inv_factors[i], exp_avgs[i].meta.scale, beta1,

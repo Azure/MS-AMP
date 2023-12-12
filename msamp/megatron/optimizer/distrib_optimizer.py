@@ -358,6 +358,15 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
         optimizer state (e.g., exp_avg, exp_avg_sq) are stored in a separate
         checkpoint file by calling 'save_parameter_state()'.
         """
+        # MS-AMP: Store step in param group.
+        if hasattr(self.optimizer, 'exp_avg_dtype'):
+            for group in self.optimizer.param_groups:
+                step = 0
+                for param in group['params']:
+                    if param.grad is not None:
+                        step = self.optimizer.state[param]['step']
+                        break
+                group['step'] = step
 
         state_dict = {}
 
@@ -367,6 +376,7 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
             for k, v in self.optimizer.state_dict().items()
             if k != "state"
         }
+
         for param_group in state_dict["optimizer"]["param_groups"]:
             del param_group["params"]
 
@@ -434,21 +444,23 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
 
                     # Allocate dummy tensors.
                     numel = len(param_range_map["gbuf_world"])
-                    
-                    if isinstance(model_param, ScalingTensor):
-                        exp_avg_qtype = Dtypes.dtype_to_qtype(self.optimizer.exp_avg_dtype)
-                        exp_avg_sq_qtype = Dtypes.dtype_to_qtype(self.optimizer.exp_avg_sq_dtype)
+                    # MS-AMP: Allocate dummy tensors for exp_avg and exp_avg_sq and cast to ScalingTensor
+                    if hasattr(self.optimizer, 'exp_avg_dtype') and self.optimizer.exp_avg_dtype != torch.float32:
+                        step = state_dict['optimizer']["param_groups"][group_index]["step"]
+                        exp_avg_qtype = Dtypes.dtype_to_qtype[self.optimizer.exp_avg_dtype]
+                        exp_avg_sq_qtype = Dtypes.dtype_to_qtype[self.optimizer.exp_avg_sq_dtype]
                         exp_avg = torch.empty((numel, ), dtype=torch.float32, device=torch.cuda.current_device()).cast(exp_avg_qtype)
                         exp_avg_sq = torch.empty((numel, ), dtype=torch.float32, device=torch.cuda.current_device()).cast(exp_avg_sq_qtype)
                         state_dict_state.append((state_order, {
-                            "exp_avg" : exp_avg,
-                            "exp_avg_sq" : exp_avg_sq,
+                                "exp_avg" : exp_avg,
+                                "exp_avg_sq" : exp_avg_sq,
+                                "step": step
                         }))
                     else:
-                        init_shard = lambda _ : torch.empty(
-                                (numel,),
-                                dtype=torch.float32,
-                                device=torch.cuda.current_device())
+                        init_shard = lambda : torch.empty(
+                            (numel,),
+                            dtype=torch.float32,
+                            device=torch.cuda.current_device())
 
                         state_dict_state.append((state_order, {
                             "exp_avg" : init_shard(),
@@ -503,7 +515,7 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
             # Iterate grad buffers (by data type).
             dtype_state = {}
             
-            # MS-AMP: We we FP8 + FP32 now, so we don't need this assert.
+            # MS-AMP: We use FP8 + FP32 now, so we don't need this assert.
             # assert len(gbuf_range_maps) == 1, "single dtype supported, for now."
             
             for dtype, gbuf_range_map in gbuf_range_maps.items():
@@ -538,8 +550,12 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
                     gbuf_local_end = param_range_map["gbuf_local"].end
                     for key in local_shards:
                         # MS-AMP: Convert to float32 for ScalingTensor.
-                        local_shards[key][gbuf_local_start:gbuf_local_end] \
-                            .data.copy_(tensors[key].detach().float().view(-1).cpu())
+                        if isinstance(tensors[key], ScalingTensor):
+                            local_shards[key][gbuf_local_start:gbuf_local_end] \
+                                .data.copy_(tensors[key].detach().float().view(-1).cpu())
+                        else:
+                            local_shards[key][gbuf_local_start:gbuf_local_end] \
+                                .data.copy_(tensors[key].detach().cpu())
 
                 # Gather contiguous shards on DP rank 0.
                 world_tensors = {}
@@ -652,8 +668,11 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
                     gbuf_local_start = param_range_map["gbuf_local"].start
                     gbuf_local_end = param_range_map["gbuf_local"].end
                     for key in local_shards:
-                        tensors[key].data.copy_(
-                            local_shards[key][gbuf_local_start:gbuf_local_end])
+                        if isinstance(tensors[key], ScalingTensor):
+                            tensors[key].copy_(local_shards[key][gbuf_local_start:gbuf_local_end].view_as(tensors[key].value).cuda().cast(tensors[key].meta.qtype))
+                        else:
+                            tensors[key].data.copy_(
+                                local_shards[key][gbuf_local_start:gbuf_local_end])
 
     def zero_grad(self, set_to_none=True):
         """Zero grads.
