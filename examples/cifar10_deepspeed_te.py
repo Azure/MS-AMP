@@ -3,7 +3,7 @@
 
 """The deepspeed cifar10 exampe using MS-AMP. It is adapted from official deepspeed example.
 
-The only change is add "from msamp import deepspeed" and remove moe related code.
+The only change is add "from msamp import deepspeed" and use FP8VisionTransformer instead of orignial model Net.
 """
 
 import argparse
@@ -18,15 +18,11 @@ import torch.utils.checkpoint as checkpoint
 import torchvision.transforms as transforms
 import transformer_engine.pytorch as te
 from transformer_engine.common import recipe
-import timm
 from timm.models.layers import trunc_normal_
 from timm.models.vision_transformer import PatchEmbed
 from timm.models.vision_transformer_hybrid import HybridEmbed
 
 from msamp import deepspeed
-import msamp.te
-
-#import deepspeed
 
 
 def add_argument():

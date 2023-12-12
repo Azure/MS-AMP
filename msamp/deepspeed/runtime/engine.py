@@ -84,7 +84,6 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
                 optlevel = 'O2'
             use_te = self.msamp_use_te()
             model, basic_optimizer = msamp_initialize(self.module, basic_optimizer, optlevel, use_te)
-            print(f'model is {model}, basic_optimizer is {basic_optimizer}')
             self._set_client_model(model)
             # We need to reset param names after msamp initialize.
             self.param_names = {param: name for name, param in model.named_parameters()}
