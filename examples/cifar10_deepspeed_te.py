@@ -23,8 +23,10 @@ from timm.models.layers import trunc_normal_
 from timm.models.vision_transformer import PatchEmbed
 from timm.models.vision_transformer_hybrid import HybridEmbed
 
-#from msamp import deepspeed
-import deepspeed
+from msamp import deepspeed
+import msamp.te
+
+#import deepspeed
 
 
 def add_argument():

@@ -9,11 +9,13 @@ from deepspeed.ops.adam import FusedAdam
 from msamp.nn import clip_grad_norm_
 from msamp.nn import LinearReplacer
 from msamp.optim import LBAdam, LBAdamW, DSAdam
+from msamp.te import TeReplacer
+
 
 opt_levels = ['O1', 'O2']
 
 
-def initialize(model, optimizer=None, opt_level='O1'):    # noqa: C901
+def initialize(model, optimizer=None, opt_level='O1', use_te=False):    # noqa: C901
     """Initialize your model, optimizer according to the optimization level.
 
     msamp.initialize() should be called after you have finished constructing your model and optimizer.
@@ -56,8 +58,11 @@ def initialize(model, optimizer=None, opt_level='O1'):    # noqa: C901
             assert id(param) in param_index_map
             index = param_index_map[id(param)]
             index_list.append(index)
+    if not use_te:
+        cast_model = LinearReplacer.replace(model)
+    else:
+        cast_model = TeReplacer.replace(model)
 
-    cast_model = LinearReplacer.replace(model)
     parameters = list(cast_model.parameters())
 
     index = 0

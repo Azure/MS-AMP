@@ -82,7 +82,9 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
             if optlevel == 'O3':
                 # O3 is for ZeRO and need to cast to O2 for MS-AMP.
                 optlevel = 'O2'
-            model, basic_optimizer = msamp_initialize(self.module, basic_optimizer, optlevel)
+            use_te = self.msamp_use_te()
+            model, basic_optimizer = msamp_initialize(self.module, basic_optimizer, optlevel, use_te)
+            print(f'model is {model}, basic_optimizer is {basic_optimizer}')
             self._set_client_model(model)
             # We need to reset param names after msamp initialize.
             self.param_names = {param: name for name, param in model.named_parameters()}
@@ -464,9 +466,13 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
             buf.copy_(synced)
 
     def msamp_enabled(self):
-        """Whether amp is enabled."""
+        """Whether msamp is enabled."""
         return self._config.msamp_enabled
 
     def msamp_optlevel(self):
         """Return the opt level of MS-AMP."""
         return self._config.msamp_optlevel
+
+    def msamp_use_te(self):
+        "Whether use transformer engine"
+        return self._config.msamp_usete
