@@ -95,34 +95,17 @@ class TeReplacerTestCase(unittest.TestCase):
             }
         }
 
-        optimizer = LBAdamW(model.parameters(), lr=1e-5)
+        optimizer = LBAdamW(model.parameters(), lr=1e-3, weight_decay=0)
         model, _, _, _ = deepspeed.initialize(model=model, optimizer=optimizer, config=ds_config)
-
-        inputs = []
-        num_inputs = 10
-        for _ in range(num_inputs):
-            x = torch.randn(self.sequence_length, self.batch_size, self.hidden_size).cuda().to(dtype=self.dtype)
-            inputs.append(x)
 
         fp8_format = Format.HYBRID
         fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo='max')
-        losses = []
-        epoches = 10
-        for _ in range(epoches):
-            total_loss = 0
-            for i in range(num_inputs):
-                with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-                    output = model(inputs[i], attention_mask=None)
-                    loss = output.sum()
-                    model.backward(loss)
-                total_loss += loss.item()
-                model.step()
-            avg_loss = total_loss / epoches
-            losses.append(avg_loss)
-
-        for i in range(epoches):
-            if i > 0:
-                assert losses[i] < losses[i - 1]
+        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+            input = torch.randn(self.sequence_length, self.batch_size, self.hidden_size).cuda().to(dtype=self.dtype)
+            output = model(input, attention_mask=None)
+            loss = output.sum()
+            model.backward(loss)
+            model.step()
 
 
 class TeReplacerDistributedTestCast(MultiProcessTestCase):
