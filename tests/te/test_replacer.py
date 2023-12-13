@@ -137,14 +137,8 @@ class TeReplacerDistributedTestCast(MultiProcessTestCase):
     """Test functions in distributed module with TransformerEngine."""
     def setUp(self):
         """Hook method for setting up the test fixture before exercising it."""
-        torch.manual_seed(1000)
-        self.hidden_size = 4096
-        self.ffn_hidden_size = 16384
-        self.num_attention_heads = 32
-        self.dtype = torch.float16
-        self.batch_size = 4
-        self.sequence_length = 128
         super().setUp()
+        torch.manual_seed(1000)
 
         self._spawn_processes()
 
@@ -166,15 +160,22 @@ class TeReplacerDistributedTestCast(MultiProcessTestCase):
     @decorator.cuda_test
     def test_fp8_ddp_with_te(self):
         """Test FP8DistributedDataParallel with TransformerEngine."""
+        hidden_size = 4096
+        ffn_hidden_size = 16384
+        num_attention_heads = 32
+        dtype = torch.float16
+        batch_size = 4
+        sequence_length = 128
+
         rank = self.rank
         store = dist.FileStore(self.file_name, self.world_size)
         torch.cuda.set_device(rank)
         dist.init_process_group(backend='nccl', store=store, rank=self.rank, world_size=self.world_size)
 
         te_transformer = te.TransformerLayer(
-            self.hidden_size, self.ffn_hidden_size, self.num_attention_heads, fuse_qkv_params=True
+            hidden_size, ffn_hidden_size, num_attention_heads, fuse_qkv_params=True
         )
-        te_transformer.to(dtype=self.dtype).cuda()
+        te_transformer.to(dtype=dtype).cuda()
         model = TeReplacer.replace(te_transformer)
         try:
             # ddp_with_replicated_tensor is set in MultiProcessTestCase and should disabled. We catch exception because
@@ -186,7 +187,7 @@ class TeReplacerDistributedTestCast(MultiProcessTestCase):
 
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank])
         # input is different for each rank.
-        x = torch.rand(self.sequence_length, self.batch_size, self.hidden_size).cuda().to(dtype=self.dtype)
+        x = torch.rand(sequence_length, batch_size, hidden_size).cuda().to(dtype=dtype)
         fp8_format = Format.HYBRID
         fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo='max')
         with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
