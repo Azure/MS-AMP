@@ -473,5 +473,5 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
         return self._config.msamp_optlevel
 
     def msamp_use_te(self):
-        "Whether use transformer engine"
+        """Whether use transformer engine."""
         return self._config.msamp_usete

@@ -11,7 +11,6 @@ from msamp.nn import LinearReplacer
 from msamp.optim import LBAdam, LBAdamW, DSAdam
 from msamp.te import TeReplacer
 
-
 opt_levels = ['O1', 'O2']
 
 
@@ -28,6 +27,8 @@ def initialize(model, optimizer=None, opt_level='O1', use_te=False):    # noqa: 
             opt_level || Gemm || Communication || Weight || Weight Gradient || Optimizer States
             'O1'      || fp8  || fp8           || fp16   || fp8             || fp32 + FP32
             'O2'      || fp8  || fp8           || fp16   || fp8             || fp8 + fp16
+        use_te (bool): Whether to use Transformer Engine.
+
     Return:
         return the casted model and optimizer.
     """
