@@ -406,7 +406,8 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
             new_grad_tensor = self.fp8_ipg_buffer[self.fp8_ipg_index
                                                   ].narrow(0, self.fp8_elements_in_ipg_bucket, param.numel())
             if not isinstance(param.grad, ScalingTensor):
-                param.grad = param.grad.cast(WEIGHT_GRAD_QTYPE)
+                meta = ScalingMeta(WEIGHT_GRAD_QTYPE, group=self.dp_process_group)
+                param.grad = param.grad.cast(WEIGHT_GRAD_QTYPE, meta=meta, sync=True)
             grad = param.grad.value
             new_grad_tensor.copy_(grad.view(-1))
             # param: lp
