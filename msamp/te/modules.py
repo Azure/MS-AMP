@@ -253,8 +253,11 @@ class TeModuleOverrider:
                     assert grads[i] is not None
                     if v.grad is None:
                         v.grad = grads[i]
-                    else:
+                    elif torch.is_tensor(v.grad):
                         v.grad += grads[i]
+                    else:
+                        assert isinstance(v.grad, ScalingTensor)
+                        v.grad = v.grad.to(grads[i].dtype) + grads[i]
                     v.backward_grad_update(v.grad)
                     grads[i] = None
                 return (None, ) + tuple(grads)
