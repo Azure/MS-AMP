@@ -3,6 +3,7 @@
 
 """Tests for msamp.te.replacer module."""
 
+import os
 import unittest
 
 import torch
@@ -12,6 +13,7 @@ import transformer_engine.pytorch as te
 from transformer_engine.common.recipe import Format, DelayedScaling
 
 from tests.helper import decorator
+from msamp import deepspeed
 from msamp.nn import ScalingParameter
 from msamp.te.replacer import TeReplacer
 
@@ -33,7 +35,6 @@ class TeReplacerTestCase(unittest.TestCase):
         pass
 
     @decorator.cuda_test
-    @decorator.fused_attention_supported
     def test_replace(self):
         """Test replace function in TeReplacer."""
         te_transformer = te.TransformerLayer(
@@ -76,12 +77,6 @@ class TeReplacerTestCase(unittest.TestCase):
             y.sum().backward()
 
     @decorator.cuda_test
-    @decorator.fused_attention_supported
-    def test_te_with_torch_ddp(self):
-        """Test TransformerEngine + MS-AMP with pytorch DDP."""
-
-    @decorator.cuda_test
-    @decorator.fused_attention_supported
     def test_te_with_deepspeed(self):
         """Test TransformerEngine + MS-AMP with DeepSpeed."""
         te_transformer = te.TransformerLayer(
@@ -91,7 +86,7 @@ class TeReplacerTestCase(unittest.TestCase):
 
         model = TeReplacer.replace(te_transformer)
 
-        config = {
+        ds_config = {
             'train_batch_size': 2,
             'train_micro_batch_size_per_gpu': 1,
             'optimizer': {
@@ -169,7 +164,6 @@ class TeReplacerDistributedTestCast(MultiProcessTestCase):
     @requires_nccl()
     @skip_if_lt_x_gpu(2)
     @decorator.cuda_test
-    @decorator.fused_attention_supported
     def test_fp8_ddp_with_te(self):
         """Test FP8DistributedDataParallel with TransformerEngine."""
         rank = self.rank
