@@ -15,6 +15,7 @@ from transformer_engine.common.recipe import Format, DelayedScaling
 from tests.helper import decorator
 from msamp import deepspeed
 from msamp.nn import ScalingParameter
+from msamp.optim import LBAdamW
 from msamp.te.replacer import TeReplacer
 
 
@@ -87,29 +88,20 @@ class TeReplacerTestCase(unittest.TestCase):
         model = TeReplacer.replace(te_transformer)
 
         ds_config = {
-            'train_batch_size': 2,
-            'train_micro_batch_size_per_gpu': 1,
-            'optimizer': {
-                'type': 'adamw',
-                'params': {
-                    'torch_adam': True,
-                }
-            },
-            'msamp': {
-                'enabled': True,
-                'opt_level': 'O3',
-            },
+            'train_batch_size': self.batch_size,
+            'train_micro_batch_size_per_gpu': self.batch_size,
             'zero_optimization': {
                 'stage': 2,
             }
         }
 
-        model, _, _, _ = deepspeed.initialize(model=model, config=ds_config)
+        optimizer = LBAdamW(model.parameters(), lr=1e-5)
+        model, _, _, _ = deepspeed.initialize(model=model, optimizer=optimizer, config=ds_config)
 
         inputs = []
         num_inputs = 10
         for _ in range(num_inputs):
-            x = torch.rand(self.sequence_length, self.batch_size, self.hidden_size).cuda().to(dtype=self.dtype)
+            x = torch.randn(self.sequence_length, self.batch_size, self.hidden_size).cuda().to(dtype=self.dtype)
             inputs.append(x)
 
         fp8_format = Format.HYBRID
@@ -125,7 +117,7 @@ class TeReplacerTestCase(unittest.TestCase):
                     model.backward(loss)
                 total_loss += loss.item()
                 model.step()
-            avg_loss = total_loss / epochs
+            avg_loss = total_loss / epoches
             losses.append(avg_loss)
 
         for i in range(epoches):
@@ -172,9 +164,7 @@ class TeReplacerDistributedTestCast(MultiProcessTestCase):
         torch.cuda.set_device(rank)
         dist.init_process_group(backend='nccl', store=store, rank=self.rank, world_size=self.world_size)
 
-        te_transformer = te.TransformerLayer(
-            hidden_size, ffn_hidden_size, num_attention_heads, fuse_qkv_params=True
-        )
+        te_transformer = te.TransformerLayer(hidden_size, ffn_hidden_size, num_attention_heads, fuse_qkv_params=True)
         te_transformer.to(dtype=dtype).cuda()
         model = TeReplacer.replace(te_transformer)
         try:
@@ -187,7 +177,7 @@ class TeReplacerDistributedTestCast(MultiProcessTestCase):
 
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank])
         # input is different for each rank.
-        x = torch.rand(sequence_length, batch_size, hidden_size).cuda().to(dtype=dtype)
+        x = torch.randn(sequence_length, batch_size, hidden_size).cuda().to(dtype=dtype)
         fp8_format = Format.HYBRID
         fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo='max')
         with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
