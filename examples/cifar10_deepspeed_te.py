@@ -3,7 +3,7 @@
 
 """The deepspeed cifar10 exampe using MS-AMP and TransformerEngine. It is adapted from official deepspeed example.
 
-The model is adpteed from VisionTransfomrer in timm and it uses te.TransformerLayer as encoder block.
+The model is adapted from VisionTransfomrer in timm and it uses te.TransformerLayer as encoder block.
 """
 
 import argparse
