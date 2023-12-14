@@ -31,11 +31,13 @@ For enabling MS-AMP in DeepSpeed, add one line of code `from msamp import deepsp
 ```json
 "msamp": {
   "enabled": true,
-  "opt_level": "O1|O2|O3"
+  "opt_level": "O1|O2|O3",
+  "use_te": false
 }
 ```
 
 "O3" is designed for FP8 in ZeRO optimizer, so please make sure ZeRO is enabled when using "O3".
+"use_te" is designed for Transformer Engine, if you have already used Transformer Engine in your model, don't forget to set "use_te" to true.
 
 ## Usage in Megatron-DeepSpeed and Megatron-LM
 

@@ -40,4 +40,10 @@ deepspeed cifar10_deepspeed.py --deepspeed --deepspeed_config ds_config_msamp.js
 deepspeed cifar10_deepspeed.py --deepspeed --deepspeed_config ds_config_zero_msamp.json
 ```
 
+### 4. Run cifar10 using deepspeed-ZeRO + TE with msamp enabled
+
+```bash
+deepspeed cifar10_deepspeed_te.py --deepspeed --deepspeed_config ds_config_zero_te_msamp.json
+```
+
 For more comprehensive examples, please go to [MS-AMP-Examples](https://github.com/Azure/MS-AMP-Examples).
