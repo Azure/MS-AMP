@@ -426,10 +426,10 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
             # Copy the grad tensor to the ipg buffer.
             new_grad_tensor = self.fp8_ipg_buffer[self.fp8_ipg_index
                                                   ].narrow(0, self.fp8_elements_in_ipg_bucket, param.numel())
-            grad = param.grad
-            if isinstance(grad, ScalingTensor):
-                # only copy ScalingTensor.value
-                grad = grad.value
+            if not isinstance(param.grad, ScalingTensor):
+                meta = ScalingMeta(WEIGHT_GRAD_QTYPE, group=self.dp_process_group)
+                param.grad = param.grad.cast(WEIGHT_GRAD_QTYPE, meta=meta, sync=True)
+            grad = param.grad.value
             new_grad_tensor.copy_(grad.view(-1))
             # param: lp
             grad.data = new_grad_tensor.data.view(grad.shape)

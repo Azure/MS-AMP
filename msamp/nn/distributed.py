@@ -133,6 +133,11 @@ class _ScalingTensorReducer:
             param_ids = self.bucket_to_param_ids[bucket_id]
             params = [self.parameters[i] for i in param_ids]
             grads = [p.grad for p in params]
+            wgrad_qtype = Dtypes.kfloat8_e4m3
+            for g in grads:
+                if not hasattr(g, 'meta'):
+                    meta = ScalingMeta(wgrad_qtype, group=self.process_group)
+                    g.meta = meta
             metas = [g.meta for g in grads]
 
             # step 2: synchronize the amax
