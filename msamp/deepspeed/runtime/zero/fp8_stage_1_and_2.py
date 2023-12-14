@@ -160,8 +160,9 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
             if len(partition) > 0:
                 ref_value = partition[0]
                 break
-        dtype = ref_value.dtype
-        assert all(v.dtype == dtype for v in chain(*values_partitions))
+        if ref_value is not None:
+            dtype = ref_value.dtype
+            assert all(v.dtype == dtype for v in chain(*values_partitions))
 
         align = self.fp8_nccl_start_alignment_factor
         max_flat_numels = max(group_fp8_mems)
@@ -797,17 +798,12 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
                 continue
             partition_size = len(params_partitions)
             scale_invs_partitions = [[p.meta.scale_inv for p in ps] for ps in params_partitions]
-            ref_scale = None
-            for partition in scale_invs_partitions:
-                if len(partition) > 0:
-                    ref_scale = partition[0]
-                    break
-
             align = self.fp8_nccl_start_alignment_factor
             max_flat_numels = (max_flat_numels + align - 1) // align * align
             for pi in range(partition_size):
                 pad = max_flat_numels - numels[pi]
-                scale_invs_partitions[pi].append(ref_scale.new_empty((pad, )))
+                scale_invs_partitions[pi].append(torch.empty((pad, ), dtype=torch.float32, device='cuda'))
+
             scales = list(chain(*scale_invs_partitions))
             scale_invs_groups.append(scales)
             flat = _flatten_dense_tensors(scales)
