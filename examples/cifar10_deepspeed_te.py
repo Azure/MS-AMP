@@ -1,9 +1,9 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-"""The deepspeed cifar10 exampe using MS-AMP. It is adapted from official deepspeed example.
+"""The deepspeed cifar10 exampe using MS-AMP and TransformerEngine. It is adapted from official deepspeed example.
 
-The only change is add "from msamp import deepspeed" and use FP8VisionTransformer instead of orignial model Net.
+The model is adpteed from VisionTransfomrer in timm and it uses te.TransformerLayer as encoder block.
 """
 
 import argparse
@@ -148,8 +148,7 @@ class FP8Block(nn.Module):
 
     def forward(self, x):
         """Forward computation."""
-        # x: seq_len, batch_size, dim
-        seq_len, batch_size, dim = x.shape
+        _, batch_size, _ = x.shape
         padding = batch_size % 16 > 0
         if padding:
             x = F.pad(x, (0, 0, 0, 16 - batch_size % 16))
