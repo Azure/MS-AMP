@@ -28,7 +28,7 @@ class MSAMPDeepSpeedConfig(DeepSpeedConfig):
         super()._initialize_params(param_dict)
         self.msamp_enabled = get_msamp_enabled(param_dict)
         self.msamp_optlevel = get_msamp_optlevel(param_dict)
-        self.msamp_usete = get_msamp_use_te(param_dict)
+        self.msamp_use_te = get_msamp_use_te(param_dict)
 
     def _do_error_check(self):
         """Do error checking on the parameters."""
