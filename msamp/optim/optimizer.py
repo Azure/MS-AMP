@@ -42,14 +42,6 @@ class LBOptimizer(Optimizer):
         self._update_scaling_factors()
         return rtn
 
-    def all_reduce_grads(self, model):
-        """All-reduce gradients of parameters."""
-        if model_state.use_fp8_ddp:
-            return
-        scaling_params = [p for p in model.parameters() if isinstance(p, ScalingParameter)]
-        grads = [p.grad for p in scaling_params if p.grad is not None]
-        TensorDist.all_reduce_avg(grads)
-
     def lb_step(self, closure=None):
         """Performs a single optimization step. The subclass needs to implement this method.
 

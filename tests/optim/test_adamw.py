@@ -78,36 +78,10 @@ class LBAdamwTestCase(unittest.TestCase):
         for _ in range(steps):
             output = model2(input)
             output.sum().backward()
-            opt2.all_reduce_grads(model2)
             opt2.step()
             opt2.zero_grad()
 
         self.assertTrue(torch.allclose(model1.weight, model2.weight.float(), 0, diff))
-
-    def test_all_reduce_grads(self):
-        """Test the function `all_reduce_grads`."""
-        input = torch.randn(4, 4, device='cuda')
-        model1 = torch.nn.Linear(4, 4).cuda()
-        model2 = torch.nn.Linear(4, 4).cuda()
-        model1 = LinearReplacer.replace(model1, Dtypes.kfloat16)
-        model2 = LinearReplacer.replace(model2, Dtypes.kfloat16)
-        opt = LBAdamW(list(model1.parameters()) + list(model2.parameters()))
-        loss = (model1(input) + model2(input)).sum()
-        loss.backward()
-        old_all_reduce_avg = TensorDist.all_reduce_avg
-        num_grads = 0
-
-        def debug_all_reduce_avg(grads):
-            nonlocal num_grads
-            num_grads += len(grads)
-            return old_all_reduce_avg(grads)
-
-        TensorDist.all_reduce_avg = debug_all_reduce_avg
-        opt.all_reduce_grads(model1)
-        self.assertEqual(num_grads, 1)
-        opt.all_reduce_grads(model2)
-        self.assertEqual(num_grads, 2)
-        TensorDist.all_reduce_avg = old_all_reduce_avg
 
     def check_optimizer_state_dict(self, lbadam_class):
         """Save and load state dict of lbadam_class optimizer and check if the value is excepted.
@@ -127,7 +101,6 @@ class LBAdamwTestCase(unittest.TestCase):
             output = model1(input)
             opt1.zero_grad()
             output.sum().backward()
-            opt1.all_reduce_grads(model1)
             opt1.step()
 
         state_dict1 = opt1.state_dict()
@@ -158,7 +131,6 @@ class LBAdamwTestCase(unittest.TestCase):
         state_dict2 = copy.deepcopy(state_dict1)
         opt1.zero_grad()
         model1(input).sum().backward()
-        opt1.all_reduce_grads(model1)
         opt1.step()
 
         # Build model2 and update 4 times.
@@ -171,7 +143,6 @@ class LBAdamwTestCase(unittest.TestCase):
             output = model2(input)
             opt2.zero_grad()
             output.sum().backward()
-            opt2.all_reduce_grads(model2)
             opt2.step()
 
         # Load state dict to op2 and check if the weight is same as model1 after update weigth once.
@@ -180,7 +151,6 @@ class LBAdamwTestCase(unittest.TestCase):
 
         opt2.zero_grad()
         model2(input).sum().backward()
-        opt2.all_reduce_grads(model2)
         opt2.step()
 
         self.assertTrue(torch.equal(model1.weight.value, model2.weight.value))
@@ -216,5 +186,4 @@ class LBAdamwTestCase(unittest.TestCase):
             y = model(x)
             self.assertTrue((model.scaling_metas['input'].amax.max() == max(windows)).all())
             y.sum().backward()
-            opt.all_reduce_grads(model)
             opt.step()
