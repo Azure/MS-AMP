@@ -12,6 +12,8 @@ MSAMP_ENABLED = 'enabled'
 MSAMP_ENABLED_DEFAULT = False
 MSAMP_OPTLEVEL = 'opt_level'
 MSAMP_OPTLEVEL_DEFAULT = 'O1'
+MSAMP_USE_TE = 'use_te'
+MSAMP_USE_TE_DEFAULT = False
 FP8 = 'fp8'
 
 
@@ -26,6 +28,7 @@ class MSAMPDeepSpeedConfig(DeepSpeedConfig):
         super()._initialize_params(param_dict)
         self.msamp_enabled = get_msamp_enabled(param_dict)
         self.msamp_optlevel = get_msamp_optlevel(param_dict)
+        self.msamp_use_te = get_msamp_use_te(param_dict)
 
     def _do_error_check(self):
         """Do error checking on the parameters."""
@@ -66,4 +69,18 @@ def get_msamp_optlevel(param_dict):
     """
     if MSAMP in param_dict.keys():
         return get_scalar_param(param_dict[MSAMP], MSAMP_OPTLEVEL, MSAMP_OPTLEVEL_DEFAULT)
+    return None
+
+
+def get_msamp_use_te(param_dict):
+    """Get the MS-AMP use_te from the parameter dictionary.
+
+    Args:
+        param_dict (dict): The parameter dictionary.
+
+    Returns:
+        str: The MS-AMP use_te.
+    """
+    if MSAMP in param_dict.keys():
+        return get_scalar_param(param_dict[MSAMP], MSAMP_USE_TE, MSAMP_USE_TE_DEFAULT)
     return None
