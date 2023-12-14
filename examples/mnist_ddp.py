@@ -170,7 +170,9 @@ def main():
 
     if args.local_rank == 0:
         dataset1 = datasets.MNIST('./data', train=True, download=True, transform=transform)
-    torch.cuda.synchronize()
+
+    torch.distributed.barrier()
+
     if args.local_rank > 0:
         dataset1 = datasets.MNIST('./data', train=True, download=False, transform=transform)
 
