@@ -11,7 +11,6 @@ import torch.distributed as dist
 from msamp.common.tensor import ScalingTensor, ScalingMeta
 from msamp.common.dtype import Dtypes, Floating
 from msamp.common.utils import TransformerEngineWrapper
-from msamp.nn.state import model_state
 from msamp.operators.dist_op import DistOp
 
 

@@ -11,7 +11,7 @@ import torch
 from functools import partial
 
 from msamp.common.dtype import Dtypes
-from msamp.common.tensor import TensorDist, ScalingTensor
+from msamp.common.tensor import ScalingTensor
 from msamp.optim import LBAdamW, LBAdam, LBAdamWBase, DSAdam
 from msamp.nn import LinearReplacer
 from tests.helper import decorator

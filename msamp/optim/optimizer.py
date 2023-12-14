@@ -13,8 +13,7 @@ from torch.optim.optimizer import Optimizer, required
 
 from msamp.common.dtype import Floating
 from msamp.common.tensor import ScalingTensor, ScalingMeta
-from msamp.common.tensor import TensorDist
-from msamp.nn import model_state, ScalingParameter
+from msamp.nn import model_state
 
 
 class LBOptimizer(Optimizer):
