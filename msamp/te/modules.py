@@ -10,6 +10,10 @@ from transformer_engine.pytorch.module.base import TransformerEngineBaseModule
 from msamp.common.tensor import ScalingTensor
 from msamp.nn import ScalingModule
 
+# set the function `untyped_storage` for TransformerEngine
+if not hasattr(torch.Tensor, 'untyped_storage'):
+    torch.Tensor.untyped_storage = lambda self: self.data.storage().untyped()
+
 
 def set_activation_dtype(self, inp):
     """Set activation data type for AMP.
