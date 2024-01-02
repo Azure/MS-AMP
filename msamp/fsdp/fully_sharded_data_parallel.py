@@ -749,6 +749,19 @@ class FullyShardedDataParallel(nn.Module, _FSDPState):
                     "Expected `FlatParameter` to be on the compute device "
                     f"{self.compute_device} but got {handle.flat_param.device}",
                 )
+
+            i = 0
+            for _, submodule in self._fsdp_wrapped_module.named_modules():
+                for param_name, param in submodule.named_parameters(recurse=False):
+                    if self._flat_param._metas[i] is not None:
+                        param._fp8 = True
+                        param._scaling_metas = self._flat_param._scaling_metas[i]
+                        param._meta = self._flat_param._metas[i]
+                        param._padded = self._flat_param._paddeds[i]
+                        param._original_shape = self._flat_param._original_shapes[i]
+                        # setattr(submodule, param_name, param)
+                    i += 1
+
             output = self._fsdp_wrapped_module(*args, **kwargs)
             return _post_forward(self, self._handles, reshard_fn, self, unused, output)
 

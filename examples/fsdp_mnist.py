@@ -47,7 +47,6 @@ class Net(nn.Module):
         self.fc2 = nn.Linear(128, 10)
 
     def forward(self, x):
-
         x = self.conv1(x)
         x = F.relu(x)
         x = self.conv2(x)
@@ -73,10 +72,14 @@ def train(args, model, rank, world_size, train_loader, optimizer, epoch, sampler
         output = model(data)
         loss = F.nll_loss(output, target, reduction='sum')
         loss.backward()
-
+        
+        if torch.distributed.get_rank() == 0:
+            for param_name, param in model.named_parameters():
+                print(f'param: {param_name}, grad: {param.grad}')
         optimizer.step()
         ddp_loss[0] += loss.item()
         ddp_loss[1] += len(data)
+        break
 
     dist.all_reduce(ddp_loss, op=dist.ReduceOp.SUM)
     if rank == 0:
@@ -102,7 +105,6 @@ def test(model, rank, world_size, test_loader):
         print('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)\n'.format(
             test_loss, int(ddp_loss[1]), int(ddp_loss[2]),
             100. * ddp_loss[1] / ddp_loss[2]))
-            
 
 
 def fsdp_main(rank, world_size, args):
@@ -147,17 +149,26 @@ def fsdp_main(rank, world_size, args):
 
     model = Net().to(rank)
 
-    # import msamp
-    # model = msamp.nn.LinearReplacer.replace(model)
+    from msamp.nn import LinearReplacer
+    from msamp.common.dtype import Dtypes
+    from msamp.optim import LBAdam
+    model = LinearReplacer.replace(model, weight_qtype=Dtypes.kfloat8_e4m3)
 
-    mixed_precision = MixedPrecision()
-    mixed_precision.param_dtype = torch.float16
-    mixed_precision.buffer_dtype = torch.float16
-    mixed_precision.reduce_dtype = torch.float16
-    model = FSDP(model, use_orig_params=False, mixed_precision=mixed_precision)
+    if rank == 0:
+        print(f'model:')
+        print(f'{model}')
 
-    #optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    model = FSDP(model, use_orig_params=True)
+
+    if rank == 0:
+        print(f'FSDP model:')
+        print(f'{model}')
+
+        print(f'parameters:')
+        for name, param in model.named_parameters():
+            print(f'name: {name}: param type: {type(param)}, param shape: {param.shape}, param dtype: {param.dtype}')
+
+    optimizer = LBAdam(model.parameters(), lr=args.lr)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     init_start_event.record()
@@ -184,7 +195,7 @@ if __name__ == '__main__':
                         help='input batch size for training (default: 64)')
     parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
                         help='input batch size for testing (default: 1000)')
-    parser.add_argument('--epochs', type=int, default=3, metavar='N',
+    parser.add_argument('--epochs', type=int, default=1, metavar='N',
                         help='number of epochs to train (default: 14)')
     # parser.add_argument('--lr', type=float, default=1.0, metavar='LR',
     #                     help='learning rate (default: 1.0)')

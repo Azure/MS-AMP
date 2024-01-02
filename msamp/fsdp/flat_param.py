@@ -242,6 +242,10 @@ class FlatParameter(nn.Parameter):
         param_extensions: List[Any],
         params: Optional[List[nn.Parameter]],
         shared_params: Optional[List[nn.Parameter]],
+        metas: Optional[List],
+        paddeds: Optional[List],
+        orignal_shapes: Optional[List],
+        scaling_metas: Optional[List],
     ) -> None:
         """
         Initializes attributes holding metadata about the original parameters
@@ -294,6 +298,13 @@ class FlatParameter(nn.Parameter):
             self._shared_params = None
             self._is_grad_none = None
             self._tensors = None
+
+        # FP8 related metadatas.
+        self._metas = metas
+        self._paddeds = paddeds
+        self._original_shapes = orignal_shapes
+        self._scaling_metas = scaling_metas
+
         self._unpadded_unsharded_size = self.size()
         _set_fsdp_flattened(self)
         # Tracks whether the `FlatParameter`'s post-backward hook has been
@@ -401,10 +412,29 @@ class FlatParamHandle:
         param_extensions: List[Any] = []
         dtype: Optional[torch.dtype] = None
         requires_grad: Optional[bool] = None
+        metas = []
+        paddeds = []
+        original_shapes = []
+        scaling_metas = []
+        
         for submodule_name, submodule in module.named_modules():
             for param_name, param in submodule.named_parameters(recurse=False):
                 if param not in params_set:
                     continue
+                original_shapes.append(param.shape)
+                padded = 0
+                scaling_param = None
+
+                if not isinstance(param, torch.Tensor):
+                    scaling_param = param
+                    data = param.value.view(-1)
+                    if data.numel() % 4 != 0:
+                        padded = 4 - data.numel() % 4 
+                        data = F.pad(data, (0, padded))
+
+                    data = data.view(dtype=torch.float32)
+                    param = torch.nn.Parameter(data)
+                    setattr(submodule, param_name, param)
                 if param in shared_param_memo:  # shared reference
                     prim_module, prim_module_name, prim_param_name = shared_param_memo[
                         param
@@ -452,6 +482,15 @@ class FlatParamHandle:
                         else param_name
                     )
                     fqns.append(fqn)
+
+                    if scaling_param is not None:
+                        metas.append(scaling_param.meta)
+                        scaling_metas.append(scaling_param._scaling_metas)
+                    else:
+                        metas.append(None)
+                        scaling_metas.append(None)
+                    paddeds.append(padded)
+
         assert requires_grad is not None, (
             "Passed-in `params` were not found in the module tree\n"
             f"params: {params}\nmodule: {module}"
@@ -478,6 +517,10 @@ class FlatParamHandle:
             param_extensions,
             convert_to_params(params_to_flatten) if use_orig_params else None,
             convert_to_params(shared_params) if use_orig_params else None,
+            metas,
+            paddeds,
+            original_shapes,
+            scaling_metas
         )
 
     @staticmethod
