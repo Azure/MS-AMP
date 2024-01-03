@@ -72,10 +72,10 @@ def train(args, model, rank, world_size, train_loader, optimizer, epoch, sampler
         output = model(data)
         loss = F.nll_loss(output, target, reduction='sum')
         loss.backward()
+
         optimizer.step()
         ddp_loss[0] += loss.item()
         ddp_loss[1] += len(data)
-        break
 
     dist.all_reduce(ddp_loss, op=dist.ReduceOp.SUM)
     if rank == 0:
@@ -147,7 +147,8 @@ def fsdp_main(rank, world_size, args):
 
     from msamp.nn import LinearReplacer
     from msamp.common.dtype import Dtypes
-    from msamp.optim import LBAdam
+    from msamp.optim import FSDPAdam
+
     model = LinearReplacer.replace(model, weight_qtype=Dtypes.kfloat8_e4m3)
 
     if rank == 0:
@@ -160,7 +161,8 @@ def fsdp_main(rank, world_size, args):
         print(f'FSDP model:')
         print(f'{model}')
 
-    optimizer = LBAdam(model.parameters(), lr=args.lr)
+    # optimizer = LBAdam(model.parameters(), lr=args.lr)
+    optimizer = FSDPAdam(model.parameters(), lr=args.lr)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     init_start_event.record()

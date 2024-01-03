@@ -112,6 +112,7 @@ class _FP8GemmFunction(torch.autograd.Function):
             if ctx._fp8:
                 wgrad = wgrad.cast(Dtypes.kfloat8_e4m3, meta=wgrad_meta, sync=True)
                 wgrad = wgrad.value.view(-1).view(dtype=torch.float32)
+                wgrad.meta = wgrad_meta
                 return input_grad, wgrad, None, None 
             else:
                 if model_state.use_fp8_ddp:

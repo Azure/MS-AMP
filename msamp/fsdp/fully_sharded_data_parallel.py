@@ -928,7 +928,12 @@ class FullyShardedDataParallel(nn.Module, _FSDPState):
         when inside the :meth:`summon_full_params` context manager.
         """
         should_clean_name = self.training_state == TrainingState.SUMMON_FULL_PARAMS
+        i = 0
         for param_name, param in super().named_parameters(*args, **kwargs):
+            if self._flat_param._metas[i] is not None:
+                param._meta = self._flat_param._metas[i]
+                param._grad_meta = self._flat_param._scaling_metas[i]['wgrad']
+            i += 1
             if should_clean_name:
                 # Remove any instances of the FSDP-specific prefix; there can
                 # be multiple in the case of nested FSDP modules
