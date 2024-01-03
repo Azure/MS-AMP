@@ -72,10 +72,6 @@ def train(args, model, rank, world_size, train_loader, optimizer, epoch, sampler
         output = model(data)
         loss = F.nll_loss(output, target, reduction='sum')
         loss.backward()
-        
-        if torch.distributed.get_rank() == 0:
-            for param_name, param in model.named_parameters():
-                print(f'param: {param_name}, grad: {param.grad}')
         optimizer.step()
         ddp_loss[0] += loss.item()
         ddp_loss[1] += len(data)
@@ -163,10 +159,6 @@ def fsdp_main(rank, world_size, args):
     if rank == 0:
         print(f'FSDP model:')
         print(f'{model}')
-
-        print(f'parameters:')
-        for name, param in model.named_parameters():
-            print(f'name: {name}: param type: {type(param)}, param shape: {param.shape}, param dtype: {param.dtype}')
 
     optimizer = LBAdam(model.parameters(), lr=args.lr)
 

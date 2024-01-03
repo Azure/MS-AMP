@@ -421,20 +421,7 @@ class FlatParamHandle:
             for param_name, param in submodule.named_parameters(recurse=False):
                 if param not in params_set:
                     continue
-                original_shapes.append(param.shape)
-                padded = 0
-                scaling_param = None
 
-                if not isinstance(param, torch.Tensor):
-                    scaling_param = param
-                    data = param.value.view(-1)
-                    if data.numel() % 4 != 0:
-                        padded = 4 - data.numel() % 4 
-                        data = F.pad(data, (0, padded))
-
-                    data = data.view(dtype=torch.float32)
-                    param = torch.nn.Parameter(data)
-                    setattr(submodule, param_name, param)
                 if param in shared_param_memo:  # shared reference
                     prim_module, prim_module_name, prim_param_name = shared_param_memo[
                         param
@@ -483,13 +470,17 @@ class FlatParamHandle:
                     )
                     fqns.append(fqn)
 
-                    if scaling_param is not None:
-                        metas.append(scaling_param.meta)
-                        scaling_metas.append(scaling_param._scaling_metas)
+                    if hasattr(param, '_fp8') and param._fp8:
+                        metas.append(param._meta)
+                        paddeds.append(param._padded)
+                        original_shapes.append(param._original_shape)
+                        scaling_metas.append(param._scaling_metas)
+                       
                     else:
                         metas.append(None)
+                        paddeds.append(0)
+                        original_shapes.append(None)
                         scaling_metas.append(None)
-                    paddeds.append(padded)
 
         assert requires_grad is not None, (
             "Passed-in `params` were not found in the module tree\n"

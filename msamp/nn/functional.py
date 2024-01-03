@@ -30,13 +30,13 @@ class _FP8GemmFunction(torch.autograd.Function):
             padded = weight._padded
             original_shape = weight._original_shape
             meta = weight._meta
-            ctx.original_weight = weight
 
             weight = weight.view(dtype=torch.uint8)
             if padded != 0:
                 weight = weight[0: weight.numel() - padded]
             weight = weight.view(original_shape)
             weight = ScalingParameter(ScalingTensor(weight, meta))
+            ctx._fp8 = True
 
         ctx.metas = metas
         model_state.check_metas_in_flat(metas)
@@ -109,9 +109,10 @@ class _FP8GemmFunction(torch.autograd.Function):
                 )
                 del old_wgrad
 
-            if hasattr(ctx, 'original_weight') and ctx.original_weight != None:
+            if ctx._fp8:
                 wgrad = wgrad.cast(Dtypes.kfloat8_e4m3, meta=wgrad_meta, sync=True)
-                ctx.original_weight.grad = wgrad.value.view(-1).view(dtype=torch.float32)
+                wgrad = wgrad.value.view(-1).view(dtype=torch.float32)
+                return input_grad, wgrad, None, None 
             else:
                 if model_state.use_fp8_ddp:
                     wgrad.meta = wgrad_meta
