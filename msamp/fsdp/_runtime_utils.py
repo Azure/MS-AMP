@@ -738,12 +738,42 @@ def _post_backward_hook(
                     if numel_to_pad > 0
                     else unsharded_grad
                 )
+                
                 new_sharded_grad = torch.empty_like(chunks[0])  # padded
-                state._communication_hook(
-                    state._communication_hook_state,
-                    padded_unsharded_grad,
-                    new_sharded_grad,
-                )
+                
+                start = 0
+                end = 0
+                has_meta = False
+                for meta in flat_param._metas:
+                    if meta is not None:
+                        has_meta = True
+                        break
+                if has_meta:
+                    for i, meta in enumerate(flat_param._metas):
+                        start += flat_param._numels[i - 1] if i >= 1 else 0
+                        end += flat_param._numels[i]
+                        if meta is not None:
+                            from msamp.common.dtype import Dtypes
+                            from msamp.operators.dist_op import DistOp
+                            dtype = Dtypes.get_dtype_from_qtype(meta.qtype)
+                            DistOp.enable_fp8(meta.qtype)
+                            torch.distributed.all_reduce(padded_unsharded_grad[start:end].view(dtype), group=state.process_group)
+                            DistOp.disable_fp8()
+                        else:
+                            default_hooks.allreduce_hook(
+                                state=state._communication_hook_state,
+                                grad=padded_unsharded_grad[start:end],
+                            )
+                    start = state.rank * new_sharded_grad.numel()
+                    end = (state.rank + 1) * new_sharded_grad.numel()
+                    new_sharded_grad.copy_(padded_unsharded_grad[start:end])
+                else:
+                    state._communication_hook(
+                        state._communication_hook_state,
+                        padded_unsharded_grad,
+                        new_sharded_grad,
+                    )
+
                 if handle._sharding_strategy in (
                     HandleShardingStrategy.HYBRID_SHARD,
                     HandleShardingStrategy._HYBRID_SHARD_ZERO2,

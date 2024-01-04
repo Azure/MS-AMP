@@ -643,6 +643,18 @@ class FlatParamHandle:
             self.flat_param._shard_indices,  # type: ignore[attr-defined]
         ) = self._get_shard_metadata(start, end)
         self.flat_param._shard_numel_padded = numel_padded  # type: ignore[attr-defined]
+        
+        # update meta.group here.        
+        start_offset = 0
+        end_offset = 0
+        for i, meta in enumerate(self.flat_param._metas):
+            start_offset += self.flat_param._numels[i-1] if i >=1 else 0
+            end_offset += self.flat_param._numels[i]
+            if meta is not None:
+                start_rank = start_offset // sharded_flat_param_numel
+                end_rank = (end_offset-1) // sharded_flat_param_numel
+                ranks = list(range(start_rank, end_rank + 1))
+                meta.group = dist.new_group(ranks=ranks)
 
     def _get_shard_metadata(
         self,

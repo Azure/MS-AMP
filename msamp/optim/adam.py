@@ -68,7 +68,7 @@ class DSAdam(LBAdam):
         self.use_adam = not adam_w_mode
         self.set_grad_none = set_grad_none
 
-class FSDPAdam(LBAdamW):
+class FSDPAdam(LBAdam):
     def __init__(
         self,
         params,
@@ -130,6 +130,7 @@ class FSDPAdam(LBAdamW):
                     param.grad.zero_()
 
     def step(self):
+        torch.set_printoptions(profile="full")
         # cast gradient to ScalingTensor
         for i, param in enumerate(self.original_params):
             if param.grad is None:
@@ -141,12 +142,11 @@ class FSDPAdam(LBAdamW):
                 self.master_weights[i].grad = ScalingTensor(param.grad.view(dtype), grad_meta)
                 param.grad = None
 
-        # call self.optimizer.step() to update master weight
+        # call step() to update master weight
         super().step()
 
-        # copy master weight to weight
+        # sync params and copy master weight to weight
         for i, param in enumerate(self.original_params):
-            if param.grad is None:
-                continue
-            if hasattr(param, '_meta') and param._meta is not None:
-                param.copy_(self.master_weight[i].cast(param._meta.qtype).view(torch.float32))
+            if hasattr(param, '_meta') and param._meta is not None and param.numel() > 0:
+                data = self.master_weights[i].float().cast(param._meta.qtype, param._meta, True).value.view(torch.float32)
+                param.data.copy_(data)

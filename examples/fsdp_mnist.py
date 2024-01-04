@@ -77,6 +77,7 @@ def train(args, model, rank, world_size, train_loader, optimizer, epoch, sampler
         ddp_loss[0] += loss.item()
         ddp_loss[1] += len(data)
 
+        #break
     dist.all_reduce(ddp_loss, op=dist.ReduceOp.SUM)
     if rank == 0:
         print('Train Epoch: {} \tLoss: {:.6f}'.format(epoch, ddp_loss[0] / ddp_loss[1]))
@@ -145,11 +146,12 @@ def fsdp_main(rank, world_size, args):
 
     model = Net().to(rank)
 
-    from msamp.nn import LinearReplacer
-    from msamp.common.dtype import Dtypes
-    from msamp.optim import FSDPAdam
+    if args.msamp:
+        from msamp.nn import LinearReplacer
+        from msamp.common.dtype import Dtypes
+        from msamp.optim import FSDPAdam
 
-    model = LinearReplacer.replace(model, weight_qtype=Dtypes.kfloat8_e4m3)
+        model = LinearReplacer.replace(model, weight_qtype=Dtypes.kfloat8_e4m3)
 
     if rank == 0:
         print(f'model:')
@@ -160,9 +162,11 @@ def fsdp_main(rank, world_size, args):
     if rank == 0:
         print(f'FSDP model:')
         print(f'{model}')
-
-    # optimizer = LBAdam(model.parameters(), lr=args.lr)
-    optimizer = FSDPAdam(model.parameters(), lr=args.lr)
+    
+    if args.msamp:
+        optimizer = FSDPAdam(model.parameters(), lr=args.lr)
+    else:
+        optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     init_start_event.record()
@@ -190,7 +194,7 @@ if __name__ == '__main__':
     parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
                         help='input batch size for testing (default: 1000)')
     parser.add_argument('--epochs', type=int, default=1, metavar='N',
-                        help='number of epochs to train (default: 14)')
+                        help='number of epochs to train (default: 2)')
     # parser.add_argument('--lr', type=float, default=1.0, metavar='LR',
     #                     help='learning rate (default: 1.0)')
     parser.add_argument('--lr', type=float, default=3e-4, metavar='LR',
@@ -203,6 +207,8 @@ if __name__ == '__main__':
                         help='random seed (default: 1)')
     parser.add_argument('--save-model', action='store_true', default=False,
                         help='For Saving the current Model')
+    parser.add_argument('--msamp', action='store_true', default=False,
+                        help='whether use MS-AMP')
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
