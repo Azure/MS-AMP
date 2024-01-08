@@ -20,6 +20,12 @@ python mnist.py --enable-msamp --opt-level=O2
 torchrun --nproc_per_node=8 mnist_ddp.py --enable-msamp --opt-level=O2
 ```
 
+### 3. Run mnist using FSDP
+
+```bash
+python mnist_fsdp.py --msamp
+```
+
 ## CIFAR10
 
 ### 1. Run cifar10 using deepspeed
