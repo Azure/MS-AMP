@@ -154,7 +154,7 @@ def fsdp_main(rank, world_size, args):
         model = FSDP(model, use_orig_params=True, auto_wrap_policy=my_auto_wrap_policy)
 
     if rank == 0:
-        print('FSDP model: {model}')
+        print(f'FSDP model: {model}')
 
     if args.msamp:
         from msamp.optim import FSDPAdam

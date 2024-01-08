@@ -61,7 +61,7 @@ from msamp.optim import FSDPAdam
 optimizer = FSDPAdam(model.parameters(), lr=3e-04)
 ```
 
-Please note that currenlty we only support `use_orig_params=True`.
+Please note that currently we only support `use_orig_params=True`.
 
 ## Usage in Megatron-DeepSpeed and Megatron-LM
 
