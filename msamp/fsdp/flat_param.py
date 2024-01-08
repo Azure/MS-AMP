@@ -1,4 +1,3 @@
-
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
@@ -10,6 +9,7 @@ import torch
 import torch.nn as nn
 import torch.distributed as dist
 from torch.distributed.fsdp.flat_param import FlatParamHandle
+
 
 class FP8FlatParamHandle(FlatParamHandle):
     """A handle for a flat parameter which may have fp32 and fp8."""
@@ -50,33 +50,35 @@ class FP8FlatParamHandle(FlatParamHandle):
         start: int,
         end: int,
     ) -> None:
-        """Initialize the shard metadata for the flat parameter and create a group for each fp8 parameter"""
+        """Initialize the shard metadata for the flat parameter and create a group for each fp8 parameter."""
         super()._init_shard_metadata(numel_padded, start, end)
         start_offset = 0
         end_offset = 0
         sharded_flat_param_numel = self.flat_param.numel()
         for i, meta in enumerate(self.flat_param._metas):
-            start_offset += self.flat_param._numels[i-1] if i >=1 else 0
+            start_offset += self.flat_param._numels[i - 1] if i >= 1 else 0
             end_offset += self.flat_param._numels[i]
             if meta is not None:
                 start_rank = start_offset // sharded_flat_param_numel
-                end_rank = (end_offset-1) // sharded_flat_param_numel
+                end_rank = (end_offset - 1) // sharded_flat_param_numel
                 ranks = list(range(start_rank, end_rank + 1))
                 meta.group = dist.new_group(ranks=ranks)
 
-
     def _use_unsharded_views(self, as_params: bool) -> None:
-        """Use unsharded views of the flat parameter and set fp8 related attritutes, which will be use in msamp.nn.functional."""
+        """Use unsharded views of the flat parameter.
+
+        It will also set fp8 related attritutes, which will be use in msamp.nn.functional.
+        """
         super()._use_unsharded_views(as_params)
         for i, param_info in enumerate(self.flat_param._param_infos):
             if hasattr(param_info.module, param_info.param_name):
                 param = getattr(param_info.module, param_info.param_name)
-                
+
                 param._scaling_metas = self.flat_param._scaling_metas[i]
                 param._meta = self.flat_param._metas[i]
                 param._padded = self.flat_param._paddeds[i]
                 param._original_shape = self.flat_param._original_shapes[i]
-    
+
     @torch.no_grad()
     def _use_sharded_views(self) -> None:
         """Use sharded views of the flat parameter and set meta of scaling tensor, which will be used in optimizer."""
@@ -87,5 +89,3 @@ class FP8FlatParamHandle(FlatParamHandle):
                 if self.flat_param._metas[i] is not None:
                     param._meta = self.flat_param._metas[i]
                     param._grad_meta = self.flat_param._scaling_metas[i]['wgrad']
-
-

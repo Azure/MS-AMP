@@ -231,6 +231,7 @@ class LBAdamW(LBAdamWBase):
 
 
 class FSDPAdamW(LBAdamWBase):
+    """Implements AdamW algorithm for FSDP."""
     def __init__(
         self,
         params,
@@ -246,6 +247,7 @@ class FSDPAdamW(LBAdamWBase):
         exp_avg_sq_dtype=torch.float16,
         tensor_scale=True,
     ):
+        """Constructor. See LBAdamW class docstring for details."""
         self.tensor_scale = tensor_scale
         super().__init__(
             params,
@@ -275,7 +277,7 @@ class FSDPAdamW(LBAdamWBase):
                     master_weight = param.cast(Dtypes.kfloat16)
                     master_weight.requires_grad = True
                     self.master_weights.append(master_weight)
-                    params.append(master_weight)    
+                    params.append(master_weight)
                 else:
                     self.original_params.append(param)
                     self.master_weights.append(None)
@@ -283,8 +285,8 @@ class FSDPAdamW(LBAdamWBase):
 
             group['params'] = params
 
-
     def zero_grad(self, set_to_none=False):
+        """Zero gradients."""
         for param in self.original_params:
             if set_to_none:
                 param.grad = None
@@ -297,6 +299,7 @@ class FSDPAdamW(LBAdamWBase):
                     param.grad.zero_()
 
     def step(self):
+        """Performs a single optimization step."""
         # cast gradient to ScalingTensor
         for i, param in enumerate(self.original_params):
             if param.grad is None:
@@ -314,5 +317,6 @@ class FSDPAdamW(LBAdamWBase):
         # sync params and copy master weight to weight
         for i, param in enumerate(self.original_params):
             if hasattr(param, '_meta') and param._meta is not None and param.numel() > 0:
-                data = self.master_weights[i].float().cast(param._meta.qtype, param._meta, True).value.view(torch.float32)
+                data = self.master_weights[i].float().cast(param._meta.qtype, param._meta, True) \
+                       .value.view(torch.float32)
                 param.data.copy_(data)

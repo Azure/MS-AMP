@@ -34,7 +34,7 @@ class _FP8GemmFunction(torch.autograd.Function):
 
             weight = weight.view(dtype=torch.uint8)
             if padded != 0:
-                weight = weight[0: weight.numel() - padded]
+                weight = weight[0:weight.numel() - padded]
             weight = weight.view(original_shape)
             weight = ScalingParameter(ScalingTensor(weight, meta))
             ctx.return_wgrad = True
@@ -113,7 +113,7 @@ class _FP8GemmFunction(torch.autograd.Function):
                 wgrad = wgrad.cast(Dtypes.kfloat8_e4m3, meta=wgrad_meta, sync=True)
                 wgrad = wgrad.value.view(-1).view(dtype=torch.float32)
                 wgrad.meta = wgrad_meta
-                return input_grad, wgrad, None, None 
+                return input_grad, wgrad, None, None
             elif model_state.use_fp8_ddp:
                 wgrad.meta = wgrad_meta
             else:

@@ -38,18 +38,19 @@ def _get_fp8_comm_hook(self):
                         state=state,
                         grad=grad[start:end],
                     )
-            start = self.rank*output.numel()
-            end = (self.rank+1)*output.numel()
+            start = self.rank * output.numel()
+            end = (self.rank + 1) * output.numel()
             output.copy_(grad[start:end])
         else:
             _get_default_comm_hook()(state, grad, output)
-        
+
     return _fp8_allreduce_hook
 
 
 class FP8FullyShardedDataParallel(FullyShardedDataParallel):
     """A FullyShardedDataParallel with supports fp8."""
     def __init__(self, module, *args, **kwargs):
+        """Constructor."""
         super().__init__(module, *args, **kwargs)
 
     @classmethod

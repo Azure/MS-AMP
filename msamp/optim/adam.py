@@ -5,6 +5,7 @@
 
 from msamp.optim import LBAdamW, FSDPAdamW
 
+
 class LBAdam(LBAdamW):
     """Implements Adam algorithm with weight decay fix."""
     def __init__(
@@ -64,8 +65,8 @@ class DSAdam(LBAdamW):
         self.set_grad_none = set_grad_none
 
 
-
 class FSDPAdam(FSDPAdamW):
+    """Implements Adam algorithm for FSDP."""
     def __init__(
         self,
         params,
@@ -78,6 +79,7 @@ class FSDPAdam(FSDPAdamW):
         *args,
         **kwargs
     ):
+        """Constructor. See LBAdamW class docstring for details."""
         super().__init__(
             params=params,
             lr=lr,
@@ -90,4 +92,3 @@ class FSDPAdam(FSDPAdamW):
             **kwargs
         )
         self.use_adam = True
-        

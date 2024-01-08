@@ -11,7 +11,6 @@ from msamp.nn import LinearReplacer
 
 class FsdpReplacer:
     """A replacer to replace the FP8 weights with FP32 nn.Parameter and attributes."""
-
     @classmethod
     def replace(cls, model):
         """Replace the weights with ScalingParameter in modules."""
@@ -24,7 +23,7 @@ class FsdpReplacer:
                     data = param.value.view(-1)
                     padded = 0
                     if data.numel() % 4 != 0:
-                        padded = 4 - data.numel() % 4 
+                        padded = 4 - data.numel() % 4
                         data = torch.nn.functional.pad(data, (0, padded))
 
                     data = data.view(dtype=torch.float32)
