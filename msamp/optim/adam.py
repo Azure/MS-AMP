@@ -130,7 +130,6 @@ class FSDPAdam(LBAdam):
                     param.grad.zero_()
 
     def step(self):
-        torch.set_printoptions(profile="full")
         # cast gradient to ScalingTensor
         for i, param in enumerate(self.original_params):
             if param.grad is None:

@@ -407,26 +407,6 @@ class FullyShardedDataParallel(nn.Module, _FSDPState):
         _init_prefetching_state(self, backward_prefetch, forward_prefetch)
         _init_buffer_state(self, module)
 
-        for name, submodule in module.named_modules():
-            params_to_process = list(submodule.named_parameters(recurse=False))
-            for param_name, param in params_to_process:
-                if not isinstance(param, torch.Tensor):
-                    data = param.value.view(-1)
-                    padded = 0
-                    if data.numel() % 4 != 0:
-                        padded = 4 - data.numel() % 4 
-                        data = torch.nn.functional.pad(data, (0, padded))
-
-                    data = data.view(dtype=torch.float32)
-                    new_param = torch.nn.Parameter(data)
-                    new_param._fp8 = True
-                    new_param._original_shape = param.shape
-                    new_param._padded = 0
-                    new_param._meta = param.meta
-                    new_param._scaling_metas = param._scaling_metas
-
-                    setattr(submodule, param_name, new_param)
-
         _init_param_handle_from_module(
             self,
             module,
@@ -770,17 +750,6 @@ class FullyShardedDataParallel(nn.Module, _FSDPState):
                     f"{self.compute_device} but got {handle.flat_param.device}",
                 )
 
-            i = 0
-            for _, submodule in self._fsdp_wrapped_module.named_modules():
-                for param_name, param in submodule.named_parameters(recurse=False):
-                    if self._flat_param._metas[i] is not None:
-                        param._fp8 = True
-                        param._scaling_metas = self._flat_param._scaling_metas[i]
-                        param._meta = self._flat_param._metas[i]
-                        param._padded = self._flat_param._paddeds[i]
-                        param._original_shape = self._flat_param._original_shapes[i]
-                    i += 1
-
             output = self._fsdp_wrapped_module(*args, **kwargs)
             return _post_forward(self, self._handles, reshard_fn, self, unused, output)
 
@@ -928,12 +897,8 @@ class FullyShardedDataParallel(nn.Module, _FSDPState):
         when inside the :meth:`summon_full_params` context manager.
         """
         should_clean_name = self.training_state == TrainingState.SUMMON_FULL_PARAMS
-        i = 0
+
         for param_name, param in super().named_parameters(*args, **kwargs):
-            if self._flat_param._metas[i] is not None:
-                param._meta = self._flat_param._metas[i]
-                param._grad_meta = self._flat_param._scaling_metas[i]['wgrad']
-            i += 1
             if should_clean_name:
                 # Remove any instances of the FSDP-specific prefix; there can
                 # be multiple in the case of nested FSDP modules

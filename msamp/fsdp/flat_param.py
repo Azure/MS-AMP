@@ -656,6 +656,7 @@ class FlatParamHandle:
                 ranks = list(range(start_rank, end_rank + 1))
                 meta.group = dist.new_group(ranks=ranks)
 
+
     def _get_shard_metadata(
         self,
         start: int,
@@ -1469,12 +1470,19 @@ class FlatParamHandle:
                         tensor.data = view  # type: ignore[union-attr]
                         assert tensor is not None  # mypy
                         param_var = tensor
+                    
                 setattr(module, param_name, param_var)
                 if (
                     self._use_orig_params
                     and self._training_state == HandleTrainingState.FORWARD
                 ):
                     module._parameters[param_name] = param_var  # type: ignore[assignment]
+
+                    param_var._fp8 = True
+                    param_var._scaling_metas = self.flat_param._scaling_metas[i]
+                    param_var._meta = self.flat_param._metas[i]
+                    param_var._padded = self.flat_param._paddeds[i]
+                    param_var._original_shape = self.flat_param._original_shapes[i]
         for i, (
             param_name,
             module,
@@ -1615,6 +1623,10 @@ class FlatParamHandle:
             zip(self.flat_param._params, self.flat_param._param_infos)
         ):
             setattr(module, param_name, param)
+            if self.flat_param._metas[i] is not None:
+                param._meta = self.flat_param._metas[i]
+                param._grad_meta = self.flat_param._scaling_metas[i]['wgrad']
+
             in_sharded_flat_param = (
                 i >= start
                 and i <= end

@@ -26,7 +26,7 @@ class _FP8GemmFunction(torch.autograd.Function):
             dtype_holder (torch.Tensor): A tensor to hold the output dtype. The required_grad of this tensor
                 should be if input.required_grad is False.
         """
-        if hasattr(weight, '_fp8'):
+        if isinstance(weight, torch.Tensor):
             padded = weight._padded
             original_shape = weight._original_shape
             meta = weight._meta
@@ -36,7 +36,7 @@ class _FP8GemmFunction(torch.autograd.Function):
                 weight = weight[0: weight.numel() - padded]
             weight = weight.view(original_shape)
             weight = ScalingParameter(ScalingTensor(weight, meta))
-            ctx._fp8 = True
+            ctx._returnWgrad = True
 
         ctx.metas = metas
         model_state.check_metas_in_flat(metas)
@@ -109,7 +109,7 @@ class _FP8GemmFunction(torch.autograd.Function):
                 )
                 del old_wgrad
 
-            if ctx._fp8:
+            if ctx._returnWgrad:
                 wgrad = wgrad.cast(Dtypes.kfloat8_e4m3, meta=wgrad_meta, sync=True)
                 wgrad = wgrad.value.view(-1).view(dtype=torch.float32)
                 wgrad.meta = wgrad_meta
