@@ -9,14 +9,12 @@ import torch.nn as nn
 import torch.multiprocessing as mp
 import torch.nn.functional as F
 import torch.distributed as dist
-
 from torch.optim.lr_scheduler import StepLR
 from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.utils.data.distributed import DistributedSampler
-
-
 from torchvision import datasets, transforms
+
 
 def setup(rank, world_size):
     os.environ['MASTER_ADDR'] = 'localhost'
@@ -25,8 +23,10 @@ def setup(rank, world_size):
     # initialize the process group
     dist.init_process_group("nccl", rank=rank, world_size=world_size)
 
+
 def cleanup():
     dist.destroy_process_group()
+
 
 class Net(nn.Module):
     def __init__(self):
@@ -53,6 +53,7 @@ class Net(nn.Module):
         output = F.log_softmax(x, dim=1)
         return output
 
+
 def train(args, model, rank, world_size, train_loader, optimizer, epoch, sampler=None):
     model.train()
     ddp_loss = torch.zeros(2).to(rank)
@@ -73,6 +74,7 @@ def train(args, model, rank, world_size, train_loader, optimizer, epoch, sampler
     dist.all_reduce(ddp_loss, op=dist.ReduceOp.SUM)
     if rank == 0:
         print('Train Epoch: {} \tLoss: {:.6f}'.format(epoch, ddp_loss[0] / ddp_loss[1]))
+
 
 def test(model, rank, world_size, test_loader):
     model.eval()
@@ -139,13 +141,12 @@ def fsdp_main(rank, world_size, args):
     model = Net().to(rank)
 
     if args.msamp:
-        from msamp.nn import LinearReplacer
-        from msamp.common.dtype import Dtypes
+        from msamp.fsdp import FsdpReplacer
         from msamp.fsdp import FP8FullyShardedDataParallel
-        model = LinearReplacer.replace(model, weight_qtype=Dtypes.kfloat8_e4m3)
-        model = FP8FullyShardedDataParallel(model, use_orig_params=True)
+        model = FsdpReplacer.replace(model)
+        model = FP8FullyShardedDataParallel(model, use_orig_params=True, auto_wrap_policy=my_auto_wrap_policy)
     else:
-        model = FSDP(model, use_orig_params=True)
+        model = FSDP(model, use_orig_params=True, auto_wrap_policy=my_auto_wrap_policy)
 
     if rank == 0:
         print(f'FSDP model:')

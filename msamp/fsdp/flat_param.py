@@ -1,8 +1,5 @@
 
-from typing import (
-    Optional,
-    Sequence
-)
+from typing import Optional, Sequence
 
 import torch
 import torch.nn as nn
@@ -24,7 +21,7 @@ class FP8FlatParamHandle(FlatParamHandle):
         scaling_metas = []
         
         for param in self.flat_param._params:
-            if hasattr(param, '_fp8') and param._fp8:
+            if hasattr(param, '_meta') and param._meta:
                 metas.append(param._meta)
                 paddeds.append(param._padded)
                 original_shapes.append(param._original_shape)
@@ -59,4 +56,26 @@ class FP8FlatParamHandle(FlatParamHandle):
                 ranks = list(range(start_rank, end_rank + 1))
                 meta.group = dist.new_group(ranks=ranks)
 
-torch.distributed.fsdp._init_utils.FlatParamHandle = FP8FlatParamHandle
+
+    def _use_unsharded_views(self, as_params: bool) -> None:
+        super()._use_unsharded_views(as_params)
+        for i, param_info in enumerate(self.flat_param._param_infos):
+            if hasattr(param_info.module, param_info.param_name):
+                param = getattr(param_info.module, param_info.param_name)
+                
+                param._scaling_metas = self.flat_param._scaling_metas[i]
+                param._meta = self.flat_param._metas[i]
+                param._padded = self.flat_param._paddeds[i]
+                param._original_shape = self.flat_param._original_shapes[i]
+    
+    @torch.no_grad()
+    def _use_sharded_views(self) -> None:
+        super()._use_sharded_views()
+        for i, param_info in enumerate(self.flat_param._param_infos):
+            if hasattr(param_info.module, param_info.param_name):
+                param = getattr(param_info.module, param_info.param_name)
+                if self.flat_param._metas[i] is not None:
+                    param._meta = self.flat_param._metas[i]
+                    param._grad_meta = self.flat_param._scaling_metas[i]['wgrad']
+
+

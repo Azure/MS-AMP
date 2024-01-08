@@ -230,7 +230,7 @@ class LBAdamW(LBAdamWBase):
                     params[i].copy_(param.cast(params[i].qtype, meta=params[i].meta))
 
 
-class FSDPAdamW(LBAdamW):
+class FSDPAdamW(LBAdamWBase):
     def __init__(
         self,
         params,
@@ -246,6 +246,7 @@ class FSDPAdamW(LBAdamW):
         exp_avg_sq_dtype=torch.float16,
         tensor_scale=True,
     ):
+        self.tensor_scale = tensor_scale
         super().__init__(
             params,
             lr=lr,
@@ -256,8 +257,7 @@ class FSDPAdamW(LBAdamW):
             amsgrad=False,
             maximize=maximize,
             exp_avg_dtype=exp_avg_dtype,
-            exp_avg_sq_dtype=exp_avg_sq_dtype,
-            tensor_scale=tensor_scale
+            exp_avg_sq_dtype=exp_avg_sq_dtype
         )
 
         self.original_params = []

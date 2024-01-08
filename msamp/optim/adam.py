@@ -3,6 +3,10 @@
 
 """MS-AMP adam module."""
 
+import torch
+
+from msamp.common.dtype import Dtypes
+from msamp.common.tensor import ScalingTensor
 from msamp.optim import LBAdamW, FSDPAdamW
 
 class LBAdam(LBAdamW):
@@ -64,7 +68,8 @@ class DSAdam(LBAdamW):
         self.set_grad_none = set_grad_none
 
 
-class FSDPAdam(FSDPAdamW):
+
+class FSDPAdam(LBAdam):
     def __init__(
         self,
         params,
@@ -77,7 +82,6 @@ class FSDPAdam(FSDPAdamW):
         *args,
         **kwargs
     ):
-        """Constructor. See LBAdamW class docstring for details."""
         super().__init__(
             params=params,
             lr=lr,
@@ -89,4 +93,60 @@ class FSDPAdam(FSDPAdamW):
             *args,
             **kwargs
         )
-        self.use_adam = True
+
+        self.original_params = []
+        self.master_weights = []
+
+        for group in self.param_groups:
+            params = []
+            for param in group['params']:
+                if param is None or param.numel() == 0:
+                    continue
+                if hasattr(param, '_meta') and param._meta is not None:
+                    self.original_params.append(param)
+                    dtype = Dtypes.qtype_to_dtype[param._meta.qtype]
+                    param = ScalingTensor(param.view(dtype), param._meta)
+                    master_weight = param.cast(Dtypes.kfloat16)
+                    master_weight.requires_grad = True
+                    self.master_weights.append(master_weight)
+                    params.append(master_weight)    
+                else:
+                    self.original_params.append(param)
+                    self.master_weights.append(None)
+                    params.append(param)
+
+            group['params'] = params
+
+
+    def zero_grad(self, set_to_none=False):
+        for param in self.original_params:
+            if set_to_none:
+                param.grad = None
+            else:
+                if param.grad is not None:
+                    if param.grad.grad_fn is not None:
+                        param.grad.detach_()
+                    else:
+                        param.grad.requires_grad_(False)
+                    param.grad.zero_()
+
+    def step(self):
+        # cast gradient to ScalingTensor
+        for i, param in enumerate(self.original_params):
+            if param.grad is None:
+                continue
+
+            if hasattr(param, '_meta') and param._meta is not None:
+                grad_meta = param._grad_meta
+                dtype = Dtypes.qtype_to_dtype[grad_meta.qtype]
+                self.master_weights[i].grad = ScalingTensor(param.grad.view(dtype), grad_meta)
+                param.grad = None
+
+        # call step() to update master weight
+        super().step()
+
+        # sync params and copy master weight to weight
+        for i, param in enumerate(self.original_params):
+            if hasattr(param, '_meta') and param._meta is not None and param.numel() > 0:
+                data = self.master_weights[i].float().cast(param._meta.qtype, param._meta, True).value.view(torch.float32)
+                param.data.copy_(data)
