@@ -1,4 +1,9 @@
 
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+"""MS-AMP fsdp.flat_param module."""
+
 from typing import Optional, Sequence
 
 import torch
@@ -7,19 +12,21 @@ import torch.distributed as dist
 from torch.distributed.fsdp.flat_param import FlatParamHandle
 
 class FP8FlatParamHandle(FlatParamHandle):
+    """A handle for a flat parameter which may have fp32 and fp8."""
     def _init_flat_param(
         self,
         params: Sequence[Optional[nn.Parameter]],
         module: nn.Module,
         use_orig_params: bool,
     ) -> None:
+        """Initialize the flat parameter and save fp8 related metadata."""
         super()._init_flat_param(params, module, use_orig_params)
 
         metas = []
         paddeds = []
         original_shapes = []
         scaling_metas = []
-        
+
         for param in self.flat_param._params:
             if hasattr(param, '_meta') and param._meta:
                 metas.append(param._meta)
@@ -43,6 +50,7 @@ class FP8FlatParamHandle(FlatParamHandle):
         start: int,
         end: int,
     ) -> None:
+        """Initialize the shard metadata for the flat parameter and create a group for each fp8 parameter"""
         super()._init_shard_metadata(numel_padded, start, end)
         start_offset = 0
         end_offset = 0
@@ -58,6 +66,7 @@ class FP8FlatParamHandle(FlatParamHandle):
 
 
     def _use_unsharded_views(self, as_params: bool) -> None:
+        """Use unsharded views of the flat parameter and set fp8 related attritutes, which will be use in msamp.nn.functional."""
         super()._use_unsharded_views(as_params)
         for i, param_info in enumerate(self.flat_param._param_infos):
             if hasattr(param_info.module, param_info.param_name):
@@ -70,6 +79,7 @@ class FP8FlatParamHandle(FlatParamHandle):
     
     @torch.no_grad()
     def _use_sharded_views(self) -> None:
+        """Use sharded views of the flat parameter and set meta of scaling tensor, which will be used in optimizer."""
         super()._use_sharded_views()
         for i, param_info in enumerate(self.flat_param._param_infos):
             if hasattr(param_info.module, param_info.param_name):
