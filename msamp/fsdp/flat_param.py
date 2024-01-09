@@ -28,7 +28,7 @@ class FP8FlatParamHandle(FlatParamHandle):
         scaling_metas = []
 
         for param in self.flat_param._params:
-            if hasattr(param, '_meta') and param._meta:
+            if hasattr(param, '_meta') and param._meta is not None:
                 metas.append(param._meta)
                 paddeds.append(param._padded)
                 original_shapes.append(param._original_shape)
@@ -63,6 +63,7 @@ class FP8FlatParamHandle(FlatParamHandle):
                 end_rank = (end_offset - 1) // sharded_flat_param_numel
                 ranks = list(range(start_rank, end_rank + 1))
                 meta.group = dist.new_group(ranks=ranks)
+                meta.rank = ranks[0]
 
     def _use_unsharded_views(self, as_params: bool) -> None:
         """Use unsharded views of the flat parameter.
