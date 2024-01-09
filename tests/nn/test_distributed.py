@@ -27,7 +27,7 @@ class FakeNet(nn.Module):
         return self.fc1(x)
 
 
-class DistributedTestCast(MultiProcessTestCase):
+class DistributedTestCase(MultiProcessTestCase):
     """Test functions in distributed module."""
     def setUp(self):
         """Hook method for setting up the test fixture before exercising it."""

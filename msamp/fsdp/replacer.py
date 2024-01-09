@@ -29,7 +29,7 @@ class FsdpReplacer:
                     data = data.view(dtype=torch.float32)
                     new_param = torch.nn.Parameter(data)
                     new_param._original_shape = param.shape
-                    new_param._padded = 0
+                    new_param._padded = padded
                     new_param._meta = param.meta
                     new_param._scaling_metas = param._scaling_metas
 
