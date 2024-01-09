@@ -302,12 +302,11 @@ class FSDPAdamW(LBAdamWBase):
     def step(self):
         """Performs a single optimization step."""
         # Set gradient of master weight.
-        for i, master_param in enumerate(self.master_weights):
-            if master_param is not None:
-                param = self.original_params[i]
+        for i, param in enumerate(self.original_params):
+            if self.master_weights[i] is not None:
                 grad_meta = param._grad_meta
                 dtype = Dtypes.qtype_to_dtype[grad_meta.qtype]
-                master_param[i].grad = ScalingTensor(param.grad.view(dtype), grad_meta)
+                self.master_weights[i].grad = ScalingTensor(param.grad.view(dtype), grad_meta)
                 param.grad = None
 
         # call step() to update master weight
