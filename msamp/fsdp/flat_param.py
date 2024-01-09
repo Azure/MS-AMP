@@ -44,27 +44,6 @@ class FP8FlatParamHandle(FlatParamHandle):
         self.flat_param._original_shapes = original_shapes
         self.flat_param._scaling_metas = scaling_metas
 
-    def _init_shard_metadata(
-        self,
-        numel_padded: int,
-        start: int,
-        end: int,
-    ) -> None:
-        """Initialize the shard metadata for the flat parameter and create a group for each fp8 parameter."""
-        super()._init_shard_metadata(numel_padded, start, end)
-        start_offset = 0
-        end_offset = 0
-        sharded_flat_param_numel = self.flat_param.numel()
-        for i, meta in enumerate(self.flat_param._metas):
-            start_offset += self.flat_param._numels[i - 1] if i >= 1 else 0
-            end_offset += self.flat_param._numels[i]
-            if meta is not None:
-                start_rank = start_offset // sharded_flat_param_numel
-                end_rank = (end_offset - 1) // sharded_flat_param_numel
-                ranks = list(range(start_rank, end_rank + 1))
-                meta.group = dist.new_group(ranks=ranks)
-                meta.rank = ranks[0]
-
     def _use_unsharded_views(self, as_params: bool) -> None:
         """Use unsharded views of the flat parameter.
 

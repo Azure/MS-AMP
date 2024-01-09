@@ -315,9 +315,19 @@ class FSDPAdamW(LBAdamWBase):
         # Copy master weight to weight
         for i, param in enumerate(self.original_params):
             if hasattr(param, '_meta') and param._meta is not None:
+                hp_data = None
+                if param.numel() == 0:
+                    param._meta.amax[0].zero_()
+                else:
+                    hp_data = self.master_weights[i].float()
+                    param._meta.amax[0] = hp_data.abs().max()
+
+                dist.all_reduce(param._meta.amax[0], op=dist.ReduceOp.MAX)
+                param._meta.reset_scaling_factor()
                 if param.numel() > 0:
-                    data = self.master_weights[i].float().cast(param._meta.qtype, param._meta, True) \
-                            .value.view(torch.float32)
+                    with ScalingMeta.in_time_scaling_context(False):
+                        data = hp_data.cast(param._meta.qtype, param._meta, False) \
+                                .value.view(torch.float32)
                     param.data.copy_(data)
-                # broadcast scale_inv
-                dist.broadcast(param._meta.scale_inv, src=param._meta.rank)
+                else:
+                    param._meta.scale_inv.data.copy_(torch.reciprocal(param._meta.scale))
