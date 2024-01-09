@@ -73,9 +73,9 @@ def train(args, model, rank, world_size, train_loader, optimizer, epoch, sampler
         sampler.set_epoch(epoch)
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(rank), target.to(rank)
-        
+
         optimizer.zero_grad()
-        
+
         output = model(data)
         loss = F.nll_loss(output, target, reduction='sum')
         loss.backward()
