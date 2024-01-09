@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-"""The deepspeed cifar10 exampe using MS-AMP. It is adapted from official deepspeed example.
+"""The deepspeed cifar10 example using MS-AMP. It is adapted from official deepspeed example.
 
 The only change is add "from msamp import deepspeed" and remove moe related code.
 """

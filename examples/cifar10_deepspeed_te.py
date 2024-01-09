@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-"""The deepspeed cifar10 exampe using MS-AMP and TransformerEngine. It is adapted from official deepspeed example.
+"""The deepspeed cifar10 example using MS-AMP and TransformerEngine. It is adapted from official deepspeed example.
 
 The model is adapted from VisionTransfomrer in timm and it uses te.TransformerLayer as encoder block.
 """

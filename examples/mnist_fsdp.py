@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-"""The fsdp mnist exampe using MS-AMP.
+"""The fsdp mnist example using MS-AMP.
 
 It is adapted from https://github.com/pytorch/examples/blob/main/mnist/main.py.
 """
@@ -73,7 +73,9 @@ def train(args, model, rank, world_size, train_loader, optimizer, epoch, sampler
         sampler.set_epoch(epoch)
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(rank), target.to(rank)
+        
         optimizer.zero_grad()
+        
         output = model(data)
         loss = F.nll_loss(output, target, reduction='sum')
         loss.backward()
