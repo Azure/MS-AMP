@@ -55,3 +55,4 @@ class FsdpDistributedTestCast(MultiProcessTestCase):
             for param in model.parameters():
                 if param.numel() > 0:
                     assert param.grad is not None
+                    param.grad.zero_()

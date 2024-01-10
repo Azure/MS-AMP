@@ -6,7 +6,6 @@
 from typing import no_type_check
 
 import torch
-from torch.distributed.fsdp import FullyShardedDataParallel
 
 old_post_backward_hook = torch.distributed.fsdp._runtime_utils._post_backward_hook
 
