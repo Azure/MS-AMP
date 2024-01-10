@@ -7,7 +7,6 @@ from typing import Optional, Sequence
 
 import torch
 import torch.nn as nn
-import torch.distributed as dist
 from torch.distributed.fsdp.flat_param import FlatParamHandle
 
 
