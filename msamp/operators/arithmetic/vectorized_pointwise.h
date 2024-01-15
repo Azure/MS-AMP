@@ -133,15 +133,6 @@ class VectorizedAccessor {
   }
 };
 
-/* \brief Class used for vectorized read-only access. */
-template <typename DType, int nvec, bool aligned = false>
-class VectorizedLoader : public VectorizedAccessor<const DType, nvec, aligned> {
- public:
-  inline __device__ VectorizedLoader(const DType* ptr, const size_t N) :
-    VectorizedAccessor<const DType, nvec, aligned>(ptr, N) {
-  }
-};
-
 /* \brief Class used for vectorized writable access. */
 template <typename DType, int nvec, bool aligned = false>
 class VectorizedStorer : public VectorizedAccessor<DType, nvec, aligned> {
