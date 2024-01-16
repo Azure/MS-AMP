@@ -10,6 +10,7 @@ from msamp.common.dtype import Dtypes
 from msamp.common.tensor import ScalingTensor
 from msamp.operators.gemm import Gemm
 from msamp.nn.state import model_state
+from msamp.nn.parameter import ScalingParameter
 
 
 class _FP8GemmFunction(torch.autograd.Function):
@@ -26,6 +27,18 @@ class _FP8GemmFunction(torch.autograd.Function):
             dtype_holder (torch.Tensor): A tensor to hold the output dtype. The required_grad of this tensor
                 should be if input.required_grad is False.
         """
+        if isinstance(weight, torch.Tensor) and hasattr(weight, '_meta'):
+            padded = weight._padded
+            original_shape = weight._original_shape
+            meta = weight._meta
+
+            weight = weight.view(dtype=torch.uint8)
+            if padded != 0:
+                weight = weight[0:weight.numel() - padded]
+            weight = weight.view(original_shape)
+            weight = ScalingParameter(ScalingTensor(weight, meta))
+            ctx.return_wgrad = True
+
         ctx.metas = metas
         model_state.check_metas_in_flat(metas)
         input_meta = metas['input']
@@ -96,8 +109,12 @@ class _FP8GemmFunction(torch.autograd.Function):
                     use_split_accumulator=True,
                 )
                 del old_wgrad
-
-            if model_state.use_fp8_ddp:
+            if hasattr(ctx, 'return_wgrad') and ctx.return_wgrad:
+                wgrad = wgrad.cast(Dtypes.kfloat8_e4m3, meta=wgrad_meta, sync=True)
+                wgrad = wgrad.value.view(-1).view(dtype=torch.float32)
+                wgrad.meta = wgrad_meta
+                return input_grad, wgrad, None, None
+            elif model_state.use_fp8_ddp:
                 wgrad.meta = wgrad_meta
             else:
                 # wgrad above this line is torch.Tensor w/o tensor scaling
@@ -149,7 +166,7 @@ class FunctionalOverider:
             if bias is not None and not isinstance(bias, torch.Tensor):
                 raise TypeError(f'bias should be a torch.Tensor. current type: {type(bias)}')
 
-            if isinstance(weight, torch.Tensor):
+            if isinstance(weight, torch.Tensor) and not hasattr(weight, '_meta'):
                 return old_fn(input, weight, bias=bias)
 
             if not hasattr(weight, '_scaling_metas'):
