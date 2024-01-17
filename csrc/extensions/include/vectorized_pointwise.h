@@ -6,12 +6,10 @@
 #define MSAMP_VECTORIZED_POINTWISE_H
 
 #include <torch/extension.h>
-#include <cuda_bf16.h>
-#include <cuda_fp16.h>
 
-#include "../../common/include/common.h"
-#include "../../common/include/utils.cuh"
-#include "../../common/include/concurrency.h"
+#include "common.h"
+#include "utils.cuh"
+#include "concurrency.h"
 
 namespace msamp {
 /* \brief Helper class that enables storing multiple values of type DType
@@ -20,7 +18,7 @@ namespace msamp {
 template <typename DType, int n>
 class VectorizedStorage {
  public:
-  using LType = typename transformer_engine::BytesToType<sizeof(DType) * n>::Type;
+  using LType = typename BytesToType<sizeof(DType) * n>::Type;
   constexpr static int nvec = n;
   union vectorized_storage {
     LType aligned;
@@ -229,11 +227,11 @@ __global__ void add_to_fp8_kernel(InputType *input,
 
   if constexpr (is_fp8<OutputType>::value) {
     /* warp tile amax reduce*/
-    max =  transformer_engine::reduce_max<unary_kernel_threads / THREADS_PER_WARP>(max, warp_id);
+    max =  reduce_max<unary_kernel_threads / THREADS_PER_WARP>(max, warp_id);
 
     if (threadIdx.x == 0 && amax != nullptr) {
         static_assert(std::is_same<ComputeType, float>::value);
-        transformer_engine::atomicMaxFloat(amax, max);
+        atomicMaxFloat(amax, max);
     }
   }
 

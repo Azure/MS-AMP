@@ -6,8 +6,8 @@
  * See LICENSE for license information.
  ************************************************************************/
 
-#ifndef TRANSFORMER_ENGINE_COMMON_UTILS_CUH_
-#define TRANSFORMER_ENGINE_COMMON_UTILS_CUH_
+#ifndef MSAMP_UTILS_CUH_
+#define MSAMP_UTILS_CUH_
 
 #include <cuda_bf16.h>
 #include <cuda_fp16.h>
@@ -21,7 +21,7 @@ constexpr uint32_t THREADS_PER_WARP = 32;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace transformer_engine {
+namespace msamp {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -122,6 +122,6 @@ __device__ __forceinline__ void atomicMaxFloat(float * addr, const float value) 
     atomicMax(reinterpret_cast<int *>(addr), __float_as_int(value));
 }
 
-}  // namespace transformer_engine
+}  // namespace msamp
 
-#endif  // TRANSFORMER_ENGINE_COMMON_UTILS_CUH_
+#endif  // MSAMP_UTILS_CUH_

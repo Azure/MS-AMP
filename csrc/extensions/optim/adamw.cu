@@ -9,14 +9,25 @@
 #include <cmath>
 #include <type_traits>
 
-#include "../common/include/common.h"
-#include "../common/include/utils.cuh"
+#include "../include/common.h"
+#include "../include/utils.cuh"
 
 using namespace std;
 using namespace torch;
-using namespace transformer_engine;
 using index_t = int;
 
+template <typename T, typename S> __host__ __device__ T cast_dtype(const S value) { return T(value); }
+
+template <> __host__ __device__ fp16 cast_dtype(const float value) { return __float2half(value); }
+
+template <> __host__ __device__ bf16 cast_dtype(const float value) { return __float2bfloat16(value); }
+
+template <> __host__ __device__ float cast_dtype(const fp16 value) { return __half2float(value); }
+
+template <> __host__ __device__ float cast_dtype(const bf16 value) { return __bfloat162float(value); }
+
+namespace msamp {
+    
 __global__ void adamw_kernel(index_t n, float *param, float *grad, float *exp_avg_value, float beta1,
                              float *exp_avg_sq_value, float beta2, float eps, float step_size, float sqrt_bias_corr2) {
     CUDA_KERNEL_LOOP(i, n) {
@@ -129,10 +140,4 @@ void adamw_fp8_stage2_compute(Tensor grad, Tensor exp_avg_value, float exp_avg_f
     });
 }
 
-string version() { return "1.0.0"; }
-
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-    m.def("adamw_fp8_stage1_compute", &adamw_fp8_stage1_compute, "Adamw FP8 Stage1 Compute");
-    m.def("adamw_fp8_stage2_compute", &adamw_fp8_stage2_compute, "Adamw FP8 Stage2 Compute");
-    m.def("version", &version);
-}
+}  // namespace msamp

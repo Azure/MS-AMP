@@ -4,10 +4,7 @@
 #include <torch/extension.h>
 #include <c10/cuda/CUDAStream.h>
 
-#include "../../common/include/common.h"
-#include "../../common/include/utils.cuh"
-#include "../../common/include/concurrency.h"
-#include "vectorized_pointwise.h"
+#include "../include/vectorized_pointwise.h"
 
 namespace msamp {
 void add_to_fp8(at::Tensor fp8_tensor,
@@ -34,10 +31,6 @@ void add_to_fp8(at::Tensor fp8_tensor,
       );
     );
   );
-}
-
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-    m.def("add_to_fp8", &add_to_fp8, "Add to fp8");
 }
 
 } // namespace msamp
