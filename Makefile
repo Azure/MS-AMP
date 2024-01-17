@@ -23,4 +23,4 @@ lint: cpplint mdlint
 
 postinstall:
 	cd csrc/extensions && pip install -v . && cd -
-	cd csrc/dist && bash build.sh && cd -
+	cd csrc/dist_op && bash build.sh && cd -
