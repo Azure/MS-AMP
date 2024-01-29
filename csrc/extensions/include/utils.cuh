@@ -9,8 +9,6 @@
 #ifndef MSAMP_UTILS_CUH_
 #define MSAMP_UTILS_CUH_
 
-#include <cuda_bf16.h>
-#include <cuda_fp16.h>
 #include <cstdint>
 #include <cassert>
 

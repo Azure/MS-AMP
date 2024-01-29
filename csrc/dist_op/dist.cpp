@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <dlfcn.h>
 
-#if defined(__HIP_PLATFORM_AMD__)
+#ifdef __HIP_PLATFORM_AMD__
 #include <hip/hip_runtime.h>
 #include <rccl.h>
 #define stream_t hipStream_t
