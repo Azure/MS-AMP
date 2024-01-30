@@ -38,7 +38,10 @@ classifiers=[
 ]
 dependencies = [
     "torch",
+<<<<<<< HEAD
     "transformer-engine@git+https://github.com/NVIDIA/TransformerEngine.git@v1.1",
+=======
+>>>>>>> add optional dependencies in pyproject.toml
     "colorlog>=6.7.0",
     "deepspeed==0.13.1",
     "mpi4py",
@@ -54,6 +57,14 @@ test = [
     "pytest-cov>=4.0.0",
     "pytest>=7.2.0",
     "yapf>=0.32.0",
+]
+nvidia = [
+    "transformer-engine@git+https://github.com/NVIDIA/TransformerEngine.git@v0.11#egg=transformer-engine",
+    "flash-attn==1.0.9",
+    "mpi4py",
+]
+amd = [
+    # TransformerEngine
 ]
 
 [project.urls]
