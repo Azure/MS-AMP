@@ -89,7 +89,12 @@ __device__ __forceinline__ float warp_reduce_max(const float m) {
     float tmp = m;
 #pragma unroll
     for (int delta = num_elems/2; delta > 0; delta /= 2) {
+        #ifdef __HIP_PLATFORM_AMD__
+        const float other_m = __shfl_down(tmp, delta, THREADS_PER_WARP);
+        #else
         const float other_m = __shfl_down_sync(0xFFFFFFFF, tmp, delta);
+        #endif
+
         __builtin_assume(tmp >= 0);
         __builtin_assume(other_m >= 0);
         tmp = fmaxf(tmp, other_m);

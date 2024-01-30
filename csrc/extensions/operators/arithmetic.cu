@@ -7,6 +7,9 @@
 #include "../include/vectorized_pointwise.h"
 
 namespace msamp {
+
+__device__ msamp::DeviceSyncer device_syncer;
+
 void add_to_fp8(at::Tensor fp8_tensor,
                 at::Tensor scale,
                 at::Tensor scale_inv,

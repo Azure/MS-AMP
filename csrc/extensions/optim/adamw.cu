@@ -18,11 +18,23 @@ template <typename T, typename S> __host__ __device__ T cast_dtype(const S value
 
 template <> __host__ __device__ fp16 cast_dtype(const float value) { return __float2half(value); }
 
-template <> __host__ __device__ bf16 cast_dtype(const float value) { return __float2bfloat16(value); }
+template <> __host__ __device__ bf16 cast_dtype(const float value) {
+#ifndef __HIP_PLATFORM_AMD__
+    return __float2bfloat16(value);
+#else
+    return bf16(value);
+#endif
+}
 
 template <> __host__ __device__ float cast_dtype(const fp16 value) { return __half2float(value); }
 
-template <> __host__ __device__ float cast_dtype(const bf16 value) { return __bfloat162float(value); }
+template <> __host__ __device__ float cast_dtype(const bf16 value) {
+#ifndef __HIP_PLATFORM_AMD__
+    return __bfloat162float(value);
+#else
+    return float(value);
+#endif
+}
 
 namespace msamp {
     

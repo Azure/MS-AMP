@@ -8,8 +8,14 @@
 
 #include <cstdint>
 
+#ifndef __HIP_PLATFORM_AMD__
 extern "C" __device__ void __assert_fail(const char *__assertion, const char *__file, unsigned int __line,
                                          const char *__function) __THROW;
+
+#else
+extern "C" __device__ void __assert_fail(const char *__assertion, const char *__file, unsigned int __line,
+                                         const char *__function);
+#endif
 
 // If a spin is stuck, print a warning and keep spinning.
 #define POLL_MAYBE_JAILBREAK(__cond, __max_spin_cnt)                     \
