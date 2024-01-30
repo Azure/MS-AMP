@@ -8,7 +8,9 @@
 
 namespace msamp {
 
+#ifdef __HIP_PLATFORM_AMD__
 __device__ msamp::DeviceSyncer device_syncer;
+#endif
 
 void add_to_fp8(at::Tensor fp8_tensor,
                 at::Tensor scale,
