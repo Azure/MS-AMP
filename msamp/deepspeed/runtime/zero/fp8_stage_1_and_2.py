@@ -634,6 +634,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
         return flat_tensor_list
 
     def start_timers(self, timer_names):
+        """Start timers."""
         if self.timers is None:
             return
 
@@ -641,6 +642,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
             self.timers(name).start()
 
     def stop_timers(self, timer_names):
+        """Stop timers."""
         if self.timers is None:
             return
 
@@ -648,6 +650,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
             self.timers(name).stop()
 
     def log_timers(self, timer_names):
+        """Log timers."""
         if self.timers is None:
             return
 
@@ -779,11 +782,13 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
         self.start_timers([OPTIMIZER_ALLGATHER])
         # Gather the updated weights from everyone.
         # Then all partitions of the model parameters are updated and ready for next round forward.
-        all_gather_dp_groups(groups_flat=self.bit16_groups_flat,
-                             partitioned_param_groups=self.parallel_partitioned_bit16_groups,
-                             dp_process_group=self.real_dp_process_group,
-                             start_alignment_factor=self.nccl_start_alignment_factor,
-                             allgather_bucket_size=self.allgather_bucket_size)
+        all_gather_dp_groups(
+            groups_flat=self.bit16_groups_flat,
+            partitioned_param_groups=self.parallel_partitioned_bit16_groups,
+            dp_process_group=self.real_dp_process_group,
+            start_alignment_factor=self.nccl_start_alignment_factor,
+            allgather_bucket_size=self.allgather_bucket_size
+        )
 
         all_gather_dp_groups(
             groups_flat=list(filter(lambda g: g is not None, self.fp8_groups_flat)),
