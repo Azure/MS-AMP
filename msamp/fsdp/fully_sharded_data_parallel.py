@@ -31,13 +31,11 @@ def _get_fp8_comm_hook(self):
                     from msamp.operators.dist_op import DistOp
                     dtype = Dtypes.get_dtype_from_qtype(meta.qtype)
                     DistOp.enable_fp8(meta.qtype)
-                    torch.distributed.all_reduce(grad[start:end].view(dtype), group=state.process_group)
+                    torch.distributed.all_reduce(grad[start:end].view(dtype), group=state.process_group if state else None)
                     DistOp.disable_fp8()
                 else:
-                    default_hooks.allreduce_hook(
-                        state=state,
-                        grad=grad[start:end],
-                    )
+                   torch.distributed.all_reduce(grad[start:end], group=state.process_group if state else None)
+
             start = self.rank * output.numel()
             end = (self.rank + 1) * output.numel()
             output.copy_(grad[start:end])
