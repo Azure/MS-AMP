@@ -29,6 +29,7 @@ RUN apt-get update && \
     util-linux \
     vim \
     wget \
+    python3-mpi4py \
     && \
     apt-get autoremove && \
     apt-get clean && \
