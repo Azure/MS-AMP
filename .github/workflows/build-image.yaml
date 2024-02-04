@@ -32,7 +32,7 @@ jobs:
           submodules: true
       - name: Free disk space
         run: |
-          mkdir /tmp/emptydir
+          mkdir -p /tmp/emptydir
           for dir in /usr/share/swift /usr/share/dotnet /usr/local/share/powershell /usr/local/share/chromium /usr/local/lib/android /opt/ghc; do
             sudo rsync -a --delete /tmp/emptydir/ ${dir}
           done
