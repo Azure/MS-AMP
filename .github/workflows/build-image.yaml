@@ -14,7 +14,7 @@ on:
 jobs:
   docker:
     name: Docker build ${{ matrix.name }}
-    runs-on: ubuntu-20.04
+    runs-on: [self-hosted, linux, x64, gpu]
     permissions:
       contents: read
       packages: write
