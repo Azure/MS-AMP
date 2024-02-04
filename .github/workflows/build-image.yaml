@@ -37,7 +37,14 @@ jobs:
             sudo rsync -a --delete /tmp/emptydir/ ${dir}
           done
           sudo apt-get clean
-          sudo docker rmi $(sudo docker images --format "{{.Repository}}:{{.Tag}}" --filter=reference="node" --filter=reference="buildpack-deps")
+
+          # Check if Docker images exist before trying to remove them
+          if sudo docker images -q --filter=reference="node" --filter=reference="buildpack-deps" | grep -q .; then
+            sudo docker rmi $(sudo docker images --format "{{.Repository}}:{{.Tag}}" --filter=reference="node" --filter=reference="buildpack-deps")
+          else
+            echo "No Docker images found with the specified references."
+          fi
+
           df -h
       - name: Prepare metadata
         id: metadata
