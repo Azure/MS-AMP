@@ -23,8 +23,8 @@ jobs:
         include:
         - name: torch1.14-cuda11.8
           tags: ghcr.io/azure/msamp:main-cuda11.8
-        - name: torch2.1-cuda12.1
-          tags: ghcr.io/azure/msamp:main-cuda12.1,ghcr.io/azure/msamp:latest
+        - name: torch2.1-cuda12.2
+          tags: ghcr.io/azure/msamp:main-cuda12.2,ghcr.io/azure/msamp:latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
