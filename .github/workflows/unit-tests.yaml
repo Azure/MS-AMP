@@ -26,6 +26,7 @@ jobs:
     - name: Checkout msamp
       uses: actions/checkout@v2
       with:
+          path: MSAMPUT
           submodules: true
     - name: Install MSCCL
       run: |
