@@ -49,8 +49,9 @@ RUN cd third_party/msccl && \
     -gencode=arch=compute_90,code=sm_90" && \
     make install
 # cache TE build to save time in CI
+ENV MAX_JOBS=1
 RUN python3 -m pip install --upgrade pip && \
-    MAX_JOBS=2 python3 -m pip install git+https://github.com/NVIDIA/TransformerEngine.git@stable
+    MAX_JOBS=1 python3 -m pip install flash-attn==1.0.9 git+https://github.com/NVIDIA/TransformerEngine.git@stable
 
 ADD . .
 RUN python3 -m pip install . && \

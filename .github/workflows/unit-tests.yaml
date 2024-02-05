@@ -43,6 +43,7 @@ jobs:
         export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
         python3 -m pip install --upgrade pip
         cd ${{ matrix.dir }}/
+        apt-get update && apt-get install -y python3-mpi4py
         python3 -m pip install .[test]
         make postinstall
     - name: Run code lint
