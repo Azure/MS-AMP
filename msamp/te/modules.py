@@ -66,8 +66,7 @@ class MSAMPTransformerEngineBaseModule:
                     return
 
                 setattr(
-                    self,
-                    weight_cast_attr,
+                    self, weight_cast_attr,
                     Float8Tensor(
                         data=torch.empty(
                             shape,
@@ -80,8 +79,7 @@ class MSAMPTransformerEngineBaseModule:
                 )
 
                 setattr(
-                    self,
-                    weight_transpose_attr,
+                    self, weight_transpose_attr,
                     Float8Tensor(
                         data=torch.empty(
                             shape[1],

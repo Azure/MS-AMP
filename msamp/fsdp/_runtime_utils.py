@@ -24,4 +24,3 @@ def _fp8_post_backward_hook(state, handle, *unused):
     setattr(state, comm_hook_attr, state._get_fp8_comm_hook())
     old_post_backward_hook(state, handle, *unused)
     setattr(state, comm_hook_attr, old_communication_hook)
-

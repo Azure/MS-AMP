@@ -10,7 +10,8 @@ from torch.distributed.fsdp.flat_param import FlatParamHandle
 class FP8FlatParamHandle(FlatParamHandle):
     """A handle for a flat parameter which may have fp32 and fp8."""
     def __init__(self, *args, **kwargs):
-        super().__init__( *args, **kwargs)
+        """Constructor."""
+        super().__init__(*args, **kwargs)
         self._init_fp8_meta()
 
     def _init_fp8_meta(self):
