@@ -15,6 +15,7 @@ jobs:
   docker:
     name: Docker build ${{ matrix.name }}
     runs-on: ubuntu-latest
+    timeout-minutes: 600
     permissions:
       contents: read
       packages: write
