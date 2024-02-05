@@ -23,10 +23,12 @@ jobs:
       image: nvcr.io/nvidia/pytorch:${{ matrix.nvcr }}
       options: --privileged --ipc=host --gpus=all
     steps:
+    - name: Set GITHUB_WORKSPACE
+      run: |
+        export GITHUB_WORKSPACE="${GITHUB_WORKSPACE}/../MS-AMP-UT"
     - name: Checkout msamp
       uses: actions/checkout@v2
       with:
-          path: MSAMPUT
           submodules: true
     - name: Install MSCCL
       run: |
