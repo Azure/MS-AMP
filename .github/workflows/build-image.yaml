@@ -14,7 +14,7 @@ on:
 jobs:
   docker:
     name: Docker build ${{ matrix.name }}
-    runs-on: [self-hosted, linux, x64, gpu]
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -30,6 +30,10 @@ jobs:
         uses: actions/checkout@v2
         with:
           submodules: true
+      - name: Set up swap space
+        uses: pierotofy/set-swap-space@v1.0
+        with:
+          swap-size-gb: 10
       - name: Free disk space
         run: |
           mkdir -p /tmp/emptydir
