@@ -41,9 +41,10 @@ jobs:
     - name: Install dependencies
       run: |
         export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
+        export DEBIAN_FRONTEND=noninteractive
         python3 -m pip install --upgrade pip
-        cd ${{ matrix.dir }}/
         apt-get update && apt-get install -y python3-mpi4py
+        cd ${{ matrix.dir }}/
         python3 -m pip install .[test]
         make postinstall
     - name: Run code lint
