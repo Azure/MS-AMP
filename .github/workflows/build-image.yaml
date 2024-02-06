@@ -14,7 +14,7 @@ on:
 jobs:
   docker:
     name: Docker build ${{ matrix.name }}
-    runs-on: [self-hosted, linux, x64, cpu]
+    runs-on: [self-hosted, linux, x64, gpu]
     timeout-minutes: 600
     permissions:
       contents: read
@@ -55,8 +55,6 @@ jobs:
             TAGS=$(sed "s/main/${GITHUB_REF##*/}/g" <<< ${TAGS})
           fi
           DOCKERFILE=dockerfile/${{ matrix.name }}.dockerfile
-
-          BUILD_ARGS="NUM_MAKE_JOBS=8"
 
           CACHE_FROM="type=registry,ref=$(cut -d, -f1 <<< ${TAGS})"
           CACHE_TO=""

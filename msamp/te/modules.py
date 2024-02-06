@@ -69,7 +69,7 @@ class MSAMPTransformerEngineBaseModule:
                     self, weight_cast_attr,
                     Float8Tensor(
                         data=torch.empty(
-                            shape,
+                            (0, 0),
                             device=torch.cuda.current_device(),
                             dtype=torch.uint8,
                         ),
@@ -82,8 +82,7 @@ class MSAMPTransformerEngineBaseModule:
                     self, weight_transpose_attr,
                     Float8Tensor(
                         data=torch.empty(
-                            shape[1],
-                            shape[0],
+                            (0, 0),
                             device=torch.cuda.current_device(),
                             dtype=torch.uint8,
                         ),
