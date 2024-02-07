@@ -165,7 +165,13 @@ class VectorizedStorer : public VectorizedAccessor<DType, nvec, aligned> {
 
 
 constexpr int unary_kernel_threads = 512;
+
+#ifndef __HIP_PLATFORM_AMD__
 constexpr float e4m3_max = 448.0;
+#else
+constexpr float e4m3_max = 240.0;
+#endif
+
 constexpr float e5m2_max = 57344.0;
 
 extern __device__ msamp::DeviceSyncer device_syncer;

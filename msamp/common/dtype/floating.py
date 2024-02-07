@@ -6,6 +6,7 @@
 import torch
 import numpy as np
 
+from msamp.common.utils import Device, GPUType
 from msamp.common.dtype import Dtypes
 
 
@@ -26,6 +27,8 @@ class Floating:
         Return:
             value (float): The float point value.
         """
+        if exp == 4 and man == 3 and Device.get_gpu_type() == GPUType.AMD:
+            return 240.0
         e_bias = np.power(2., exp - 1) - 1
         if inf_existed:
             max_value_exp = (np.power(2.0, exp) - 1) - e_bias - man - 1

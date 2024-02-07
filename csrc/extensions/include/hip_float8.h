@@ -378,4 +378,3 @@ __device__ hip_float32x4 mfma_f32_16x16x32(hip_f8x8<T_A> a, hip_f8x8<T_B> b, hip
 
 template<hip_f8_type T_A, hip_f8_type T_B>
 __device__ hip_float32x16 mfma_f32_32x32x16(hip_f8x8<T_A> a, hip_f8x8<T_B> b, hip_float32x16 c);
-
