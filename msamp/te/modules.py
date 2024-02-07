@@ -5,6 +5,8 @@
 
 import torch
 import transformer_engine.pytorch as te
+import transformer_engine_extensions as tex
+from transformer_engine.pytorch.float8_tensor import Float8Tensor
 from transformer_engine.pytorch.module.base import TransformerEngineBaseModule
 
 from msamp.common.tensor import ScalingTensor
@@ -64,22 +66,29 @@ class MSAMPTransformerEngineBaseModule:
                     return
 
                 setattr(
-                    self,
-                    weight_cast_attr,
-                    torch.empty(
-                        (0, 0),
-                        device=torch.cuda.current_device(),
-                        dtype=torch.uint8,
-                    ),
+                    self, weight_cast_attr,
+                    Float8Tensor(
+                        data=torch.empty(
+                            (0, 0),
+                            device=torch.cuda.current_device(),
+                            dtype=torch.uint8,
+                        ),
+                        fp8_dtype=tex.DType.kFloat8E4M3,
+                        fp8_scale_inv=1,
+                    )
                 )
+
                 setattr(
-                    self,
-                    weight_transpose_attr,
-                    torch.empty(
-                        (0, 0),
-                        device=torch.cuda.current_device(),
-                        dtype=torch.uint8,
-                    ),
+                    self, weight_transpose_attr,
+                    Float8Tensor(
+                        data=torch.empty(
+                            (0, 0),
+                            device=torch.cuda.current_device(),
+                            dtype=torch.uint8,
+                        ),
+                        fp8_dtype=tex.DType.kFloat8E4M3,
+                        fp8_scale_inv=1,
+                    )
                 )
 
     @property

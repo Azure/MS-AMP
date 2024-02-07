@@ -18,7 +18,9 @@ def _fp8_post_backward_hook(state, handle, *unused):
     if accumulate_grad and torch.count_nonzero(state._flat_param._saved_grad_shard).item() > 0:
         raise NotImplementedError('accumulate_grad is not supported yet for fp8')
 
-    old_communication_hook = state._communication_hook
-    state._communication_hook = state._get_fp8_comm_hook()
+    comm_hook_attr = '_communication_hook' if hasattr(state, '_communication_hook') else '_comm_hook'
+
+    old_communication_hook = getattr(state, comm_hook_attr)
+    setattr(state, comm_hook_attr, state._get_fp8_comm_hook())
     old_post_backward_hook(state, handle, *unused)
-    state._communication_hook = old_communication_hook
+    setattr(state, comm_hook_attr, old_communication_hook)

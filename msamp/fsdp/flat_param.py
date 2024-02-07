@@ -3,24 +3,19 @@
 
 """MS-AMP fsdp.flat_param module."""
 
-from typing import Optional, Sequence
-
 import torch
-import torch.nn as nn
 from torch.distributed.fsdp.flat_param import FlatParamHandle
 
 
 class FP8FlatParamHandle(FlatParamHandle):
     """A handle for a flat parameter which may have fp32 and fp8."""
-    def _init_flat_param(
-        self,
-        params: Sequence[Optional[nn.Parameter]],
-        module: nn.Module,
-        use_orig_params: bool,
-    ) -> None:
-        """Initialize the flat parameter and save fp8 related metadata."""
-        super()._init_flat_param(params, module, use_orig_params)
+    def __init__(self, *args, **kwargs):
+        """Constructor."""
+        super().__init__(*args, **kwargs)
+        self._init_fp8_meta()
 
+    def _init_fp8_meta(self):
+        """Save fp8 related metadata."""
         metas = []
         paddeds = []
         original_shapes = []
@@ -52,11 +47,11 @@ class FP8FlatParamHandle(FlatParamHandle):
         for i, param_info in enumerate(self.flat_param._param_infos):
             if hasattr(param_info.module, param_info.param_name):
                 param = getattr(param_info.module, param_info.param_name)
-
-                param._scaling_metas = self.flat_param._scaling_metas[i]
-                param._meta = self.flat_param._metas[i]
-                param._padded = self.flat_param._paddeds[i]
-                param._original_shape = self.flat_param._original_shapes[i]
+                if hasattr(self.flat_param, '_scaling_metas'):
+                    param._scaling_metas = self.flat_param._scaling_metas[i]
+                    param._meta = self.flat_param._metas[i]
+                    param._padded = self.flat_param._paddeds[i]
+                    param._original_shape = self.flat_param._original_shapes[i]
 
     @torch.no_grad()
     def _use_sharded_views(self) -> None:

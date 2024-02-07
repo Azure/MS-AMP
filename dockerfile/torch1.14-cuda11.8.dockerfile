@@ -29,6 +29,7 @@ RUN apt-get update && \
     util-linux \
     vim \
     wget \
+    python3-mpi4py \
     && \
     apt-get autoremove && \
     apt-get clean && \
@@ -48,9 +49,8 @@ RUN cd third_party/msccl && \
     -gencode=arch=compute_90,code=sm_90" && \
     make install
 # cache TE build to save time in CI
-ENV MAX_JOBS=1
 RUN python3 -m pip install --upgrade pip && \
-    python3 -m pip install flash-attn==1.0.9 git+https://github.com/NVIDIA/TransformerEngine.git@v0.11
+    python3 -m pip install git+https://github.com/NVIDIA/TransformerEngine.git@stable
 
 ADD . .
 RUN python3 -m pip install . && \

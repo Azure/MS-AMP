@@ -14,7 +14,8 @@ on:
 jobs:
   docker:
     name: Docker build ${{ matrix.name }}
-    runs-on: ubuntu-20.04
+    runs-on: [self-hosted, linux, x64, gpu]
+    timeout-minutes: 600
     permissions:
       contents: read
       packages: write
@@ -23,8 +24,8 @@ jobs:
         include:
         - name: torch1.14-cuda11.8
           tags: ghcr.io/azure/msamp:main-cuda11.8
-        - name: torch2.1-cuda12.1
-          tags: ghcr.io/azure/msamp:main-cuda12.1,ghcr.io/azure/msamp:latest
+        - name: torch2.1-cuda12.2
+          tags: ghcr.io/azure/msamp:main-cuda12.2,ghcr.io/azure/msamp:latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -32,12 +33,19 @@ jobs:
           submodules: true
       - name: Free disk space
         run: |
-          mkdir /tmp/emptydir
+          mkdir -p /tmp/emptydir
           for dir in /usr/share/swift /usr/share/dotnet /usr/local/share/powershell /usr/local/share/chromium /usr/local/lib/android /opt/ghc; do
             sudo rsync -a --delete /tmp/emptydir/ ${dir}
           done
           sudo apt-get clean
-          sudo docker rmi $(sudo docker images --format "{{.Repository}}:{{.Tag}}" --filter=reference="node" --filter=reference="buildpack-deps")
+
+          # Check if Docker images exist before trying to remove them
+          if sudo docker images -q --filter=reference="node" --filter=reference="buildpack-deps" | grep -q .; then
+            sudo docker rmi $(sudo docker images --format "{{.Repository}}:{{.Tag}}" --filter=reference="node" --filter=reference="buildpack-deps")
+          else
+            echo "No Docker images found with the specified references."
+          fi
+
           df -h
       - name: Prepare metadata
         id: metadata
@@ -47,8 +55,6 @@ jobs:
             TAGS=$(sed "s/main/${GITHUB_REF##*/}/g" <<< ${TAGS})
           fi
           DOCKERFILE=dockerfile/${{ matrix.name }}.dockerfile
-
-          BUILD_ARGS="NUM_MAKE_JOBS=8"
 
           CACHE_FROM="type=registry,ref=$(cut -d, -f1 <<< ${TAGS})"
           CACHE_TO=""

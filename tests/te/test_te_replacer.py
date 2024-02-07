@@ -65,7 +65,7 @@ class TeReplacerTestCase(unittest.TestCase):
 
         scaling_params = [p for p in model.parameters() if isinstance(p, ScalingParameter)]
         assert len(scaling_params) == 4
-        is_fp8_available, _ = te.fp8.is_fp8_available()
+        is_fp8_available = te.fp8.check_fp8_support()
         if is_fp8_available:
             # Do a forward pass to make sure the model is working.
             fp8_format = Format.HYBRID
