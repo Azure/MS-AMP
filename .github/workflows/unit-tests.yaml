@@ -57,6 +57,10 @@ jobs:
         export LD_PRELOAD="/usr/local/lib/libmsamp_dist.so:/usr/local/lib/libnccl.so:${LD_PRELOAD}"
         cd ${{ matrix.dir }}/
         python3 setup.py test
+    - name: Clean repository
+      if: always()
+      run: |
+        rm -rf ${{ matrix.dir }}/
     # - name: Report coverage results
     #   run: |
     #     bash <(curl -s https://codecov.io/bash)
