@@ -1,11 +1,11 @@
 FROM nvcr.io/nvidia/pytorch:23.10-py3
 
 # Ubuntu: 22.04
-# Python: 3.8
+# Python: 3.10
 # CUDA: 12.2.0
 # cuDNN: 8.9.5
 # NCCL: v2.16.2-1 + FP8 Support
-# PyTorch: 2.1.0a0+fe05266f
+# PyTorch: 2.1.0a0+32f93b1
 
 LABEL maintainer="MS-AMP"
 
@@ -57,3 +57,8 @@ RUN python3 -m pip install . && \
     make postinstall
 
 ENV LD_PRELOAD="/usr/local/lib/libmsamp_dist.so:/usr/local/lib/libnccl.so:${LD_PRELOAD}"
+
+# Set up entrypoint
+COPY dockerfile/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
