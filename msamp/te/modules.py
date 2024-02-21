@@ -62,7 +62,7 @@ class MSAMPTransformerEngineBaseModule:
                 weight_cast_attr = f'weight{i}_fp8'
                 weight_transpose_attr = f'weight{i}_t_fp8'
 
-                if (hasattr(self, weight_cast_attr) and getattr(self, weight_cast_attr).shape == shape):
+                if (hasattr(self, weight_cast_attr) and getattr(self, weight_cast_attr)._data.shape == shape):
                     return
 
                 setattr(
