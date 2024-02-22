@@ -50,7 +50,7 @@ RUN cd third_party/msccl && \
     make install
 # cache TE build to save time in CI
 RUN python3 -m pip install --upgrade pip && \
-    python3 -m pip install git+https://github.com/NVIDIA/TransformerEngine.git@stable
+    python3 -m pip install git+https://github.com/NVIDIA/TransformerEngine.git@v1.1
 
 ADD . .
 RUN python3 -m pip install . && \

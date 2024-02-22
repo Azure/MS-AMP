@@ -164,5 +164,8 @@ class TeReplacerDistributedTestCast(MultiProcessTestCase):
         fp8_format = Format.HYBRID
         fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo='max')
         with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-            output = model(x, attention_mask=None)
+            output = model(x, attention_mask=None, is_first_microbatch=True)
+            output.sum().backward()
+        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+            output = model(x, attention_mask=None, is_first_microbatch=False)
             output.sum().backward()
