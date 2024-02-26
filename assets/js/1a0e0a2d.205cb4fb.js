@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunkmsamp_website=self.webpackChunkmsamp_website||[]).push([[828],{2247:function(s){s.exports=JSON.parse('{"allTagsPath":"/MS-AMP/blog/tags","slug":"ms-amp","name":"ms-amp","count":2,"permalink":"/MS-AMP/blog/tags/ms-amp"}')}}]);

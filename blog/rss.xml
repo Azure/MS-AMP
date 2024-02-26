@@ -4,9 +4,16 @@
         <title>MS-AMP Blog</title>
         <link>https://azure.github.io/MS-AMP/blog</link>
         <description>MS-AMP Blog</description>
-        <lastBuildDate>Mon, 06 Nov 2023 00:00:00 GMT</lastBuildDate>
+        <lastBuildDate>Mon, 26 Feb 2024 00:00:00 GMT</lastBuildDate>
         <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
         <generator>https://github.com/jpmonette/feed</generator>
+        <item>
+            <title><![CDATA[Releasing MS-AMP v0.4]]></title>
+            <link>https://azure.github.io/MS-AMP/blog/release-msamp-v0.4</link>
+            <guid>release-msamp-v0.4</guid>
+            <pubDate>Mon, 26 Feb 2024 00:00:00 GMT</pubDate>
+            <description><![CDATA[We are very happy to announce that MS-AMP 0.4.0 version is officially released today!]]></description>
+        </item>
         <item>
             <title><![CDATA[Releasing MS-AMP v0.3]]></title>
             <link>https://azure.github.io/MS-AMP/blog/release-msamp-v0.3</link>
