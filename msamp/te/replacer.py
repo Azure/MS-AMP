@@ -19,7 +19,7 @@ class TeReplacer:
     }
 
     @classmethod
-    def _replace(cls, model):
+    def _replace(cls, model, qtype):
         for mod in TeReplacer.module_weight_names:
             if isinstance(model, mod):
                 mod.is_msamp_module = True
@@ -29,18 +29,18 @@ class TeReplacer:
                         continue
                     weight = getattr(model, wname)
                     requires_grad = weight.requires_grad
-                    sp = ScalingParameter(weight.data.cast(Dtypes.kfloat16), requires_grad=requires_grad)
+                    sp = ScalingParameter(weight.data.cast(qtype), requires_grad=requires_grad)
                     # release the old weight
                     weight.data = torch.tensor([])
                     setattr(model, wname, sp)
         for child_name, child in list(model.named_children()):
-            setattr(model, child_name, cls._replace(child))
+            setattr(model, child_name, cls._replace(child, qtype))
         return model
 
     @classmethod
-    def replace(cls, model):
+    def replace(cls, model, qtype=Dtypes.kfloat16):
         """Replace the weights with ScalingParameter in transformer engine modules."""
-        model = cls._replace(model)
+        model = cls._replace(model, qtype)
         fp8_named_weights = [(k, p) for k, p in model.named_parameters() if isinstance(p, ScalingParameter)]
         fp8_names = [k for k, _ in fp8_named_weights]
         torch.nn.parallel.DistributedDataParallel._set_params_and_buffers_to_ignore_for_model(model, fp8_names)

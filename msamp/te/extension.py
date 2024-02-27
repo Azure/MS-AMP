@@ -9,6 +9,7 @@ import transformer_engine_extensions as tex
 
 from msamp.common.dtype import Dtypes
 from msamp.common.tensor import ScalingTensor
+from msamp.nn import ScalingParameter
 
 
 class TeExtensionOverrider:
@@ -24,6 +25,7 @@ class TeExtensionOverrider:
     original_fused_cast_transpose = tex.fused_cast_transpose
     original_cast_to_fp8 = te.cpp_extensions.cast_to_fp8
     original_fp8_cast_transpose_fused = te.cpp_extensions.fp8_cast_transpose_fused
+    original_cast_if_needed = te.utils.cast_if_needed
 
     @staticmethod
     @torch.no_grad()
@@ -120,12 +122,26 @@ class TeExtensionOverrider:
         return TeExtensionOverrider.original_cast_to_fp8(inp, fp8_meta_tensor, fp8_tensor, otype, out)
 
     @staticmethod
+    def cast_if_needed(tensor: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
+        """Cast tensor to dtype"""
+        with torch.enable_grad():
+            if isinstance(tensor, ScalingParameter):
+                new_tensor = tensor.to(dtype)
+                new_tensor.requires_grad = tensor.requires_grad
+                return new_tensor
+        return TeExtensionOverrider.original_cast_if_needed(tensor, dtype)
+
+    @staticmethod
     def override():
         """Override transformer engine extension functions."""
         tex.fused_cast_transpose = TeExtensionOverrider.fused_cast_transpose
         te.cpp_extensions.cast_to_fp8 = TeExtensionOverrider.cast_to_fp8
         te.module.linear.cast_to_fp8 = TeExtensionOverrider.cast_to_fp8
         te.cpp_extensions.fp8_cast_transpose_fused = TeExtensionOverrider.fp8_cast_transpose_fused
+
+        te.module.layernorm_linear.cast_if_needed = TeExtensionOverrider.cast_if_needed
+        te.module.linear.cast_if_needed = TeExtensionOverrider.cast_if_needed
+        te.module.layernorm_mlp.cast_if_needed = TeExtensionOverrider.cast_if_needed
 
 
 TeExtensionOverrider.override()
