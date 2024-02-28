@@ -5,6 +5,7 @@
 
 import os
 import unittest
+from contextlib import nullcontext
 
 import torch
 import torch.distributed as dist
@@ -65,17 +66,16 @@ class TeReplacerTestCase(unittest.TestCase):
 
         scaling_params = [p for p in model.parameters() if isinstance(p, ScalingParameter)]
         assert len(scaling_params) == 4
-        is_fp8_available = te.fp8.check_fp8_support()
-        if is_fp8_available:
-            # Do a forward pass to make sure the model is working.
-            fp8_format = Format.HYBRID
-            fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo='max')
-            x = torch.rand(self.sequence_length, self.batch_size, self.hidden_size).cuda().to(dtype=self.dtype)
+        is_fp8_available, _ = te.fp8.check_fp8_support()
+        # Do a forward pass to make sure the model is working.
+        fp8_format = Format.HYBRID
+        fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo='max')
+        x = torch.rand(self.sequence_length, self.batch_size, self.hidden_size).cuda().to(dtype=self.dtype)
 
-            with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-                y = model(x, attention_mask=None)
-                assert y.shape == (self.sequence_length, self.batch_size, self.hidden_size)
-            y.sum().backward()
+        with te.fp8_autocast(enabled=is_fp8_available, fp8_recipe=fp8_recipe) if is_fp8_available else nullcontext():
+            y = model(x, attention_mask=None)
+            assert y.shape == (self.sequence_length, self.batch_size, self.hidden_size)
+        y.sum().backward()
 
     @decorator.cuda_test
     def test_te_with_deepspeed(self):
@@ -100,12 +100,13 @@ class TeReplacerTestCase(unittest.TestCase):
 
         fp8_format = Format.HYBRID
         fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo='max')
-        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+        is_fp8_available, _ = te.fp8.check_fp8_support()
+        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe) if is_fp8_available else nullcontext():
             input = torch.randn(self.sequence_length, self.batch_size, self.hidden_size).cuda().to(dtype=self.dtype)
             output = model(input, attention_mask=None)
-            loss = output.sum()
-            model.backward(loss)
-            model.step()
+        loss = output.sum()
+        model.backward(loss)
+        model.step()
 
 
 class TeReplacerDistributedTestCast(MultiProcessTestCase):
@@ -163,9 +164,10 @@ class TeReplacerDistributedTestCast(MultiProcessTestCase):
         x = torch.randn(sequence_length, batch_size, hidden_size).cuda().to(dtype=dtype)
         fp8_format = Format.HYBRID
         fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo='max')
-        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+        is_fp8_available, _ = te.fp8.check_fp8_support()
+        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe) if is_fp8_available else nullcontext():
             output = model(x, attention_mask=None, is_first_microbatch=True)
-            output.sum().backward()
-        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+        output.sum().backward()
+        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe) if is_fp8_available else nullcontext():
             output = model(x, attention_mask=None, is_first_microbatch=False)
-            output.sum().backward()
+        output.sum().backward()
