@@ -31,6 +31,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           submodules: true
+          path: buildimage
       - name: Free disk space
         run: |
           mkdir -p /tmp/emptydir
@@ -87,7 +88,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           platforms: linux/amd64
-          context: .
+          context: ./buildimage
           file: ${{ steps.metadata.outputs.dockerfile }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.metadata.outputs.tags }}
