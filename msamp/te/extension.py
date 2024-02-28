@@ -122,8 +122,16 @@ class TeExtensionOverrider:
         return TeExtensionOverrider.original_cast_to_fp8(inp, fp8_meta_tensor, fp8_tensor, otype, out)
 
     @staticmethod
-    def cast_if_needed(tensor: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
-        """Cast tensor to dtype"""
+    def cast_if_needed(tensor, dtype):
+        """Cast tensor to dtype.
+
+        Args:
+            tensor (torch.Tensor or ScalingParameter): Input tensor.
+            dtype (torch.dtype): Output dtype.
+
+        Returns:
+            torch.Tensor: Output tensor.
+        """
         with torch.enable_grad():
             if isinstance(tensor, ScalingParameter):
                 new_tensor = tensor.to(dtype)

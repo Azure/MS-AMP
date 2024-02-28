@@ -351,7 +351,8 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
         return None
 
     def state_dict(self):
-        """
+        """Return the state dict of this optimizer.
+
         The state dict contains all non-DP-rank-dependent (i.e., non-parameter-
         related) optimizer variables. The returned state dict can be stored in
         the standard model/RNG checkpoint file. The parameter and dependent
@@ -371,10 +372,10 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
         state_dict = {}
 
         # Optimizer state (do not store parameter state here).
-        state_dict['optimizer'] = {k: v for k, v in self.optimizer.state_dict().items() if k != "state"}
+        state_dict['optimizer'] = {k: v for k, v in self.optimizer.state_dict().items() if k != 'state'}
 
-        for param_group in state_dict["optimizer"]["param_groups"]:
-            del param_group["params"]
+        for param_group in state_dict['optimizer']['param_groups']:
+            del param_group['params']
 
         # Grad scaler state.
         if self.grad_scaler:
@@ -421,8 +422,8 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
         state_dict_param_groups = [
             {
                 **group,
-                "params": list(inner_state_dict["param_groups"][idx]["params"]),
-            } for idx, group in enumerate(state_dict["optimizer"]["param_groups"])
+                'params': list(inner_state_dict['param_groups'][idx]['params']),
+            } for idx, group in enumerate(state_dict['optimizer']['param_groups'])
         ]
 
         # Allocate 'dummy' data for optimizer state (i.e., torch.empty() below)
@@ -430,21 +431,19 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
         state_dict_state = []
         for gbuf_range_maps in self.model_gbuf_ranges:
             for gbuf_range_map in gbuf_range_maps.values():
-                for model_param, param_range_map in \
-                    gbuf_range_map["param_map"].items():
+                for model_param, param_range_map in gbuf_range_map['param_map'].items():
 
                     # Get parameter ordering information (see method docstring
                     # for details).
                     group_index, group_order = \
                         self.model_param_group_index_map[model_param]
-                    state_order = inner_state_dict["param_groups"] \
-                        [group_index]["params"][group_order]
+                    state_order = inner_state_dict['param_groups'][group_index]['params'][group_order]
 
                     # Allocate dummy tensors.
-                    numel = len(param_range_map["gbuf_world"])
+                    numel = len(param_range_map['gbuf_world'])
                     # MS-AMP: Allocate dummy tensors for exp_avg and exp_avg_sq and cast to ScalingTensor
                     if hasattr(self.optimizer, 'exp_avg_dtype') and self.optimizer.exp_avg_dtype != torch.float32:
-                        step = state_dict['optimizer']["param_groups"][group_index]["step"]
+                        step = state_dict['optimizer']['param_groups'][group_index]['step']
                         exp_avg_qtype = Dtypes.dtype_to_qtype[self.optimizer.exp_avg_dtype]
                         exp_avg_sq_qtype = Dtypes.dtype_to_qtype[self.optimizer.exp_avg_sq_dtype]
                         exp_avg = torch.empty((numel, ), dtype=torch.float32,
@@ -453,19 +452,19 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
                                                  device=torch.cuda.current_device()).cast(exp_avg_sq_qtype)
                         state_dict_state.append(
                             (state_order, {
-                                "exp_avg": exp_avg,
-                                "exp_avg_sq": exp_avg_sq,
-                                "step": step
+                                'exp_avg': exp_avg,
+                                'exp_avg_sq': exp_avg_sq,
+                                'step': step
                             })
                         )
                     else:
-                        init_shard = lambda: torch.empty(
+                        init_shard = lambda: torch.empty(  # noqa: E731
                             (numel, ), dtype=torch.float32, device=torch.cuda.current_device()
                         )
 
                         state_dict_state.append((state_order, {
-                            "exp_avg": init_shard(),
-                            "exp_avg_sq": init_shard(),
+                            'exp_avg': init_shard(),
+                            'exp_avg_sq': init_shard(),
                         }))
 
         # Sort by state order (see method docstring for details).
@@ -474,8 +473,8 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
 
         # Optimizer.
         self.optimizer.load_state_dict({
-            "state": state_dict_state,
-            "param_groups": state_dict_param_groups,
+            'state': state_dict_state,
+            'param_groups': state_dict_param_groups,
         })
 
         # Grad scaler.
@@ -528,29 +527,26 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
                 gbuf_world_numel = model._grad_buffers[dtype].numel_padded
                 gbuf_local_numel = int(gbuf_world_numel / data_parallel_world_size)
                 local_shards = {
-                    key: torch.empty((gbuf_local_numel, ), dtype=torch.float32, device="cpu")
-                    for key in ("param", "exp_avg", "exp_avg_sq")
+                    key: torch.empty((gbuf_local_numel, ), dtype=torch.float32, device='cpu')
+                    for key in ('param', 'exp_avg', 'exp_avg_sq')
                 }
 
                 # Build contiguous DP rank shards (for param + optim states).
-                for model_param, param_range_map in \
-                    gbuf_range_map["param_map"].items():
+                for model_param, param_range_map in gbuf_range_map['param_map'].items():
 
                     # Main param & optimizer states.
-                    group_index, group_order = \
-                        self.model_param_group_index_map[model_param]
-                    main_param = self.optimizer.param_groups \
-                        [group_index]["params"][group_order]
+                    group_index, group_order = self.model_param_group_index_map[model_param]
+                    main_param = self.optimizer.param_groups[group_index]['params'][group_order]
                     optim_state = self.optimizer.state[main_param]
 
                     tensors = {
-                        "param": main_param,
+                        'param': main_param,
                         **optim_state,
                     }
 
                     # Copy states into contiguous shard.
-                    gbuf_local_start = param_range_map["gbuf_local"].start
-                    gbuf_local_end = param_range_map["gbuf_local"].end
+                    gbuf_local_start = param_range_map['gbuf_local'].start
+                    gbuf_local_end = param_range_map['gbuf_local'].end
                     for key in local_shards:
                         # MS-AMP: Convert to float32 for ScalingTensor.
                         if isinstance(tensors[key], ScalingTensor):
@@ -567,7 +563,7 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
                     # Gather tensor list.
                     if data_parallel_rank == 0:
                         recv_tensors = [
-                            torch.empty((gbuf_local_numel, ), dtype=torch.float32, device="cpu")
+                            torch.empty((gbuf_local_numel, ), dtype=torch.float32, device='cpu')
                             for _ in range(data_parallel_world_size)
                         ]
                     else:
@@ -626,8 +622,8 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
 
                 # Contiguous local shards (received from DP rank 0).
                 local_shards = {
-                    key: torch.empty((gbuf_local_numel, ), dtype=torch.float32, device="cpu")
-                    for key in ("param", "exp_avg", "exp_avg_sq")
+                    key: torch.empty((gbuf_local_numel, ), dtype=torch.float32, device='cpu')
+                    for key in ('param', 'exp_avg', 'exp_avg_sq')
                 }
 
                 # Scatter local shards from DP rank 0.
@@ -651,24 +647,22 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
                     )
 
                 # Copy local contiguous shards to param/optim shards.
-                for model_param, param_range_map in \
-                    gbuf_range_map["param_map"].items():
+                for model_param, param_range_map in gbuf_range_map['param_map'].items():
 
                     # Main param & optimizer states.
                     group_index, group_order = \
                         self.model_param_group_index_map[model_param]
-                    main_param = self.optimizer.param_groups \
-                        [group_index]["params"][group_order]
+                    main_param = self.optimizer.param_groups[group_index]['params'][group_order]
                     optim_state = self.optimizer.state[main_param]
 
                     tensors = {
-                        "param": main_param,
+                        'param': main_param,
                         **optim_state,
                     }
 
                     # Copy states into contiguous shard.
-                    gbuf_local_start = param_range_map["gbuf_local"].start
-                    gbuf_local_end = param_range_map["gbuf_local"].end
+                    gbuf_local_start = param_range_map['gbuf_local'].start
+                    gbuf_local_end = param_range_map['gbuf_local'].end
                     for key in local_shards:
                         if isinstance(tensors[key], ScalingTensor):
                             tensors[key].copy_(
