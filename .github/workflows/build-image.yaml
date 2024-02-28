@@ -19,8 +19,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    env:
-      work_dir: buildimage
     strategy:
       matrix:
         include:
@@ -33,7 +31,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           submodules: true
-          path: ${{ work_dir }}
+          path: buildimage
       - name: Free disk space
         run: |
           mkdir -p /tmp/emptydir
@@ -57,7 +55,7 @@ jobs:
           if [[ "${{ github.event_name }}" == "release" ]]; then
             TAGS=$(sed "s/main/${GITHUB_REF##*/}/g" <<< ${TAGS})
           fi
-          DOCKERFILE=${{ work_dir }}/dockerfile/${{ matrix.name }}.dockerfile
+          DOCKERFILE=buildimage/dockerfile/${{ matrix.name }}.dockerfile
 
           CACHE_FROM="type=registry,ref=$(cut -d, -f1 <<< ${TAGS})"
           CACHE_TO=""
@@ -90,7 +88,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           platforms: linux/amd64
-          context: ./${{ work_dir }}
+          context: ./buildimage
           file: ${{ steps.metadata.outputs.dockerfile }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.metadata.outputs.tags }}
