@@ -55,7 +55,7 @@ jobs:
           if [[ "${{ github.event_name }}" == "release" ]]; then
             TAGS=$(sed "s/main/${GITHUB_REF##*/}/g" <<< ${TAGS})
           fi
-          DOCKERFILE=dockerfile/${{ matrix.name }}.dockerfile
+          DOCKERFILE=buildimage/dockerfile/${{ matrix.name }}.dockerfile
 
           CACHE_FROM="type=registry,ref=$(cut -d, -f1 <<< ${TAGS})"
           CACHE_TO=""
