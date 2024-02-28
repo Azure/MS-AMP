@@ -371,11 +371,7 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
         state_dict = {}
 
         # Optimizer state (do not store parameter state here).
-        state_dict['optimizer'] = {
-            k : v
-            for k, v in self.optimizer.state_dict().items()
-            if k != "state"
-        }
+        state_dict['optimizer'] = {k: v for k, v in self.optimizer.state_dict().items() if k != "state"}
 
         for param_group in state_dict["optimizer"]["param_groups"]:
             del param_group["params"]
@@ -385,7 +381,7 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
             state_dict['grad_scaler'] = self.grad_scaler.state_dict()
 
         return state_dict
-    
+
     def load_state_dict(self, state_dict):
         """Load the state dict.
 
@@ -422,10 +418,12 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
         #   the ordering of parameters within its flattened parameter state
         #   list.
         inner_state_dict = self.optimizer.state_dict()
-        state_dict_param_groups = [{
-            **group,
-            "params" : list(inner_state_dict["param_groups"][idx]["params"]),
-        } for idx, group in enumerate(state_dict["optimizer"]["param_groups"])]
+        state_dict_param_groups = [
+            {
+                **group,
+                "params": list(inner_state_dict["param_groups"][idx]["params"]),
+            } for idx, group in enumerate(state_dict["optimizer"]["param_groups"])
+        ]
 
         # Allocate 'dummy' data for optimizer state (i.e., torch.empty() below)
         # - Real data is overwritten during load_parameter_state().
@@ -449,32 +447,35 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
                         step = state_dict['optimizer']["param_groups"][group_index]["step"]
                         exp_avg_qtype = Dtypes.dtype_to_qtype[self.optimizer.exp_avg_dtype]
                         exp_avg_sq_qtype = Dtypes.dtype_to_qtype[self.optimizer.exp_avg_sq_dtype]
-                        exp_avg = torch.empty((numel, ), dtype=torch.float32, device=torch.cuda.current_device()).cast(exp_avg_qtype)
-                        exp_avg_sq = torch.empty((numel, ), dtype=torch.float32, device=torch.cuda.current_device()).cast(exp_avg_sq_qtype)
-                        state_dict_state.append((state_order, {
-                                "exp_avg" : exp_avg,
-                                "exp_avg_sq" : exp_avg_sq,
+                        exp_avg = torch.empty((numel, ), dtype=torch.float32,
+                                              device=torch.cuda.current_device()).cast(exp_avg_qtype)
+                        exp_avg_sq = torch.empty((numel, ), dtype=torch.float32,
+                                                 device=torch.cuda.current_device()).cast(exp_avg_sq_qtype)
+                        state_dict_state.append(
+                            (state_order, {
+                                "exp_avg": exp_avg,
+                                "exp_avg_sq": exp_avg_sq,
                                 "step": step
-                        }))
+                            })
+                        )
                     else:
-                        init_shard = lambda : torch.empty(
-                            (numel,),
-                            dtype=torch.float32,
-                            device=torch.cuda.current_device())
+                        init_shard = lambda: torch.empty(
+                            (numel, ), dtype=torch.float32, device=torch.cuda.current_device()
+                        )
 
                         state_dict_state.append((state_order, {
-                            "exp_avg" : init_shard(),
-                            "exp_avg_sq" : init_shard(),
+                            "exp_avg": init_shard(),
+                            "exp_avg_sq": init_shard(),
                         }))
 
         # Sort by state order (see method docstring for details).
-        state_dict_state.sort(key = lambda s : s[0])
-        state_dict_state = {s[0]:s[1] for s in state_dict_state}
+        state_dict_state.sort(key=lambda s: s[0])
+        state_dict_state = {s[0]: s[1] for s in state_dict_state}
 
         # Optimizer.
         self.optimizer.load_state_dict({
-            "state" : state_dict_state,
-            "param_groups" : state_dict_param_groups,
+            "state": state_dict_state,
+            "param_groups": state_dict_param_groups,
         })
 
         # Grad scaler.
@@ -486,9 +487,11 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
             if self.grad_scaler:
                 self.grad_scaler.load_state_dict(state_dict['grad_scaler'])
             else:
-                print_rank_0('***WARNING*** fould the grad scaler in the '
-                             'checkpoint but it is None in the class. '
-                             'Skipping loading grad scaler ...')
+                print_rank_0(
+                    '***WARNING*** fould the grad scaler in the '
+                    'checkpoint but it is None in the class. '
+                    'Skipping loading grad scaler ...'
+                )
 
     def save_parameter_state(self, filename):
         """Save parameter state (i.e., parameter & optimizer tensors).
@@ -514,20 +517,20 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
 
             # Iterate grad buffers (by data type).
             dtype_state = {}
-            
+
             # MS-AMP: We use FP8 + FP32 now, so we don't need this assert.
             # assert len(gbuf_range_maps) == 1, "single dtype supported, for now."
-            
+
             for dtype, gbuf_range_map in gbuf_range_maps.items():
 
                 # Compute local DP contiguous shard's size.
                 model = self.models[model_idx]
                 gbuf_world_numel = model._grad_buffers[dtype].numel_padded
-                gbuf_local_numel = int(gbuf_world_numel/data_parallel_world_size)
-                local_shards = {key:torch.empty((gbuf_local_numel,),
-                                             dtype=torch.float32,
-                                             device="cpu")
-                             for key in ("param", "exp_avg", "exp_avg_sq")}
+                gbuf_local_numel = int(gbuf_world_numel / data_parallel_world_size)
+                local_shards = {
+                    key: torch.empty((gbuf_local_numel, ), dtype=torch.float32, device="cpu")
+                    for key in ("param", "exp_avg", "exp_avg_sq")
+                }
 
                 # Build contiguous DP rank shards (for param + optim states).
                 for model_param, param_range_map in \
@@ -541,7 +544,7 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
                     optim_state = self.optimizer.state[main_param]
 
                     tensors = {
-                        "param" : main_param,
+                        "param": main_param,
                         **optim_state,
                     }
 
@@ -563,10 +566,10 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
 
                     # Gather tensor list.
                     if data_parallel_rank == 0:
-                        recv_tensors = [torch.empty((gbuf_local_numel,),
-                                                    dtype=torch.float32,
-                                                    device="cpu")
-                                        for _ in range(data_parallel_world_size)]
+                        recv_tensors = [
+                            torch.empty((gbuf_local_numel, ), dtype=torch.float32, device="cpu")
+                            for _ in range(data_parallel_world_size)
+                        ]
                     else:
                         recv_tensors = None
 
@@ -619,13 +622,13 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
                 # Compute local DP contiguous shard's size.
                 model = self.models[model_idx]
                 gbuf_world_numel = model._grad_buffers[dtype].numel_padded
-                gbuf_local_numel = int(gbuf_world_numel/data_parallel_world_size)
+                gbuf_local_numel = int(gbuf_world_numel / data_parallel_world_size)
 
                 # Contiguous local shards (received from DP rank 0).
-                local_shards = {key:torch.empty((gbuf_local_numel,),
-                                                dtype=torch.float32,
-                                                device="cpu")
-                                for key in ("param", "exp_avg", "exp_avg_sq")}
+                local_shards = {
+                    key: torch.empty((gbuf_local_numel, ), dtype=torch.float32, device="cpu")
+                    for key in ("param", "exp_avg", "exp_avg_sq")
+                }
 
                 # Scatter local shards from DP rank 0.
                 for key, recv_tensor in local_shards.items():
@@ -635,8 +638,7 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
                         world_tensor = loaded_state[model_idx][dtype][key]
                         gbuf_start_idxs = \
                             list(range(0, gbuf_world_numel, gbuf_local_numel))
-                        send_tensors = [world_tensor[i:(i+gbuf_local_numel)]
-                                        for i in gbuf_start_idxs]
+                        send_tensors = [world_tensor[i:(i + gbuf_local_numel)] for i in gbuf_start_idxs]
                     else:
                         send_tensors = None
 
@@ -660,7 +662,7 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
                     optim_state = self.optimizer.state[main_param]
 
                     tensors = {
-                        "param" : main_param,
+                        "param": main_param,
                         **optim_state,
                     }
 
@@ -669,10 +671,13 @@ class FP8DistributedOptimizer(MixedPrecisionOptimizer):
                     gbuf_local_end = param_range_map["gbuf_local"].end
                     for key in local_shards:
                         if isinstance(tensors[key], ScalingTensor):
-                            tensors[key].copy_(local_shards[key][gbuf_local_start:gbuf_local_end].view_as(tensors[key].value).cuda().cast(tensors[key].meta.qtype))
+                            tensors[key].copy_(
+                                local_shards[key][gbuf_local_start:gbuf_local_end].view_as(
+                                    tensors[key].value
+                                ).cuda().cast(tensors[key].meta.qtype)
+                            )
                         else:
-                            tensors[key].data.copy_(
-                                local_shards[key][gbuf_local_start:gbuf_local_end])
+                            tensors[key].data.copy_(local_shards[key][gbuf_local_start:gbuf_local_end])
 
     def zero_grad(self, set_to_none=True):
         """Zero grads.
