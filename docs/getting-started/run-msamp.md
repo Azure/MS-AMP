@@ -52,4 +52,8 @@ deepspeed cifar10_deepspeed.py --deepspeed --deepspeed_config ds_config_zero_msa
 deepspeed cifar10_deepspeed_te.py --deepspeed --deepspeed_config ds_config_zero_te_msamp.json
 ```
 
+:::note Note
+If you get "ModuleNotFoundError: No module named 'timm'" error when running this example, you need to install timm using `pip install timm`.
+:::
+
 For more comprehensive examples, please go to [MS-AMP-Examples](https://github.com/Azure/MS-AMP-Examples).
