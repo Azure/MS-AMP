@@ -3,13 +3,14 @@
 
 """MS-AMP te.extension module."""
 
+from typing import Optional, Union
+
 import torch
 import transformer_engine.pytorch as te
 import transformer_engine_extensions as tex
 
 from msamp.common.dtype import Dtypes
 from msamp.common.tensor import ScalingTensor
-
 
 class TeExtensionOverrider:
     """An Overrider to override some extension functions in transformer engine."""
@@ -24,6 +25,7 @@ class TeExtensionOverrider:
     original_fused_cast_transpose = tex.fused_cast_transpose
     original_cast_to_fp8 = te.cpp_extensions.cast_to_fp8
     original_fp8_cast_transpose_fused = te.cpp_extensions.fp8_cast_transpose_fused
+    orignial_fp8_gemm = te.cpp_extensions.fp8_gemm
 
     @staticmethod
     @torch.no_grad()
@@ -120,12 +122,57 @@ class TeExtensionOverrider:
         return TeExtensionOverrider.original_cast_to_fp8(inp, fp8_meta_tensor, fp8_tensor, otype, out)
 
     @staticmethod
+    def fp8_gemm(
+        A: torch.Tensor,
+        A_scale_inv: torch.Tensor,
+        A_fp8_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors],
+        A_dtype: tex.DType,
+        B: torch.Tensor,
+        B_scale_inv: torch.Tensor,
+        B_fp8_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors],
+        B_dtype: tex.DType,
+        out_dtype: torch.dtype,
+        workspace: torch.Tensor,
+        gelu: bool = False,
+        accumulate: bool = False,
+        out: Optional[torch.Tensor] = None,
+        out_index = None,
+        fp8_meta_tensor: tex.FP8TensorMeta = None,
+        bias: Optional[torch.Tensor] = None,
+        use_bias: bool = False,
+        use_split_accumulator: bool = False,
+        D_dtype: Optional[tex.DType] = None,
+        ub_algo: tex.UbufOverlapAlgo = None,
+        ub: Union[tex.UbufCommOverlap, tex.UbufP2PCommOverlap] = None,
+        extra_output_tensor: torch.Tensor = None,
+    ) -> torch.Tensor:
+        if isinstance(out, ScalingTensor):
+            out_tensor = out.to(out_dtype)
+            result = TeExtensionOverrider.orignial_fp8_gemm(A, A_scale_inv, A_fp8_tensor, A_dtype, 
+                                                            B, B_scale_inv, B_fp8_tensor, B_dtype,
+                                                            out_dtype, workspace, gelu, accumulate, out_tensor, out_index,
+                                                            fp8_meta_tensor, bias, use_bias, use_split_accumulator,
+                                                            D_dtype, ub_algo, ub, extra_output_tensor)
+            out.data = out_tensor.cast(out.meta.qtype)
+            return result
+
+        return TeExtensionOverrider.orignial_fp8_gemm(A, A_scale_inv, A_fp8_tensor, A_dtype, 
+                                               B, B_scale_inv, B_fp8_tensor, B_dtype,
+                                               out_dtype, workspace, gelu, accumulate, out, out_index,
+                                               fp8_meta_tensor, bias, use_bias, use_split_accumulator,
+                                               D_dtype, ub_algo, ub, extra_output_tensor)
+    @staticmethod
     def override():
         """Override transformer engine extension functions."""
         tex.fused_cast_transpose = TeExtensionOverrider.fused_cast_transpose
         te.cpp_extensions.cast_to_fp8 = TeExtensionOverrider.cast_to_fp8
         te.module.linear.cast_to_fp8 = TeExtensionOverrider.cast_to_fp8
         te.cpp_extensions.fp8_cast_transpose_fused = TeExtensionOverrider.fp8_cast_transpose_fused
+        
+        te.cpp_extensions.fp8_gemm = TeExtensionOverrider.fp8_gemm
+        te.module.linear.fp8_gemm = TeExtensionOverrider.fp8_gemm
+        te.module.layernorm_linear.fp8_gemm = TeExtensionOverrider.fp8_gemm
+        te.module.layernorm_mlp.fp8_gemm = TeExtensionOverrider.fp8_gemm
 
 
 TeExtensionOverrider.override()

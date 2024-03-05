@@ -263,7 +263,8 @@ class TeModuleOverrider:
                 for i, v in ctx.scaling_tensors:
                     if not v.requires_grad:
                         continue
-                    assert grads[i] is not None
+                    if grads[i] is None:
+                        continue
                     if v.grad is None:
                         v.grad = grads[i]
                     elif torch.is_tensor(v.grad):
