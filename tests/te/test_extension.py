@@ -28,36 +28,6 @@ class TeExtensionOverriderTestCase(unittest.TestCase):
         pass
 
     @decorator.cuda_test
-    def test_fused_cast_transpose(self):
-        """Test fused_cast_transpose."""
-        # cast with torch.tensor
-        input = torch.randn(self.size, device=self.device)
-        meta = ScalingMeta(Dtypes.kfloat8_e4m3)
-        meta.amax[0] = input.abs().max()
-        meta.reset_scaling_factor()
-
-        input_cast_1 = torch.empty(self.size, device=self.device, dtype=torch.uint8)
-        transpose_cast_1 = torch.empty(self.size, device=self.device, dtype=torch.uint8)
-
-        tex.fused_cast_transpose(
-            input, meta.scale, meta.amax, meta.scale_inv, input_cast_1, transpose_cast_1, tex.DType.kFloat8E4M3
-        )
-        assert torch.equal(input_cast_1.t(), transpose_cast_1)
-
-        # cast with ScalingTensor
-        scaling_input = input.cast(Dtypes.kfloat32)
-        input_cast_2 = torch.empty(self.size, device=self.device, dtype=torch.uint8)
-        transpose_cast_2 = torch.empty(self.size, device=self.device, dtype=torch.uint8)
-        scale_inv = torch.ones((), device=self.device)
-
-        tex.fused_cast_transpose(
-            scaling_input, None, None, scale_inv, input_cast_2, transpose_cast_2, tex.DType.kFloat8E4M3
-        )
-        assert torch.equal(input_cast_2.t(), transpose_cast_2)
-
-        assert torch.equal(input_cast_1, input_cast_2)
-
-    @decorator.cuda_test
     def test_cast_to_fp8(self):
         """Test cast_to_fp8."""
         # cast with torch.tensor

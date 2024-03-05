@@ -22,44 +22,9 @@ class TeExtensionOverrider:
         tex.DType.kFloat32: Dtypes.kfloat32,
     }
 
-    original_fused_cast_transpose = tex.fused_cast_transpose
     original_cast_to_fp8 = te.cpp_extensions.cast_to_fp8
     original_fp8_cast_transpose_fused = te.cpp_extensions.fp8_cast_transpose_fused
     original_cast_if_needed = te.utils.cast_if_needed
-
-    @staticmethod
-    @torch.no_grad()
-    def fused_cast_transpose(input, scale, amax, scale_inv, input_cast, input_transpose, otype):
-        """Fused cast and transpose, support ScalingTensor.
-
-        Args:
-            input (torch.Tensor or ScalingTensor): Input tensor.
-            scale (torch.Tensor): Scale tensor.
-            amax (torch.Tensor): Amax tensor.
-            scale_inv (torch.Tensor): Scale inverse tensor.
-            input_cast (torch.Tensor): Casted input tensor.
-            input_transpose (torch.Tensor): Transposed input tensor.
-            otype (tex.DType): Output type.
-        """
-        if isinstance(input, ScalingTensor):
-            qtype = TeExtensionOverrider.dtype_map[otype]
-            if input_transpose is not None:
-                sv = input.cast(qtype)
-                # data should be contiguous, and TE does not check it.
-                st = sv.t().contiguous()
-                v, t = sv.value, st.value
-                input_transpose.data = t
-            else:
-                sv = input.cast(qtype)
-                v = sv.value
-
-            if input_cast is not None:
-                input_cast.data = v
-            scale_inv.copy_(sv.meta.scale_inv)
-        else:
-            TeExtensionOverrider.original_fused_cast_transpose(
-                input, scale, amax, scale_inv, input_cast, input_transpose, otype
-            )
 
     @staticmethod
     @torch.no_grad()
@@ -142,10 +107,10 @@ class TeExtensionOverrider:
     @staticmethod
     def override():
         """Override transformer engine extension functions."""
-        tex.fused_cast_transpose = TeExtensionOverrider.fused_cast_transpose
         te.cpp_extensions.cast_to_fp8 = TeExtensionOverrider.cast_to_fp8
         te.module.linear.cast_to_fp8 = TeExtensionOverrider.cast_to_fp8
         te.cpp_extensions.fp8_cast_transpose_fused = TeExtensionOverrider.fp8_cast_transpose_fused
+        te.module.linear.fp8_cast_transpose_fused = TeExtensionOverrider.fp8_cast_transpose_fused
 
         te.module.layernorm_linear.cast_if_needed = TeExtensionOverrider.cast_if_needed
         te.module.linear.cast_if_needed = TeExtensionOverrider.cast_if_needed
