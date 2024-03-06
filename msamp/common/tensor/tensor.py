@@ -16,7 +16,7 @@ from msamp.common.utils import TransformerEngineWrapper
 should_pretend_to_be_tt = False
 @contextmanager
 def pretend_scaling_is_torch():
-    global lol
+    global should_pretend_to_be_tt
     should_pretend_to_be_tt = True
     yield
     should_pretend_to_be_tt = False

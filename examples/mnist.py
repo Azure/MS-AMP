@@ -70,7 +70,7 @@ def train(args, model, device, train_loader, optimizer, epoch):
             output = model(data)
         loss = F.nll_loss(output, target)
         scaler.scale(loss).backward()
-        scaler.step(optimizer)
+        with msamp.common.tensor.tensor.pretend_scaling_is_torch(): scaler.step(optimizer)
         scaler.update()
         if batch_idx % args.log_interval == 0:
             print(
