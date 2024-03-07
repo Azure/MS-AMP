@@ -36,10 +36,6 @@ void enable_fp8_e5m2() {
   gFP8Mode = kFp8E5M2;
 }
 
-void f() {
-
-}
-
 /**
  * It will override the ncclAllReduce function in nccl library if this library is set to LD_PRELOAD.
 */

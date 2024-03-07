@@ -218,11 +218,15 @@ __global__ void add_to_fp8_kernel(InputType *input,
 
       InputType temp = static_cast<InputType>(val2 * s);
 
-      if constexpr (is_half<InputType>::value) {
+      #ifndef __HIP_PLATFORM_AMD__
+        if constexpr (is_half<InputType>::value) {
           temp = static_cast<ComputeType>(__hadd(temp, val1));
-      } else {
-          temp += val1;
-      }
+        } else {
+            temp += val1;
+        }
+      #else
+        temp += val1;
+      #endif
 
       if constexpr (is_fp8<OutputType>::value) {
         __builtin_assume(max >= 0);
@@ -277,12 +281,15 @@ __global__ void add_to_fp8_kernel(InputType *input,
       const ComputeType val2 = static_cast<ComputeType>(output_storer.separate()[i]);
     
       InputType temp1 = static_cast<InputType>(val2 * s);
-      
-      if constexpr (is_half<InputType>::value) {
-          temp1 = static_cast<ComputeType>(__hadd(temp1, val1));
-      } else {
-          temp1 += val1;
-      }
+      #ifndef __HIP_PLATFORM_AMD__
+        if constexpr (is_half<InputType>::value) {
+            temp1 = static_cast<ComputeType>(__hadd(temp1, val1));
+        } else {
+            temp1 += val1;
+        }
+      #else
+        temp1 += val1;
+      #endif
       ComputeType temp2 = sf * static_cast<ComputeType>(temp1);
       output_storer.separate()[i] = static_cast<OutputType>(temp2);
     }

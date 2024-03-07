@@ -38,10 +38,6 @@ classifiers=[
 ]
 dependencies = [
     "torch",
-<<<<<<< HEAD
-    "transformer-engine@git+https://github.com/NVIDIA/TransformerEngine.git@v1.1",
-=======
->>>>>>> add optional dependencies in pyproject.toml
     "colorlog>=6.7.0",
     "deepspeed==0.13.1",
     "mpi4py",
