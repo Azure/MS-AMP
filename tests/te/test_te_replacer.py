@@ -9,11 +9,12 @@ from contextlib import nullcontext
 
 import torch
 import torch.distributed as dist
-from torch.testing._internal.common_distributed import MultiProcessTestCase, skip_if_lt_x_gpu, requires_nccl
+from torch.testing._internal.common_distributed import MultiProcessTestCase, skip_if_lt_x_gpu, requires_nccl, skip_if_rocm
 import transformer_engine.pytorch as te
 from transformer_engine.common.recipe import Format, DelayedScaling
 
 from tests.helper import decorator
+from msamp.common.utils import Device, GPUType
 from msamp import deepspeed
 from msamp.nn import ScalingParameter
 from msamp.optim import LBAdamW
@@ -136,6 +137,9 @@ class TeReplacerDistributedTestCast(MultiProcessTestCase):
     @decorator.cuda_test
     def test_fp8_ddp_with_te(self):
         """Test FP8DistributedDataParallel with TransformerEngine."""
+        if Device.get_gpu_type() == GPUType.AMD:
+            # This UT is time out when running on MI300x and we have reported to AMD.
+            return
         hidden_size = 4096
         ffn_hidden_size = 16384
         num_attention_heads = 32
