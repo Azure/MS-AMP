@@ -29,10 +29,10 @@ else()
 endif()
 
 find_path(RCCL_INCLUDE_DIR NAMES rccl.h
-        PATHS ${ROCM_PATH}/include/rccl)
+        PATHS ${ROCM_PATH}/include/rccl /usr/local/include/rccl)
 
 find_library(RCCL_LIBRARY NAMES rccl
-        PATHS ${ROCM_PATH}/lib)
+        PATHS ${ROCM_PATH}/lib /usr/local/lib)
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(RCCL DEFAULT_MSG RCCL_INCLUDE_DIR RCCL_LIBRARY)

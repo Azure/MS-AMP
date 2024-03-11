@@ -8,9 +8,6 @@
 #include <hip/hip_runtime.h>
 #include <rccl.h>
 #define stream_t hipStream_t
-// TODO: Remove ncclFp8E4M3 and ncclFp8E5M2 after rccl supports FP8
-#define ncclFp8E4M3 ncclUint8
-#define ncclFp8E5M2 ncclInt8
 #else
 #include <nccl.h>
 #define stream_t cudaStream_t
