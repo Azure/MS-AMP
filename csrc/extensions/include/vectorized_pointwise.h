@@ -6,12 +6,10 @@
 #define MSAMP_VECTORIZED_POINTWISE_H
 
 #include <torch/extension.h>
-#include <cuda_bf16.h>
-#include <cuda_fp16.h>
 
-#include "../../common/include/common.h"
-#include "../../common/include/utils.cuh"
-#include "../../common/include/concurrency.h"
+#include "common.h"
+#include "utils.cuh"
+#include "concurrency.h"
 
 namespace msamp {
 /* \brief Helper class that enables storing multiple values of type DType
@@ -20,7 +18,7 @@ namespace msamp {
 template <typename DType, int n>
 class VectorizedStorage {
  public:
-  using LType = typename transformer_engine::BytesToType<sizeof(DType) * n>::Type;
+  using LType = typename BytesToType<sizeof(DType) * n>::Type;
   constexpr static int nvec = n;
   union vectorized_storage {
     LType aligned;
@@ -133,15 +131,6 @@ class VectorizedAccessor {
   }
 };
 
-/* \brief Class used for vectorized read-only access. */
-template <typename DType, int nvec, bool aligned = false>
-class VectorizedLoader : public VectorizedAccessor<const DType, nvec, aligned> {
- public:
-  inline __device__ VectorizedLoader(const DType* ptr, const size_t N) :
-    VectorizedAccessor<const DType, nvec, aligned>(ptr, N) {
-  }
-};
-
 /* \brief Class used for vectorized writable access. */
 template <typename DType, int nvec, bool aligned = false>
 class VectorizedStorer : public VectorizedAccessor<DType, nvec, aligned> {
@@ -176,7 +165,13 @@ class VectorizedStorer : public VectorizedAccessor<DType, nvec, aligned> {
 
 
 constexpr int unary_kernel_threads = 512;
+
+#ifndef __HIP_PLATFORM_AMD__
 constexpr float e4m3_max = 448.0;
+#else
+constexpr float e4m3_max = 240.0;
+#endif
+
 constexpr float e5m2_max = 57344.0;
 
 extern __device__ msamp::DeviceSyncer device_syncer;
@@ -223,11 +218,15 @@ __global__ void add_to_fp8_kernel(InputType *input,
 
       InputType temp = static_cast<InputType>(val2 * s);
 
-      if constexpr (is_half<InputType>::value) {
+      #ifndef __HIP_PLATFORM_AMD__
+        if constexpr (is_half<InputType>::value) {
           temp = static_cast<ComputeType>(__hadd(temp, val1));
-      } else {
-          temp += val1;
-      }
+        } else {
+            temp += val1;
+        }
+      #else
+        temp += val1;
+      #endif
 
       if constexpr (is_fp8<OutputType>::value) {
         __builtin_assume(max >= 0);
@@ -238,11 +237,11 @@ __global__ void add_to_fp8_kernel(InputType *input,
 
   if constexpr (is_fp8<OutputType>::value) {
     /* warp tile amax reduce*/
-    max =  transformer_engine::reduce_max<unary_kernel_threads / THREADS_PER_WARP>(max, warp_id);
+    max =  reduce_max<unary_kernel_threads / THREADS_PER_WARP>(max, warp_id);
 
     if (threadIdx.x == 0 && amax != nullptr) {
         static_assert(std::is_same<ComputeType, float>::value);
-        transformer_engine::atomicMaxFloat(amax, max);
+        atomicMaxFloat(amax, max);
     }
   }
 
@@ -282,12 +281,15 @@ __global__ void add_to_fp8_kernel(InputType *input,
       const ComputeType val2 = static_cast<ComputeType>(output_storer.separate()[i]);
     
       InputType temp1 = static_cast<InputType>(val2 * s);
-      
-      if constexpr (is_half<InputType>::value) {
-          temp1 = static_cast<ComputeType>(__hadd(temp1, val1));
-      } else {
-          temp1 += val1;
-      }
+      #ifndef __HIP_PLATFORM_AMD__
+        if constexpr (is_half<InputType>::value) {
+            temp1 = static_cast<ComputeType>(__hadd(temp1, val1));
+        } else {
+            temp1 += val1;
+        }
+      #else
+        temp1 += val1;
+      #endif
       ComputeType temp2 = sf * static_cast<ComputeType>(temp1);
       output_storer.separate()[i] = static_cast<OutputType>(temp2);
     }

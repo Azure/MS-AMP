@@ -24,6 +24,5 @@ find_package_handle_standard_args(NCCL DEFAULT_MSG NCCL_INCLUDE_DIR NCCL_LIBRARY
 if (NCCL_FOUND)
     message(STATUS "Found NCCL (include: ${NCCL_INCLUDE_DIR}, library: ${NCCL_LIBRARY})")
     mark_as_advanced(NCCL_INCLUDE_DIR NCCL_LIBRARY)
-    set(NCCL_VERSION "${NCCL_MAJOR}.${NCCL_MINOR}.${NCCL_PATCH}")
 
 endif ()

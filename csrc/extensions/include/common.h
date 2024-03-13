@@ -4,13 +4,18 @@
 #ifndef MSAMP_COMMON_H_
 #define MSAMP_COMMON_H_
 
-#include <cublasLt.h>
-#include <cublas_v2.h>
+#ifndef __HIP_PLATFORM_AMD__
 #include <cuda_bf16.h>
 #include <cuda_fp16.h>
 #include <cuda_fp8.h>
-#include <torch/extension.h>
+#else
+#include <hip/hip_runtime.h>
+#include <hip/hip_fp16.h>
+#include <hip/hip_bfloat16.h>
+#include "hip_float8.h"
+#endif
 
+#include <torch/extension.h>
 #include <string>
 
 using namespace std;
@@ -19,9 +24,17 @@ using byte = uint8_t;
 using int32 = int32_t;
 using fp32 = float;
 using fp16 = half;
+
+#ifndef __HIP_PLATFORM_AMD__
 using bf16 = nv_bfloat16;
 using fp8e4m3 = __nv_fp8_e4m3;
 using fp8e5m2 = __nv_fp8_e5m2;
+
+#else
+using bf16 = hip_bfloat16;
+using fp8e4m3 = hip_f8<hip_f8_type::fp8>;
+using fp8e5m2 = hip_f8<hip_f8_type::bf8>;
+#endif
 
 template <typename T>
 constexpr T DIVUP(const T &x, const T &y) {
@@ -97,16 +110,6 @@ inline int HIP_GET_BLOCKS(const int n, const int num_threads) {
 }
 
 #define CUDA_KERNEL_LOOP(i, n) for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < (n); i += blockDim.x * gridDim.x)
-
-template <typename T, typename S> __host__ __device__ T cast_dtype(const S value) { return T(value); }
-
-template <> __host__ __device__ fp16 cast_dtype(const float value) { return __float2half(value); }
-
-template <> __host__ __device__ bf16 cast_dtype(const float value) { return __float2bfloat16(value); }
-
-template <> __host__ __device__ float cast_dtype(const fp16 value) { return __half2float(value); }
-
-template <> __host__ __device__ float cast_dtype(const bf16 value) { return __bfloat162float(value); }
 
 template <typename T>
 struct is_fp8 : std::false_type {};

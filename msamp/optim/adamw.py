@@ -13,7 +13,7 @@ import torch.distributed as dist
 from msamp.optim import LBAdamWBase
 from msamp.common.tensor import ScalingMeta, ScalingTensor
 from msamp.common.dtype import Floating, Dtypes
-import msamp_adamw
+import msamp_extension
 
 
 class LBAdamW(LBAdamWBase):
@@ -165,7 +165,7 @@ class LBAdamW(LBAdamWBase):
                 assert param.is_contiguous()
                 assert grad.is_contiguous()
 
-                msamp_adamw.adamw_fp8_stage1_compute(
+                msamp_extension.adamw_fp8_stage1_compute(
                     param, grad, exp_avgs[i].value, _exp_avg_inv_factors[i], _exp_avg_amaxs[i], beta1,
                     exp_avg_sqs[i].value, _exp_avg_sq_inv_factors[i], _exp_avg_sq_amaxs[i], beta2, eps, state_steps[i],
                     lr, self.bias_correction
@@ -192,7 +192,7 @@ class LBAdamW(LBAdamWBase):
                 )
                 exp_avg_sqs[i].meta.scale_inv.fill_(1.0 / exp_avg_sqs[i].meta.scale)
                 # update state
-                msamp_adamw.adamw_fp8_stage2_compute(
+                msamp_extension.adamw_fp8_stage2_compute(
                     grad, exp_avgs[i].value, _exp_avg_inv_factors[i], exp_avgs[i].meta.scale, beta1,
                     exp_avg_sqs[i].value, _exp_avg_sq_inv_factors[i], exp_avg_sqs[i].meta.scale, beta2, state_steps[i],
                     self.bias_correction

@@ -5,7 +5,7 @@
 
 import torch
 
-import msamp_arithmetic
+import msamp_extension
 from msamp.common.dtype import Dtypes
 
 
@@ -32,4 +32,4 @@ class Arithmetic:
 
         is_e4m3 = meta.qtype == Dtypes.kfloat8_e4m3
 
-        msamp_arithmetic.add_to_fp8(fp8_tensor, meta.scale, meta.scale_inv, meta.amax[0], other, is_e4m3)
+        msamp_extension.add_to_fp8(fp8_tensor, meta.scale, meta.scale_inv, meta.amax[0], other, is_e4m3)

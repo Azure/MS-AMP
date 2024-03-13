@@ -6,7 +6,7 @@
 import torch
 import transformer_engine.pytorch as te
 import transformer_engine_extensions as tex
-from transformer_engine.pytorch.float8_tensor import Float8Tensor
+
 from transformer_engine.pytorch.module.base import TransformerEngineBaseModule
 
 from msamp.common.tensor import ScalingTensor
@@ -16,6 +16,11 @@ from msamp.nn import ScalingModule
 if not hasattr(torch.Tensor, 'untyped_storage'):
     torch.Tensor.untyped_storage = lambda self: self.data.storage().untyped()
 
+has_float8_tensor = True
+try:
+    from transformer_engine.pytorch.float8_tensor import Float8Tensor
+except ImportError:
+    has_float8_tensor = False
 
 def set_activation_dtype(self, inp):
     """Set activation data type for AMP.
@@ -62,35 +67,57 @@ class MSAMPTransformerEngineBaseModule:
                 weight_cast_attr = f'weight{i}_fp8'
                 weight_transpose_attr = f'weight{i}_t_fp8'
 
-                if (hasattr(self, weight_cast_attr) and getattr(self, weight_cast_attr)._data.shape == shape):
-                    return
+                if hasattr(self, weight_cast_attr):
+                    weight_cast = getattr(self, weight_cast_attr)
+                    weight_shape = weight_cast._data.shape if hasattr(weight_cast, '_data') else weight_cast.shape
+                    if weight_shape == shape:
+                        return
 
-                setattr(
-                    self, weight_cast_attr,
-                    Float8Tensor(
-                        data=torch.empty(
+                if has_float8_tensor:
+                    setattr(
+                        self, weight_cast_attr,
+                        Float8Tensor(
+                            data=torch.empty(
+                                (0, 0),
+                                device=torch.cuda.current_device(),
+                                dtype=torch.uint8,
+                            ),
+                            fp8_dtype=tex.DType.kFloat8E4M3,
+                            fp8_scale_inv=1,
+                        )
+                    )
+
+                    setattr(
+                        self, weight_transpose_attr,
+                        Float8Tensor(
+                            data=torch.empty(
+                                (0, 0),
+                                device=torch.cuda.current_device(),
+                                dtype=torch.uint8,
+                            ),
+                            fp8_dtype=tex.DType.kFloat8E4M3,
+                            fp8_scale_inv=1,
+                        )
+                    )
+                else:
+                    setattr(
+                        self,
+                        weight_cast_attr,
+                        torch.empty(
                             (0, 0),
                             device=torch.cuda.current_device(),
                             dtype=torch.uint8,
                         ),
-                        fp8_dtype=tex.DType.kFloat8E4M3,
-                        fp8_scale_inv=1,
                     )
-                )
-
-                setattr(
-                    self, weight_transpose_attr,
-                    Float8Tensor(
-                        data=torch.empty(
+                    setattr(
+                        self,
+                        weight_transpose_attr,
+                        torch.empty(
                             (0, 0),
                             device=torch.cuda.current_device(),
                             dtype=torch.uint8,
                         ),
-                        fp8_dtype=tex.DType.kFloat8E4M3,
-                        fp8_scale_inv=1,
                     )
-                )
-
     @property
     def is_msamp_module(self):
         """Whether this module is MS-AMP module."""

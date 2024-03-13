@@ -6,6 +6,7 @@
 import torch
 import unittest
 
+from msamp.common.utils import Device, GPUType
 from msamp.common.dtype import Dtypes
 from msamp.common.dtype import Floating
 from msamp.common.tensor import ScalingMeta
@@ -29,13 +30,15 @@ class ScalingMetaTestCase(unittest.TestCase):
         amax = torch.tensor(10, device='cuda')
         scale = torch.ones((), device='cuda')
         scale.copy_(ScalingMeta.compute_scaling_factor(amax, scale, fp_max, margin))
-        assert scale.item() == 32
+        expected_scale = 32 if Device.get_gpu_type() == GPUType.NVIDIA else 16
+        assert scale.item() == expected_scale
 
         # 1/(2^abs(floor(log2(448.0/10000))))
         amax = torch.tensor(10000, device='cuda')
         scale = torch.ones((), device='cuda')
         scale.copy_(ScalingMeta.compute_scaling_factor(amax, scale, fp_max, margin))
-        assert scale.item() == 1.0 / 32
+        expected_scale = 1.0 / 32 if Device.get_gpu_type() == GPUType.NVIDIA else 1.0 / 64
+        assert scale.item() == expected_scale
 
     def test_iswarmup_intime(self):
         """Test is_warmup and is_in_time_scaling i ScalingMeta."""

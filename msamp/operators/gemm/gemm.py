@@ -5,6 +5,7 @@
 
 import torch
 import torch.nn.functional as F
+import transformer_engine.pytorch as te
 
 from msamp.common.dtype import Dtypes
 from msamp.common.utils import Device
@@ -118,7 +119,8 @@ class Gemm:
         bias = (bias if bias is not None else cls._empty_tensor)
 
         # here out is padded, and src_out is the original one.
-        if Device.is_fp8_supported():
+        is_fp8_avaiable, _ = te.fp8.check_fp8_support()
+        if is_fp8_avaiable:
             tew.te_gemm(
                 mat_a.value,
                 a_meta.scale_inv,
