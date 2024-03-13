@@ -2,3 +2,7 @@
 	path = third_party/msccl
 	url = https://github.com/Azure/msccl-executor-nccl
 	branch = msccl-v2.17
+[submodule "third_party/rccl"]
+	path = third_party/rccl
+	url = https://github.com/ROCm/rccl.git
+	branch = develop
