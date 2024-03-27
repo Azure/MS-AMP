@@ -11,9 +11,7 @@ from deepspeed.runtime.engine import SparseTensor, ZERO_OPTIMIZATION, AMP, amp, 
                                      FP16, BFLOAT16, logger, DeepSpeedEngine, instrument_w_nvtx, log_dist, \
                                      see_memory_usage, DummyOptim, DeepSpeedZeroOptimizer, DeepSpeedZeRoOffload, \
                                      PipelineModule, ZeroStageEnum
-from deepspeed.utils.timer import NoopTimer
 from deepspeed.moe.utils import is_moe_param
-from deepspeed.accelerator import get_accelerator
 
 from msamp import initialize as msamp_initialize
 from msamp.common.dtype import Dtypes
@@ -34,25 +32,21 @@ def split_half_float_double_sparse(tensors):
     Returns:
         list: list of buckets, each bucket is a tuple of (dtype, list of tensors).
     """
-    supported_types = get_accelerator().supported_dtypes() + [torch.int8, torch.uint8]
+    supported_types = [
+        'torch.cuda.HalfTensor', 'torch.cuda.FloatTensor', 'torch.cuda.DoubleTensor', 'torch.cuda.BFloat16Tensor',
+        'msamp.common.tensor.tensor.ScalingTensor',
+        SparseTensor.type()
+    ]
 
     for t in tensors:
-        assert t.dtype in supported_types, f'attempting to reduce an unsupported grad type: {t.type()}'
+        assert t.type() in supported_types, f'attempting to reduce an unsupported grad type: {t.type()}'
 
-    sparse_tensor_buckets, dense_tensor_buckets = [], []
+    buckets = []
     for _, dtype in enumerate(supported_types):
-        sparse_bucket, dense_bucket = [], []
-        for t in tensors:
-            if t.dtype == dtype:
-                if isinstance(t, SparseTensor):
-                    sparse_bucket.append(t)
-                else:
-                    dense_bucket.append(t)
-        if sparse_bucket:
-            sparse_tensor_buckets.append((dtype, sparse_bucket))
-        if dense_bucket:
-            dense_tensor_buckets.append((dtype, dense_bucket))
-    return sparse_tensor_buckets, dense_tensor_buckets
+        bucket = [t for t in tensors if t.type() == dtype]
+        if bucket:
+            buckets.append((dtype, bucket))
+    return buckets
 
 
 deepspeed.runtime.engine.split_half_float_double_sparse = split_half_float_double_sparse
@@ -192,8 +186,7 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
             ZeROOptimizer: zero optimizer.
         """
         zero_stage = self.zero_optimization_stage()
-        timers = self.timers if self.wall_clock_breakdown() else NoopTimer()
-        model_dtype, gradient_accumulation_dtype = self.get_data_types()
+        timers = self.timers if self.wall_clock_breakdown() else None
 
         if optimizer is None:
             optimizer = DummyOptim(list(self.module.parameters()))
@@ -234,14 +227,13 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
                 clip_grad=self.gradient_clipping(),
                 contiguous_gradients=contiguous_gradients,
                 reduce_bucket_size=self.zero_reduce_bucket_size(),
-                use_multi_rank_bucket_allreduce=self.zero_multi_rank_bucket_allreduce(),
                 allgather_bucket_size=self.zero_allgather_bucket_size(),
                 dp_process_group=self.data_parallel_group,
                 expert_parallel_group=self.expert_parallel_group if self.has_moe_layers else None,
                 expert_data_parallel_group=self.expert_data_parallel_group if self.has_moe_layers else None,
                 reduce_scatter=self.zero_reduce_scatter(),
                 overlap_comm=overlap_comm,
-                offload_optimizer_config=self.zero_offload_optimizer(),
+                cpu_offload=self.zero_cpu_offload(),
                 mpu=self.mpu,
                 postscale_gradients=self.postscale_gradients(),
                 gradient_predivide_factor=self.gradient_predivide_factor(),
@@ -251,7 +243,6 @@ class MSAMPDeepSpeedEngine(DeepSpeedEngine):
                 round_robin_gradients=round_robin_gradients,
                 has_moe_layers=self.has_moe_layers,
                 fp16_master_weights_and_gradients=self.fp16_master_weights_and_gradients(),
-                gradient_accumulation_dtype=gradient_accumulation_dtype,
                 communication_data_type=self.communication_data_type,
                 elastic_checkpoint=self.zero_elastic_checkpoint()
             )
