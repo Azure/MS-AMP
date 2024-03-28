@@ -532,6 +532,11 @@ meta.dtype is {meta_dtype} (meta.qtype is {meta.qtype}).'
         self.meta.copy_(e.meta)
         return self
 
+    def normal_(self, mean, std):
+        scaling_tensor = self.float().normal_(mean, std).cast(self.qtype)
+        self.copy_(scaling_tensor)
+        return self
+
     @property
     def dtype(self):
         """Get dtype of tensor.
