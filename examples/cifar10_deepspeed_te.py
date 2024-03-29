@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-"""The deepspeed cifar10 exampe using MS-AMP and TransformerEngine. It is adapted from official deepspeed example.
+"""The deepspeed cifar10 example using MS-AMP and TransformerEngine. It is adapted from official deepspeed example.
 
 The model is adapted from VisionTransfomrer in timm and it uses te.TransformerLayer as encoder block.
 """
@@ -138,7 +138,7 @@ class FP8Block(nn.Module):
             num_heads,
             hidden_dropout=drop,
             attention_dropout=attn_drop,
-            self_attn_mask_type='padding',
+            self_attn_mask_type='no_mask',
             layer_type='encoder',
             init_method=init_method,
             output_layer_init_method=init_method,
@@ -152,7 +152,7 @@ class FP8Block(nn.Module):
         padding = batch_size % 16 > 0
         if padding:
             x = F.pad(x, (0, 0, 0, 16 - batch_size % 16))
-        out = self.m(x, attention_mask=None)
+        out = self.m(x)
         if padding:
             out = out[:, :batch_size]
         return out

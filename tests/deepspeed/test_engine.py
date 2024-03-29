@@ -33,9 +33,9 @@ class DeepSpeedEngineTestCase(unittest.TestCase):
         """Test split_half_float_double_sparse method."""
         tensors = []
 
-        dtype_list = [torch.float32, torch.float16, torch.float64, torch.bfloat16]
+        dtype_list = [torch.float32, torch.float16, torch.bfloat16]
 
-        size_list = [3, 4, 5, 6]
+        size_list = [3, 4, 5]
 
         for i, size in enumerate(size_list):
             for _ in range(size):
@@ -46,13 +46,13 @@ class DeepSpeedEngineTestCase(unittest.TestCase):
         for i in range(num_scaling_tensor):
             tensor = torch.randn(2, 2, dtype=torch.float32, device='cuda').cast(Dtypes.kfloat8_e4m3)
             tensors.append(tensor)
-        buckets = split_half_float_double_sparse(tensors)
+        _, buckets = split_half_float_double_sparse(tensors)
 
-        assert len(buckets) == 5
+        assert len(buckets) == 4
 
         has_scaling_tensor = False
         for dtype, bucket in buckets:
-            if dtype == 'msamp.common.tensor.tensor.ScalingTensor':
+            if dtype == torch.uint8:
                 assert len(bucket) == num_scaling_tensor
                 has_scaling_tensor = True
         assert has_scaling_tensor

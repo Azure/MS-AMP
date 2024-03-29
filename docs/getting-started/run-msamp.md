@@ -20,6 +20,12 @@ python mnist.py --enable-msamp --opt-level=O2
 torchrun --nproc_per_node=8 mnist_ddp.py --enable-msamp --opt-level=O2
 ```
 
+### 3. Run mnist using FSDP
+
+```bash
+python mnist_fsdp.py --msamp
+```
+
 ## CIFAR10
 
 ### 1. Run cifar10 using deepspeed
@@ -45,5 +51,9 @@ deepspeed cifar10_deepspeed.py --deepspeed --deepspeed_config ds_config_zero_msa
 ```bash
 deepspeed cifar10_deepspeed_te.py --deepspeed --deepspeed_config ds_config_zero_te_msamp.json
 ```
+
+:::note Note
+If you get "ModuleNotFoundError: No module named 'timm'" error when running this example, you need to install timm using `pip install timm`.
+:::
 
 For more comprehensive examples, please go to [MS-AMP-Examples](https://github.com/Azure/MS-AMP-Examples).

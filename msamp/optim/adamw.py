@@ -8,10 +8,11 @@ from typing import Dict, List, Union
 
 import torch
 from torch import Tensor
+import torch.distributed as dist
 
 from msamp.optim import LBAdamWBase
 from msamp.common.tensor import ScalingMeta, ScalingTensor
-from msamp.common.dtype import Floating
+from msamp.common.dtype import Floating, Dtypes
 import msamp_adamw
 
 
@@ -184,8 +185,12 @@ class LBAdamW(LBAdamWBase):
 
             for i, param in enumerate(params):
                 grad = grads[i].float() if not maximize else -grads[i].float()
-                exp_avgs[i].meta.scale = _new_exp_avg_factors[i] if self.tensor_scale else 1.0
-                exp_avg_sqs[i].meta.scale = _new_exp_avg_sq_factors[i] if self.tensor_scale else 1.0
+                exp_avgs[i].meta.scale = _new_exp_avg_factors[i] if self.tensor_scale else torch.ones((), device='cuda')
+                exp_avgs[i].meta.scale_inv.fill_(1.0 / exp_avgs[i].meta.scale)
+                exp_avg_sqs[i].meta.scale = _new_exp_avg_sq_factors[i] if self.tensor_scale else torch.ones(
+                    (), device='cuda'
+                )
+                exp_avg_sqs[i].meta.scale_inv.fill_(1.0 / exp_avg_sqs[i].meta.scale)
                 # update state
                 msamp_adamw.adamw_fp8_stage2_compute(
                     grad, exp_avgs[i].value, _exp_avg_inv_factors[i], exp_avgs[i].meta.scale, beta1,
@@ -228,3 +233,105 @@ class LBAdamW(LBAdamWBase):
 
                 if isinstance(params[i], ScalingTensor):
                     params[i].copy_(param.cast(params[i].qtype, meta=params[i].meta))
+
+
+class FSDPAdamW(LBAdamWBase):
+    """Implements AdamW algorithm for FSDP."""
+    def __init__(
+        self,
+        params,
+        lr=1e-3,
+        bias_correction=True,
+        betas=(0.9, 0.999),
+        eps=1e-8,
+        weight_decay=1e-2,
+        amsgrad=False,
+        *,
+        maximize: bool = False,
+        exp_avg_dtype=torch.uint8,
+        exp_avg_sq_dtype=torch.float16,
+        tensor_scale=True,
+    ):
+        """Constructor. See LBAdamW class docstring for details."""
+        self.tensor_scale = tensor_scale
+        super().__init__(
+            params,
+            lr=lr,
+            bias_correction=bias_correction,
+            betas=betas,
+            eps=eps,
+            weight_decay=weight_decay,
+            amsgrad=False,
+            maximize=maximize,
+            exp_avg_dtype=exp_avg_dtype,
+            exp_avg_sq_dtype=exp_avg_sq_dtype
+        )
+
+        self.original_params = []
+        self.master_weights = []
+
+        for group in self.param_groups:
+            params = []
+            for param in group['params']:
+                if param is None:
+                    continue
+
+                self.original_params.append(param)
+                if hasattr(param, '_meta') and param._meta is not None and param.numel() > 0:
+                    dtype = Dtypes.qtype_to_dtype[param._meta.qtype]
+                    param = ScalingTensor(param.view(dtype), param._meta)
+                    master_weight = param.cast(Dtypes.kfloat16)
+                    master_weight.requires_grad = True
+                    self.master_weights.append(master_weight)
+                    params.append(master_weight)
+                else:
+                    self.master_weights.append(None)
+                    params.append(param)
+
+            group['params'] = params
+
+    def zero_grad(self, set_to_none=False):
+        """Zero gradients."""
+        for param in self.original_params:
+            if set_to_none:
+                param.grad = None
+            else:
+                if param.grad is not None:
+                    if param.grad.grad_fn is not None:
+                        param.grad.detach_()
+                    else:
+                        param.grad.requires_grad_(False)
+                    param.grad.zero_()
+
+    def step(self):
+        """Performs a single optimization step."""
+        # Set gradient of master weight.
+        for i, param in enumerate(self.original_params):
+            if self.master_weights[i] is not None:
+                grad_meta = param._grad_meta
+                dtype = Dtypes.qtype_to_dtype[grad_meta.qtype]
+                self.master_weights[i].grad = ScalingTensor(param.grad.view(dtype), grad_meta)
+                param.grad = None
+
+        # call step() to update master weight
+        super().step()
+
+        # Copy master weight to weight
+        for i, param in enumerate(self.original_params):
+            if hasattr(param, '_meta') and param._meta is not None:
+                hp_data = None
+                if param.numel() == 0:
+                    param._meta.amax[0].zero_()
+                else:
+                    hp_data = self.master_weights[i].float()
+                    param._meta.amax[0] = hp_data.abs().max()
+
+                dist.all_reduce(param._meta.amax[0], op=dist.ReduceOp.MAX)
+                param._meta.reset_scaling_factor()
+                if param.numel() > 0:
+                    with ScalingMeta.in_time_scaling_context(False):
+                        data = hp_data.cast(param._meta.qtype, param._meta, False) \
+                                .value.view(torch.float32)
+                    param.data.copy_(data)
+                else:
+                    param._meta.scale_inv.data.copy_(torch.reciprocal(param._meta.scale))

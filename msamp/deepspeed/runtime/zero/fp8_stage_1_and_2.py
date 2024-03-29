@@ -10,7 +10,7 @@ import torch
 from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 from deepspeed import comm as dist
 from deepspeed.runtime.zero.stage_1_and_2 import all_gather_dp_groups, DeepSpeedZeroOptimizer, \
-    get_accelerator, move_to_cpu, logger, see_memory_usage
+    get_accelerator, logger, see_memory_usage
 
 from msamp.common.tensor import ScalingTensor, ScalingMeta
 from msamp.common.dtype import Dtypes
@@ -178,7 +178,8 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
 
         # the number of elements in each partition is the same.
         values = list(chain(*values_partitions))
-        move_to_cpu(values)
+        for value in values:
+            value.data = value.data.cpu()
         # flat tensors
         flat = _flatten_dense_tensors(values).cuda()
         for p, q in zip(values, _unflatten_dense_tensors(flat, values)):
@@ -632,6 +633,29 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
             flat_tensor_list.append(tensor.grad)
         return flat_tensor_list
 
+    def start_timers(self, timer_names):
+        """Start timers."""
+        if self.timers is None:
+            return
+
+        for name in timer_names:
+            self.timers(name).start()
+
+    def stop_timers(self, timer_names):
+        """Stop timers."""
+        if self.timers is None:
+            return
+
+        for name in timer_names:
+            self.timers(name).stop()
+
+    def log_timers(self, timer_names):
+        """Log timers."""
+        if self.timers is None:
+            return
+
+        self.timers.log(names=list(timer_names))
+
     def step(self, closure=None):    # noqa C901
         """Performs a single optimization step. closure is not supported."""
         self.micro_step_id = -1
@@ -759,6 +783,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
         # Gather the updated weights from everyone.
         # Then all partitions of the model parameters are updated and ready for next round forward.
         all_gather_dp_groups(
+            groups_flat=self.bit16_groups_flat,
             partitioned_param_groups=self.parallel_partitioned_bit16_groups,
             dp_process_group=self.real_dp_process_group,
             start_alignment_factor=self.nccl_start_alignment_factor,
@@ -766,6 +791,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
         )
 
         all_gather_dp_groups(
+            groups_flat=list(filter(lambda g: g is not None, self.fp8_groups_flat)),
             partitioned_param_groups=list(filter(lambda g: g is not None, self.fp8_parallel_partitioned_groups)),
             dp_process_group=self.real_dp_process_group,
             start_alignment_factor=self.fp8_nccl_start_alignment_factor,
@@ -813,6 +839,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
 
         # step 2. all gather
         all_gather_dp_groups(
+            groups_flat=flats,
             partitioned_param_groups=scale_invs_parallel_partitioned_groups,
             dp_process_group=self.real_dp_process_group,
             start_alignment_factor=self.fp8_nccl_start_alignment_factor,

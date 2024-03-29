@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-"""The mnist exampe using MS-AMP. It is adapted from https://github.com/pytorch/examples/blob/main/mnist/main.py."""
+"""The mnist example using MS-AMP. It is adapted from https://github.com/pytorch/examples/blob/main/mnist/main.py."""
 
 from __future__ import print_function
 import argparse
