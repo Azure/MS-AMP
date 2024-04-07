@@ -175,13 +175,14 @@ class LBAdamW(LBAdamWBase):
 
             if self.tensor_scale:
                 amaxs, sq_amaxs = torch.cat(_exp_avg_amaxs), torch.cat(_exp_avg_sq_amaxs)
-                ones = amaxs.new_ones((1, ))
+                #ones = amaxs.new_ones((1, ))
+                ones = torch.ones_like(amaxs)
                 _new_exp_avg_factors = ScalingMeta.compute_scaling_factor(
                     amaxs, ones, Floating.fp_maxs[exp_avgs[0].dtype], 0
-                ).tolist()
+                )
                 _new_exp_avg_sq_factors = ScalingMeta.compute_scaling_factor(
                     sq_amaxs, ones, Floating.fp_maxs[exp_avg_sqs[0].dtype], 0
-                ).tolist()
+                )
 
             for i, param in enumerate(params):
                 grad = grads[i].float() if not maximize else -grads[i].float()

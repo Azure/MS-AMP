@@ -191,6 +191,8 @@ class LBOptimizer(Optimizer):
 
                     value = value.to(param.device)
                 return value
+            elif isinstance(value, ScalingTensor):
+                return value.cuda() if param.is_cuda else value
             elif isinstance(value, dict):
                 return {k: cast(param, v, key=k) for k, v in value.items()}
             elif isinstance(value, container_abcs.Iterable):
