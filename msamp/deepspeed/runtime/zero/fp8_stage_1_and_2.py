@@ -951,7 +951,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
         state_dict[SINGLE_PARTITION_OF_FP8_GROUPS] = fp8_groups
         return state_dict
 
-    def _load_legacy_checkpoint(self, state_dict_list, load_optimizer_states=True, load_from_fp32_weights=False):
+    def _load_legacy_checkpoint(self, state_dict_list, load_optimizer_states=True, load_from_fp32_weights=False, ckp_dp_size=1):
         r"""Loading ZeRO checkpoint.
 
         Arguments:
@@ -977,7 +977,7 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
             model.load_state_dict(checkpoint['model'])
             optimizer.load_state_dict(checkpoint['optimizer'])
         """
-        super()._load_legacy_checkpoint(state_dict_list, load_optimizer_states, load_from_fp32_weights)
+        super()._load_legacy_checkpoint(state_dict_list, load_optimizer_states, load_from_fp32_weights, ckp_dp_size)
         # [TODO] support changing DP degree
         dp_rank = dist.get_rank(group=self.dp_process_group)
         current_rank_sd = state_dict_list[dp_rank]
