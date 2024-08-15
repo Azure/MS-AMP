@@ -71,9 +71,9 @@ def initialize(
         cast_model = LinearReplacer.replace(model, weight_qtype=weight_qtype)
     else:
         cast_model = TeReplacer.replace(model)
-
+    
     if use_fsdp:
-        for _, submodule in model.named_modules():
+        for _, submodule in cast_model.named_modules():
             params_to_process = list(submodule.named_parameters(recurse=False))
             for param_name, param in params_to_process:
                 if not isinstance(param, torch.Tensor):
