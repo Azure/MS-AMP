@@ -9,7 +9,7 @@ from deepspeed.ops.adam import FusedAdam
 from msamp.common.dtype import Dtypes
 from msamp.nn import clip_grad_norm_
 from msamp.nn import LinearReplacer
-from msamp.optim import LBAdam, LBAdamW, DSAdam
+from msamp.optim import LBAdam, LBAdamW, DSAdam, FSDPAdamW
 from msamp.te import TeReplacer
 
 opt_levels = ['O1', 'O2']
@@ -129,6 +129,8 @@ def initialize(
         cast_optimizer = LBAdam(optimizer.param_groups, **default_args)
     elif isinstance(optimizer, torch.optim.AdamW):
         cast_optimizer = LBAdamW(optimizer.param_groups, **default_args)
+        if use_fsdp:
+            cast_optimizer = FSDPAdamW(cast_optimizer)
     elif isinstance(optimizer, FusedAdam):
         adam_w_mode = optimizer.adam_w_mode
         cast_optimizer = DSAdam(optimizer.param_groups, **default_args, adam_w_mode=adam_w_mode)
