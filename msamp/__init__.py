@@ -6,6 +6,7 @@
 import torch
 from deepspeed.ops.adam import FusedAdam
 
+from msamp.common.dtype import Dtypes
 from msamp.nn import clip_grad_norm_
 from msamp.nn import LinearReplacer
 from msamp.optim import LBAdam, LBAdamW, DSAdam
@@ -14,7 +15,7 @@ from msamp.te import TeReplacer
 opt_levels = ['O1', 'O2']
 
 
-def initialize(model, optimizer=None, opt_level='O1', use_te=False):    # noqa: C901
+def initialize(model, optimizer=None, opt_level='O1', use_te=False, weight_qtype=Dtypes.kfloat16):    # noqa: C901
     """Initialize your model, optimizer according to the optimization level.
 
     msamp.initialize() should be called after you have finished constructing your model and optimizer.
@@ -28,7 +29,7 @@ def initialize(model, optimizer=None, opt_level='O1', use_te=False):    # noqa: 
             'O1'      || fp8  || fp8           || fp16   || fp8             || fp32 + FP32
             'O2'      || fp8  || fp8           || fp16   || fp8             || fp8 + fp16
         use_te (bool): Whether to use Transformer Engine.
-
+        weight_qtype (Dtypes): Weight quantization type.
     Return:
         return the casted model and optimizer.
     """
@@ -60,7 +61,7 @@ def initialize(model, optimizer=None, opt_level='O1', use_te=False):    # noqa: 
             index = param_index_map[id(param)]
             index_list.append(index)
     if not use_te:
-        cast_model = LinearReplacer.replace(model)
+        cast_model = LinearReplacer.replace(model, weight_qtype=weight_qtype)
     else:
         cast_model = TeReplacer.replace(model)
 
