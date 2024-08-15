@@ -15,7 +15,14 @@ from msamp.te import TeReplacer
 opt_levels = ['O1', 'O2']
 
 
-def initialize(model, optimizer=None, opt_level='O1', use_te=False, weight_qtype=Dtypes.kfloat16):    # noqa: C901
+def initialize(
+    model, 
+    optimizer=None, 
+    opt_level='O1', 
+    use_te=False, 
+    weight_qtype=Dtypes.kfloat16,
+    use_fsdp=False,
+):    # noqa: C901
     """Initialize your model, optimizer according to the optimization level.
 
     msamp.initialize() should be called after you have finished constructing your model and optimizer.
@@ -64,6 +71,26 @@ def initialize(model, optimizer=None, opt_level='O1', use_te=False, weight_qtype
         cast_model = LinearReplacer.replace(model, weight_qtype=weight_qtype)
     else:
         cast_model = TeReplacer.replace(model)
+
+    if use_fsdp:
+        for _, submodule in model.named_modules():
+            params_to_process = list(submodule.named_parameters(recurse=False))
+            for param_name, param in params_to_process:
+                if not isinstance(param, torch.Tensor):
+                    data = param.value.view(-1)
+                    padded = 0
+                    if data.numel() % 4 != 0:
+                        padded = 4 - data.numel() % 4
+                        data = torch.nn.functional.pad(data, (0, padded))
+
+                    data = data.view(dtype=torch.float32)
+                    new_param = torch.nn.Parameter(data)
+                    new_param._original_shape = param.shape
+                    new_param._padded = padded
+                    new_param._meta = param.meta
+                    new_param._scaling_metas = param._scaling_metas
+
+                    setattr(submodule, param_name, new_param)
 
     parameters = list(cast_model.parameters())
 
