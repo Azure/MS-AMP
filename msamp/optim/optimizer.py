@@ -58,8 +58,8 @@ class MSAMPOptimWrapper(Optimizer):
     def zero_grad(self, set_to_none=None):
         self.optimizer.zero_grad(set_to_none)
 
-    def step(self, **kwargs):
-        return self.optimizer.step(**kwargs)
+    def step(self, closure=None):
+        return self.optimizer.step(closure)
 
 
 class LBOptimizer(Optimizer):
