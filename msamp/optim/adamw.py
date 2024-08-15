@@ -280,7 +280,7 @@ class FSDPAdamW(MSAMPOptimWrapper):
                         param.grad.requires_grad_(False)
                     param.grad.zero_()
 
-    def step(self):
+    def step(self, closure=None):
         """Performs a single optimization step."""
         # Set gradient of master weight.
         for i, param in enumerate(self.original_params):
@@ -291,7 +291,7 @@ class FSDPAdamW(MSAMPOptimWrapper):
                 param.grad = None
 
         # call step() to update master weight
-        super().step()
+        super().step(closure)
 
         # Copy master weight to weight
         for i, param in enumerate(self.original_params):
