@@ -152,8 +152,10 @@ def fsdp_main(rank, world_size, args):
     if args.msamp:
         import msamp
         from msamp.fsdp import FP8FullyShardedDataParallel
+        from msamp.optim import FSDPAdamW
         model, optimizer = msamp.initialize(model, optimizer)
         model = FP8FullyShardedDataParallel(model, use_orig_params=True, auto_wrap_policy=my_auto_wrap_policy)
+        optimizer = FSDPAdamW(optimizer)
     else:
         model = FSDP(model, use_orig_params=True, auto_wrap_policy=my_auto_wrap_policy)
 
