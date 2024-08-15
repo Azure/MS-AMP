@@ -9,7 +9,6 @@ It is adapted from https://github.com/pytorch/examples/blob/main/mnist/main.py.
 import os
 import argparse
 import functools
-import msamp
 
 import torch
 import torch.nn as nn
@@ -152,6 +151,7 @@ def fsdp_main(rank, world_size, args):
     
 
     if args.msamp:
+        import msamp
         from msamp.fsdp import FsdpReplacer
         from msamp.fsdp import FP8FullyShardedDataParallel
         model, optimizer = msamp.initialize(model, optimizer)
