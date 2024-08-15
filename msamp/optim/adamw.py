@@ -239,42 +239,10 @@ class FSDPAdamW(MSAMPOptimWrapper):
     """Implements AdamW algorithm for FSDP."""
     def __init__(
         self,
-        params,
-        lr=1e-3,
-        bias_correction=True,
-        betas=(0.9, 0.999),
-        eps=1e-8,
-        weight_decay=1e-2,
-        amsgrad=False,
-        *,
-        maximize: bool = False,
-        exp_avg_dtype=torch.uint8,
-        exp_avg_sq_dtype=torch.float16,
-        tensor_scale=True,
         optimizer=None,
     ):
         """Constructor. See LBAdamW class docstring for details."""
-        if optimizer is not None:
-            super().__init__(optimizer)
-        else:
-            self.tensor_scale = tensor_scale
-            optim = LBAdamW(
-                params,
-                lr=lr,
-                bias_correction=bias_correction,
-                betas=betas,
-                eps=eps,
-                weight_decay=weight_decay,
-                amsgrad=False,
-                maximize=maximize,
-                exp_avg_dtype=exp_avg_dtype,
-                exp_avg_sq_dtype=exp_avg_sq_dtype
-            )
-            super().__init__(optim)
-        self.adjust_param_groups()
-
-
-    def adjust_param_groups(self):
+        super().__init__(optimizer)
         self.original_params = []
         self.master_weights = []
         for group in self.param_groups:
