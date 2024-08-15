@@ -73,6 +73,8 @@ def initialize(
         cast_model = TeReplacer.replace(model)
     
     if use_fsdp:
+        # When using FSDP, the named parameters of the model are different now and we need to adjust the param groups
+        old_named_params = {n: p for n, p in cast_model.named_parameters()}
         for _, submodule in cast_model.named_modules():
             params_to_process = list(submodule.named_parameters(recurse=False))
             for param_name, param in params_to_process:
@@ -91,6 +93,11 @@ def initialize(
                     new_param._scaling_metas = param._scaling_metas
 
                     setattr(submodule, param_name, new_param)
+
+        new_named_params = {n: p for n, p in submodule.named_parameters()}
+        mapping = {p: new_named_params[n] for n, p in old_named_params.items()}
+        for param_group in optimizer.param_groups:
+            param_group["params"] = [mapping.get(p, p) for p in param_group["params"]]
 
     parameters = list(cast_model.parameters())
 
