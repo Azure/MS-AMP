@@ -10,7 +10,8 @@ import torch
 from torch import Tensor
 import torch.distributed as dist
 
-from msamp.optim import LBAdamWBase, MSAMPOptimWrapper
+from msamp.optim import LBAdamWBase
+from msamp.optim.optimizer import MSAMPOptimWrapper
 from msamp.common.tensor import ScalingMeta, ScalingTensor
 from msamp.common.dtype import Floating, Dtypes
 import msamp_adamw
