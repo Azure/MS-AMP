@@ -94,7 +94,7 @@ def initialize(
 
                     setattr(submodule, param_name, new_param)
 
-        new_named_params = {n: p for n, p in submodule.named_parameters()}
+        new_named_params = {n: p for n, p in cast_model.named_parameters()}
         mapping = {p: new_named_params[n] for n, p in old_named_params.items()}
         for param_group in optimizer.param_groups:
             param_group["params"] = [mapping.get(p, p) for p in param_group["params"]]
