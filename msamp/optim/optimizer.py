@@ -17,6 +17,51 @@ from msamp.common.tensor import TensorDist
 from msamp.nn import model_state, ScalingParameter
 
 
+class MSAMPOptimWrapper(Optimizer):
+    """
+    A wrapper around an optimizer for easier extensibility.
+    All methods are delegated to the underlying optimizer,
+    so that custom functionality can be added by subclassing this class.
+    """
+    def __init__(self, optimizer):
+        self.optimizer = optimizer
+
+    @property
+    def state(self):
+        return self.optimizer.state
+
+    @state.setter
+    def state(self, state):
+        self.optimizer.state = state
+
+    @property
+    def param_groups(self):
+        return self.optimizer.param_groups
+
+    @property
+    def defaults(self):
+        return self.optimizer.defaults
+
+    @defaults.setter
+    def defaults(self, defaults):
+        self.optimizer.defaults = defaults
+
+    def add_param_group(self, param_group):
+        self.optimizer.add_param_group(param_group)
+
+    def load_state_dict(self, state_dict):
+        self.optimizer.load_state_dict(state_dict)
+
+    def state_dict(self):
+        return self.optimizer.state_dict()
+
+    def zero_grad(self, set_to_none=None):
+        self.optimizer.zero_grad(set_to_none)
+
+    def step(self, **kwargs):
+        return self.optimizer.step(**kwargs)
+
+
 class LBOptimizer(Optimizer):
     """Low-bit optimizer base class.
 

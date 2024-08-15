@@ -10,7 +10,7 @@ import torch
 from torch import Tensor
 import torch.distributed as dist
 
-from msamp.optim import LBAdamWBase
+from msamp.optim import LBAdamWBase, MSAMPOptimWrapper
 from msamp.common.tensor import ScalingMeta, ScalingTensor
 from msamp.common.dtype import Floating, Dtypes
 import msamp_adamw
@@ -235,7 +235,7 @@ class LBAdamW(LBAdamWBase):
                     params[i].copy_(param.cast(params[i].qtype, meta=params[i].meta))
 
 
-class FSDPAdamW(LBAdamWBase):
+class FSDPAdamW(MSAMPOptimWrapper):
     """Implements AdamW algorithm for FSDP."""
     def __init__(
         self,
@@ -251,25 +251,32 @@ class FSDPAdamW(LBAdamWBase):
         exp_avg_dtype=torch.uint8,
         exp_avg_sq_dtype=torch.float16,
         tensor_scale=True,
+        optimizer=None,
     ):
         """Constructor. See LBAdamW class docstring for details."""
-        self.tensor_scale = tensor_scale
-        super().__init__(
-            params,
-            lr=lr,
-            bias_correction=bias_correction,
-            betas=betas,
-            eps=eps,
-            weight_decay=weight_decay,
-            amsgrad=False,
-            maximize=maximize,
-            exp_avg_dtype=exp_avg_dtype,
-            exp_avg_sq_dtype=exp_avg_sq_dtype
-        )
+        if optimizer is not None:
+            super().__init__(optimizer)
+        else:
+            self.tensor_scale = tensor_scale
+            optim = LBAdamW(
+                params,
+                lr=lr,
+                bias_correction=bias_correction,
+                betas=betas,
+                eps=eps,
+                weight_decay=weight_decay,
+                amsgrad=False,
+                maximize=maximize,
+                exp_avg_dtype=exp_avg_dtype,
+                exp_avg_sq_dtype=exp_avg_sq_dtype
+            )
+            super().__init__(optim)
+        self.adjust_param_groups()
 
+
+    def adjust_param_groups(self):
         self.original_params = []
         self.master_weights = []
-
         for group in self.param_groups:
             params = []
             for param in group['params']:
@@ -289,6 +296,7 @@ class FSDPAdamW(LBAdamWBase):
                     params.append(param)
 
             group['params'] = params
+
 
     def zero_grad(self, set_to_none=False):
         """Zero gradients."""
