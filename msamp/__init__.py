@@ -37,6 +37,7 @@ def initialize(
             'O2'      || fp8  || fp8           || fp16   || fp8             || fp8 + fp16
         use_te (bool): Whether to use Transformer Engine.
         weight_qtype (Dtypes): Weight quantization type.
+        use_fsdp (bool): Whether to prepare the model for FSDP wrapping.
     Return:
         return the casted model and optimizer.
     """
@@ -93,7 +94,7 @@ def initialize(
                     new_param._scaling_metas = param._scaling_metas
 
                     setattr(submodule, param_name, new_param)
-
+        # Map our new parameters to the optimizer param groups
         new_named_params = {n: p for n, p in cast_model.named_parameters()}
         mapping = {p: new_named_params[n] for n, p in old_named_params.items()}
         for param_group in optimizer.param_groups:
