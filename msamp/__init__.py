@@ -129,8 +129,6 @@ def initialize(
         cast_optimizer = LBAdam(optimizer.param_groups, **default_args)
     elif isinstance(optimizer, torch.optim.AdamW):
         cast_optimizer = LBAdamW(optimizer.param_groups, **default_args)
-        if use_fsdp:
-            cast_optimizer = FSDPAdamW(cast_optimizer)
     elif isinstance(optimizer, FusedAdam):
         adam_w_mode = optimizer.adam_w_mode
         cast_optimizer = DSAdam(optimizer.param_groups, **default_args, adam_w_mode=adam_w_mode)

@@ -155,7 +155,6 @@ def fsdp_main(rank, world_size, args):
         model, optimizer = msamp.initialize(model, optimizer)
         model = FP8FullyShardedDataParallel(model, use_orig_params=True, auto_wrap_policy=my_auto_wrap_policy)
     else:
-        optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
         model = FSDP(model, use_orig_params=True, auto_wrap_policy=my_auto_wrap_policy)
 
     if rank == 0:
