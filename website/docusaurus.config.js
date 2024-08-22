@@ -94,11 +94,6 @@ module.exports = {
         '📢 <a href="https://azure.github.io/MS-AMP/blog/release-msamp-v0.4">v0.4.0</a> has been released! ' +
         '⭐️ If you like MS-AMP, give it a star on <a target="_blank" rel="noopener noreferrer" href="https://github.com/Azure/MS-AMP">GitHub</a>! ⭐️',
     },
-    algolia: {
-      apiKey: '6809111d3dabf59fe562601d591d7c53',
-      indexName: 'msamp',
-      contextualSearch: true,
-    },
     prism: {
       theme: lightCodeTheme,
       darkTheme: darkCodeTheme,
