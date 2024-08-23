@@ -11,6 +11,7 @@ from torch import Tensor
 import torch.distributed as dist
 
 from msamp.optim import LBAdamWBase
+from msamp.optim.optimizer import MSAMPOptimWrapper
 from msamp.common.tensor import ScalingMeta, ScalingTensor
 from msamp.common.dtype import Floating, Dtypes
 import msamp_adamw
@@ -235,41 +236,16 @@ class LBAdamW(LBAdamWBase):
                     params[i].copy_(param.cast(params[i].qtype, meta=params[i].meta))
 
 
-class FSDPAdamW(LBAdamWBase):
+class FSDPAdamW(MSAMPOptimWrapper):
     """Implements AdamW algorithm for FSDP."""
     def __init__(
         self,
-        params,
-        lr=1e-3,
-        bias_correction=True,
-        betas=(0.9, 0.999),
-        eps=1e-8,
-        weight_decay=1e-2,
-        amsgrad=False,
-        *,
-        maximize: bool = False,
-        exp_avg_dtype=torch.uint8,
-        exp_avg_sq_dtype=torch.float16,
-        tensor_scale=True,
+        optimizer=None,
     ):
         """Constructor. See LBAdamW class docstring for details."""
-        self.tensor_scale = tensor_scale
-        super().__init__(
-            params,
-            lr=lr,
-            bias_correction=bias_correction,
-            betas=betas,
-            eps=eps,
-            weight_decay=weight_decay,
-            amsgrad=False,
-            maximize=maximize,
-            exp_avg_dtype=exp_avg_dtype,
-            exp_avg_sq_dtype=exp_avg_sq_dtype
-        )
-
+        super().__init__(optimizer)
         self.original_params = []
         self.master_weights = []
-
         for group in self.param_groups:
             params = []
             for param in group['params']:
@@ -290,6 +266,7 @@ class FSDPAdamW(LBAdamWBase):
 
             group['params'] = params
 
+
     def zero_grad(self, set_to_none=False):
         """Zero gradients."""
         for param in self.original_params:
@@ -303,7 +280,7 @@ class FSDPAdamW(LBAdamWBase):
                         param.grad.requires_grad_(False)
                     param.grad.zero_()
 
-    def step(self):
+    def step(self, closure=None):
         """Performs a single optimization step."""
         # Set gradient of master weight.
         for i, param in enumerate(self.original_params):
@@ -314,7 +291,7 @@ class FSDPAdamW(LBAdamWBase):
                 param.grad = None
 
         # call step() to update master weight
-        super().step()
+        super().step(closure)
 
         # Copy master weight to weight
         for i, param in enumerate(self.original_params):
