@@ -21,7 +21,6 @@ class ModelState:
         # OrderedDict[str, dict[str, ScalingMeta]], store the local scaling metas in all FP8Linear modules.
         # key is module name, value is scaling_metas in FP8Linear module.
         self._local_scaling_metas = OrderedDict()
-        self._use_fp8_ddp = False
 
     @property
     def ready_to_scale_tensor(self):
@@ -41,20 +40,6 @@ class ModelState:
     def flattened_scaling_metas(self):
         """Decoration function to access _flattened_scaling_metas variable."""
         return self._flattened_scaling_metas
-
-    @property
-    def use_fp8_ddp(self):
-        """Decoration function to access _use_fp8_ddp variable."""
-        return self._use_fp8_ddp
-
-    @use_fp8_ddp.setter
-    def use_fp8_ddp(self, value):
-        """Set the value of _use_fp8_ddp variable.
-
-        Args:
-            value (bool): Value to set.
-        """
-        self._use_fp8_ddp = value
 
     @flattened_scaling_metas.setter
     def flattened_scaling_metas(self, value):

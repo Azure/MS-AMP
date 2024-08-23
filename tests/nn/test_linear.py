@@ -56,7 +56,7 @@ class LinearTestCase(unittest.TestCase):
             self.assertTrue(torch.equal(fp8linear.bias.grad, linear.bias.grad))
 
             # check weight.
-            self.assertTrue(isinstance(fp8linear.weight.grad, ScalingTensor))
+            self.assertTrue(isinstance(fp8linear.weight.grad, torch.Tensor))
             self.assertTrue(fp8linear.weight.grad.size() == linear.weight.grad.size())
 
     @decorator.cuda_test

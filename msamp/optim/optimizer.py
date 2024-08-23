@@ -13,8 +13,7 @@ from torch.optim.optimizer import Optimizer, required
 
 from msamp.common.dtype import Floating
 from msamp.common.tensor import ScalingTensor, ScalingMeta
-from msamp.common.tensor import TensorDist
-from msamp.nn import model_state, ScalingParameter
+from msamp.nn import model_state
 
 
 class LBOptimizer(Optimizer):
@@ -41,14 +40,6 @@ class LBOptimizer(Optimizer):
         rtn = self.lb_step(closure)
         self._update_scaling_factors()
         return rtn
-
-    def all_reduce_grads(self, model):
-        """All-reduce gradients of parameters."""
-        if model_state.use_fp8_ddp:
-            return
-        scaling_params = [p for p in model.parameters() if isinstance(p, ScalingParameter)]
-        grads = [p.grad for p in scaling_params if p.grad is not None]
-        TensorDist.all_reduce_avg(grads)
 
     def lb_step(self, closure=None):
         """Performs a single optimization step. The subclass needs to implement this method.

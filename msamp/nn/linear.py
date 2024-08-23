@@ -183,8 +183,8 @@ class LinearReplacer:
         for k, p in fp8_named_weights:
             p._param_name = k
 
-        # DDP ignores the FP8 weights, and the optimizer provides a function `optimizer.all_reduce_grads(model)`
-        # to sync them.
+        # The native DDP ignores the FP8 weights,
+        # and msamp.nn.distributed.FP8DistributedDataParallel will handle them.
         fp8_names = []
         for module_name, module in model.named_modules():
             for param_name, param in module.named_parameters(recurse=False):
