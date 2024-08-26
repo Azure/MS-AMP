@@ -6,8 +6,8 @@
 from msamp.common.utils.logging import MsAmpLogger
 from msamp.common.utils.lazy_import import LazyImport
 from msamp.common.utils.dist import DistUtil
-from msamp.common.utils.device import Device
+from msamp.common.utils.device import Device, GPUType
 
 TransformerEngineWrapper = LazyImport('msamp.common.utils.transformer_engine_wrapper', 'TransformerEngineWrapper')
 
-__all__ = ['MsAmpLogger', 'TransformerEngineWrapper', 'DistUtil', 'Device']
+__all__ = ['MsAmpLogger', 'TransformerEngineWrapper', 'DistUtil', 'Device', 'GPUType']

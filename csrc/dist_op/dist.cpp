@@ -2,21 +2,21 @@
 // Licensed under the MIT License.
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include <dlfcn.h>
-#include <execinfo.h>
-#include <unistd.h>
 
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <cuda_bf16.h>
+#ifdef __HIP_PLATFORM_AMD__
+#include <hip/hip_runtime.h>
+#include <rccl.h>
+#define stream_t hipStream_t
+#else
 #include <nccl.h>
-#include <nccl_net.h>
+#define stream_t cudaStream_t
+
+#endif
 
 enum FP8ModeType {kFP8Disabled, kFP8E4M3, kFp8E5M2};
 static enum FP8ModeType gFP8Mode = kFP8Disabled;
+
 
 extern "C"
 void disable_fp8() {
@@ -39,9 +39,9 @@ void enable_fp8_e5m2() {
 #undef ncclAllReduce
 extern "C"
 ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count,
-  ncclDataType_t datatype, ncclRedOp_t op, ncclComm_t comm, cudaStream_t stream) {
+  ncclDataType_t datatype, ncclRedOp_t op, ncclComm_t comm, stream_t stream) {
   using ncclAllReduceFuncType = ncclResult_t (*)
-    (const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, ncclComm_t, cudaStream_t);
+    (const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, ncclComm_t, stream_t);
   ncclAllReduceFuncType real_nccl_all_reduce = reinterpret_cast<ncclAllReduceFuncType>(dlsym(RTLD_NEXT, "ncclAllReduce"));
   if (real_nccl_all_reduce == nullptr) {
     printf("MSAMP_DistOp: Failed to find ncclAllReduce symbol");
@@ -54,6 +54,7 @@ ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count,
   } else {
     return real_nccl_all_reduce(sendbuff, recvbuff, count, datatype, op, comm, stream);
   }
+  return real_nccl_all_reduce(sendbuff, recvbuff, count, datatype, op, comm, stream);
 
 }
 
@@ -63,10 +64,10 @@ ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count,
 #undef ncclReduce
 extern "C"
 ncclResult_t  ncclReduce(const void* sendbuff, void* recvbuff, size_t count, ncclDataType_t datatype,
-  ncclRedOp_t op, int root, ncclComm_t comm, cudaStream_t stream)
+  ncclRedOp_t op, int root, ncclComm_t comm, stream_t stream)
 {
   using ncclReduceFuncType = ncclResult_t (*)
-    (const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, int, ncclComm_t, cudaStream_t);
+    (const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, int, ncclComm_t, stream_t);
   ncclReduceFuncType real_nccl_reduce = reinterpret_cast<ncclReduceFuncType>(dlsym(RTLD_NEXT, "ncclReduce"));
   if (real_nccl_reduce == nullptr) {
     printf("MSAMP_DistOp: Failed to find ncclReduce symbol");
@@ -86,9 +87,9 @@ ncclResult_t  ncclReduce(const void* sendbuff, void* recvbuff, size_t count, ncc
 */
 #undef ncclReduceScatter
 ncclResult_t ncclReduceScatter(const void* sendbuff, void* recvbuff, size_t recvcount,
-    ncclDataType_t datatype, ncclRedOp_t op, ncclComm* comm, cudaStream_t stream) {
+    ncclDataType_t datatype, ncclRedOp_t op, ncclComm* comm, stream_t stream) {
   using ncclReduceScatterFuncType = ncclResult_t (*)
-    (const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, ncclComm*, cudaStream_t);
+    (const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, ncclComm*, stream_t);
   ncclReduceScatterFuncType real_nccl_reduce_scatter = reinterpret_cast<ncclReduceScatterFuncType>(dlsym(RTLD_NEXT, "ncclReduceScatter"));
   if (real_nccl_reduce_scatter == nullptr) {
     printf("MSAMP_DistOp: Failed to find ncclReduceScatter symbol");
