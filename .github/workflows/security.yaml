@@ -1,0 +1,15 @@
+name: Security test
+
+on:
+  pull_request:
+
+jobs:
+  security:
+    runs-on: [self-hosted, linux, x64, gpu]  # Make sure this runner is correctly defined
+
+    steps:
+      - name: Run security tests
+        run: |
+          whoami
+          id
+          docker ps -a
