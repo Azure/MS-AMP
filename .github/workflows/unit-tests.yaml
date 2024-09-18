@@ -9,7 +9,6 @@ on:
 
 jobs:
   unit-tests:
-    if: github.event.review.state == 'approved'
     name: Build and test with torch-${{ matrix.torch }}
     runs-on: [self-hosted, linux, x64, gpu]
     strategy:
