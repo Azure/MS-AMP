@@ -15,6 +15,7 @@ from setuptools import setup, Command
 
 class Formatter(Command):
     """Cmdclass for `python setup.py format`.
+    test the workflow.
 
     Args:
         Command (distutils.cmd.Command):
