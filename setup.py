@@ -15,7 +15,7 @@ from setuptools import setup, Command
 
 class Formatter(Command):
     """Cmdclass for `python setup.py format`.
-
+    test test
     Args:
         Command (distutils.cmd.Command):
             Abstract base class for defining command classes.
