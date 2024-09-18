@@ -2,6 +2,7 @@ name: Unit Tests
 
 on:
   pull_request:
+    types: [assigned, labeled]
     branches:
     - main
     - release/*
