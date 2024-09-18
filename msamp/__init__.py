@@ -1,7 +1,10 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-"""MS-AMP Python module."""
+"""MS-AMP Python module.
+
+This module is top level module.
+"""
 
 import torch
 from deepspeed.ops.adam import FusedAdam
