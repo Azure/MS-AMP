@@ -14,7 +14,7 @@ on:
 jobs:
   docker:
     name: Docker build ${{ matrix.name }}
-    runs-on: [self-hosted, linux, x64, gpu]
+    runs-on: ubuntu-latest
     timeout-minutes: 600
     permissions:
       contents: read
