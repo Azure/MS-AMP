@@ -15,24 +15,29 @@ class Floating:
     qfp_max: dict = {}
 
     @staticmethod
-    def _get_fp_max(exp, man, inf_existed=True):
+    def _get_fp_max(exp, man, inf_existed=True, nan_existed=True):
         """Computes the maximum floating point value by exponent and mantissa.
 
         Args:
             exp (int): Number of exponent bits.
             man (int): Number of mantissa bits.
             inf_existed(bool): Whether represent infinite when exponent bits are all one.
+            nan_existed(bool): Whether represent NaN (Not a Number) when exponent bits and mantissa bits are all one.
 
         Return:
             value (float): The float point value.
         """
         e_bias = np.power(2., exp - 1) - 1
         if inf_existed:
+            assert nan_existed, "NaN should be existed when inf is existed."
             max_value_exp = (np.power(2.0, exp) - 1) - e_bias - man - 1
             max_value_man = np.power(2.0, man + 1) - 1
         else:
             max_value_exp = (np.power(2.0, exp) - 1) - e_bias - man
-            max_value_man = np.power(2.0, man + 1) - 2
+            if nan_existed:
+                max_value_man = np.power(2.0, man + 1) - 2
+            else:
+                max_value_man = np.power(2.0, man + 1) - 1
         return float(np.power(2.0, max_value_exp) * max_value_man)
 
 
