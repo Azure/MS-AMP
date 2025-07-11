@@ -4,15 +4,14 @@
 """fp4_quantize module."""
 
 import torch
-import time
 from typing import Literal
 
 from msamp.common.tensor import ScalingMeta
 
-import msamp_quant
+import msamp_quantize
 
 
-class FP4_QUANT:
+class FP4_QUANTIZER:
     """FP4 Quantization operator."""
     @staticmethod
     def apply_DGE_item(
@@ -36,7 +35,7 @@ class FP4_QUANT:
             raise ValueError('The input tensor is not in bfloat16.')
 
         output_tensor = torch.zeros_like(input_tensor)
-        msamp_quant.launch_differentiable_quantize_derivative(input_tensor, output_tensor, k, power_clamp_max, torch.numel(input_tensor))
+        msamp_quantize.launch_differentiable_quantize_derivative(input_tensor, output_tensor, k, power_clamp_max, torch.numel(input_tensor))
         return output_tensor
 
 
@@ -143,7 +142,7 @@ class FP4_QUANT:
 
         # handle outlier clipping
         if outlier_clip:
-            input_tensor, residual = FP4_QUANT._apply_quantile_clipping(input_tensor, clip_threshold, channel_wise, token_wise, return_residual=residual_compensation)
+            input_tensor, residual = FP4_QUANTIZER._apply_quantile_clipping(input_tensor, clip_threshold, channel_wise, token_wise, return_residual=residual_compensation)
 
         # get amax
         if channel_wise:
@@ -165,7 +164,7 @@ class FP4_QUANT:
         scaled_input = input_tensor * sf        # this * operation can handle matrix-tensor broadcasting. For example, (3, 4) * (4,) -> (3, 4)
         if format == 'e2m1':
             output_tensor = torch.zeros_like(scaled_input)
-            msamp_quant.quantize_bf16(scaled_input, output_tensor, torch.numel(scaled_input))
+            msamp_quantize.quantize_bf16(scaled_input, output_tensor, torch.numel(scaled_input))
         else:
             output_tensor = torch.round(scaled_input)
         output_tensor.div_(sf)      # this .div_() method can also handle matrix-tensor broadcasting
