@@ -15,6 +15,11 @@ from msamp.operators.gemm import Gemm
 
 import os
 
+""" Below are the environment variables to control the FP4 quantization behavior, based on https://arxiv.org/abs/2501.17116 
+Using 'MSAMP_USE_WEIGHT_SIMULATE_FP4' to control if weight quantization is used.
+Using 'MSAMP_USE_WEIGHT_DIFFERENTIABLE_GRADIENT_ESTIMATOR' to control if DGE (Differentiable Gradient Estimator) is used.
+Using 'MSAMP_USE_ACTIVATION_SIMULATE_FP4' to control if activation quantization is used.
+"""
 MSAMP_USE_WEIGHT_SIMULATE_FP4 = bool(int(os.getenv('MSAMP_USE_WEIGHT_SIMULATE_FP4', 0)))
 MSAMP_USE_WEIGHT_DIFFERENTIABLE_GRADIENT_ESTIMATOR = bool(int(os.getenv('MSAMP_USE_WEIGHT_DIFFERENTIABLE_GRADIENT_ESTIMATOR', 0)))
 MSAMP_USE_ACTIVATION_SIMULATE_FP4 = bool(int(os.getenv('MSAMP_USE_ACTIVATION_SIMULATE_FP4', 0)))

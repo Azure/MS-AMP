@@ -1,7 +1,10 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-"""fp4_quantize module."""
+"""fp4_quantize module. 
+Algorithm based on https://arxiv.org/abs/2501.17116. Provided basic python interface of FP4 quantization 
+and DGE (Differentiable Gradient Estimator) for more accurate gradient update in FP4 training.
+"""
 
 import torch
 from typing import Literal
@@ -12,7 +15,7 @@ import msamp_quantize
 
 
 class FP4_QUANTIZER:
-    """FP4 Quantization operator."""
+    """FP4 Quantization operator. Algorithm based on https://arxiv.org/abs/2501.17116."""
     @staticmethod
     def apply_DGE_item(
         input_tensor: torch.Tensor,

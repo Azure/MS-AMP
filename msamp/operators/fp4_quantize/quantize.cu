@@ -10,6 +10,8 @@
 
 #include "../../common/include/common.h"
 
+// Algorithm based on https://arxiv.org/abs/2501.17116
+// Provided CUDA kernel inplementation of Simulated FP4 Quantization and DGE(Differentiable Gradient Estimator)
 
 __global__ void quantize_bf16_kernel(const __nv_bfloat16* x, __nv_bfloat16* output, int x_size) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
