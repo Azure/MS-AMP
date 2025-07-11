@@ -55,13 +55,11 @@ void quantize_bf16(at::Tensor input, at::Tensor output, int size) {
     const __nv_bfloat16* input_data = reinterpret_cast<const __nv_bfloat16*>(input.data_ptr<at::BFloat16>());  
     __nv_bfloat16* output_data = reinterpret_cast<__nv_bfloat16*>(output.data_ptr<at::BFloat16>()); 
 
-    const int threadsPerBlock = HIP_GET_NUM_THREADS(size);              // 512
-    // const int blocks = HIP_GET_BLOCKS(size, threadsPerBlock);        // max grid num: HIP_MAX_GRID_NUM = 65535
+    const int threadsPerBlock = HIP_GET_NUM_THREADS(size);
     const int blocks = (size + threadsPerBlock - 1) / threadsPerBlock;
     cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
     quantize_bf16_kernel<<<blocks, threadsPerBlock, 0, stream>>>(input_data, output_data, size);
-    // cudaDeviceSynchronize();
 }
 
 
@@ -123,13 +121,11 @@ void launch_differentiable_quantize_derivative(
     const __nv_bfloat16* input_data = reinterpret_cast<const __nv_bfloat16*>(input.data_ptr<at::BFloat16>());  
     __nv_bfloat16* output_data = reinterpret_cast<__nv_bfloat16*>(output.data_ptr<at::BFloat16>()); 
 
-    const int threadsPerBlock = HIP_GET_NUM_THREADS(size);              // 512
-    // const int blocks = HIP_GET_BLOCKS(size, threadsPerBlock);        // max grid num: HIP_MAX_GRID_NUM = 65535
+    const int threadsPerBlock = HIP_GET_NUM_THREADS(size);
     const int blocks = (size + threadsPerBlock - 1) / threadsPerBlock;
     cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
     differentiable_quantize_derivative<<<blocks, threadsPerBlock, 0, stream>>>(input_data, output_data, k, power_clamp_max, size);
-    // cudaDeviceSynchronize();
 }
 
 
