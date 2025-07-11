@@ -31,7 +31,7 @@ class FP4QuantTestCase(unittest.TestCase):
         '''Check the quantization of input tensor.'''
         input_tensor = torch.tensor([[[0.001, 0.048, 0.0997], [0.1503, 0.2002, 0.2497], [0.2974, 0.30699, 0.4001]]], dtype=torch.bfloat16).cuda()
         target_tensor = torch.tensor([[[0.0, 0.0625, 0.125], [0.125, 0.1875, 0.25], [0.25, 0.25, 0.375]]], dtype=torch.bfloat16).cuda()
-        output_tensor = FP4_QUANTIZER.quantize_simu_fp4_in_bf16(input_tensor, format='e2m1', nan_existed=False)
+        output_tensor = FP4_QUANTIZER.quantize_simulate_fp4_in_bf16(input_tensor, format='e2m1', nan_existed=False)
         self.assertTrue(torch.allclose(output_tensor, target_tensor))
 
         input_tensor = torch.tensor(
@@ -46,9 +46,9 @@ class FP4QuantTestCase(unittest.TestCase):
               [ [-3.0,  4.0, -32.0],
                 [0.75,  -1.5,  16.0], ]
             ], dtype=torch.bfloat16).cuda()
-        output_tensor = FP4_QUANTIZER.quantize_simu_fp4_in_bf16(input_tensor, format='e2m1', nan_existed=False, channel_wise=True)
+        output_tensor = FP4_QUANTIZER.quantize_simulate_fp4_in_bf16(input_tensor, format='e2m1', nan_existed=False, channel_wise=True)
         self.assertTrue(torch.allclose(output_tensor, target_tensor))
         
-        output_tensor = FP4_QUANTIZER.quantize_simu_fp4_in_bf16(input_tensor.view(-1, 3).T, format='e2m1', nan_existed=False, token_wise=True)      # token-wise outlier.
+        output_tensor = FP4_QUANTIZER.quantize_simulate_fp4_in_bf16(input_tensor.view(-1, 3).T, format='e2m1', nan_existed=False, token_wise=True)      # token-wise outlier.
         self.assertTrue(torch.allclose(output_tensor, target_tensor.view(-1, 3).T))
         

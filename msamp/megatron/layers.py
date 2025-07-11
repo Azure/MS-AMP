@@ -59,7 +59,7 @@ class FP8LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function
         old_meta_group = input_meta.group
         input_meta.group = tp_group
         if MSAMP_USE_ACTIVATION_SIMULATE_FP4:
-            fp4_input_in_float = FP4_QUANTIZER.quantize_simu_fp4_in_bf16(input.bfloat16(), format='e2m1', nan_existed=False, token_wise=True, outlier_clip=True, clip_threshold=0.99)
+            fp4_input_in_float = FP4_QUANTIZER.quantize_simulate_fp4_in_bf16(input.bfloat16(), format='e2m1', nan_existed=False, token_wise=True, outlier_clip=True, clip_threshold=0.99)
             input_fp8 = fp4_input_in_float.cast(Dtypes.kfloat8_e4m3, meta=input_meta, sync=sequence_parallel)
         else:
             input_fp8 = input.cast(Dtypes.kfloat8_e4m3, meta=input_meta, sync=sequence_parallel)
@@ -70,9 +70,9 @@ class FP8LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function
 
         if MSAMP_USE_WEIGHT_SIMULATE_FP4:
             if MSAMP_USE_WEIGHT_DIFFERENTIABLE_GRADIENT_ESTIMATOR:
-                fp4_weight_in_float, scaled_w = FP4_QUANTIZER.quantize_simu_fp4_in_bf16(weight.bfloat16(), format='e2m1', nan_existed=False, channel_wise=True, return_scaled_input_for_bwd=True)
+                fp4_weight_in_float, scaled_w = FP4_QUANTIZER.quantize_simulate_fp4_in_bf16(weight.bfloat16(), format='e2m1', nan_existed=False, channel_wise=True, return_scaled_input_for_bwd=True)
             else:
-                fp4_weight_in_float = FP4_QUANTIZER.quantize_simu_fp4_in_bf16(weight.bfloat16(), format='e2m1', nan_existed=False, channel_wise=True)
+                fp4_weight_in_float = FP4_QUANTIZER.quantize_simulate_fp4_in_bf16(weight.bfloat16(), format='e2m1', nan_existed=False, channel_wise=True)
             weight_fp8 = fp4_weight_in_float.cast(Dtypes.kfloat8_e4m3)
         else:
             weight_fp8 = weight.cast(Dtypes.kfloat8_e4m3)

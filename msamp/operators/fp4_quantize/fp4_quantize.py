@@ -21,7 +21,8 @@ class FP4_QUANTIZER:
     ) -> torch.Tensor:
         """
         Apply DGE item to input tensor. Note that this function is fixed to E2M1 format with no NaN.
-        
+        DGE: Abbreviation of the method 'Differentiable Gradient Estimator' for more accurate gradient update in FP4 training.
+
         Args:
             input (torch.Tensor): input tensor.
             k (float): parameter k to determine the sharpness of the differentiable quantization estimator.
@@ -99,7 +100,7 @@ class FP4_QUANTIZER:
 
 
     @staticmethod
-    def quantize_simu_fp4_in_bf16(
+    def quantize_simulate_fp4_in_bf16(
         input_tensor: torch.Tensor,
         format: Literal['e2m1', 'e1m2'] = 'e1m2',
         nan_existed: bool = False,
@@ -155,8 +156,7 @@ class FP4_QUANTIZER:
             amax = input_tensor.abs().max()
             scale = torch.ones((), dtype=input_tensor.dtype, device='cuda')
         # compute scaling factor
-        # fp_max = Floating._get_fp_max(exp=2, man=1, inf_existed=False, nan_existed=nan_existed)     # fixed
-        fp_max = 6.0 if format == 'e2m1' else 7.0       # for e1m2, actually it is 3.5, but we *2 for directly round()
+        fp_max = 6.0 if format == 'e2m1' else 7.0       # Fixed. For e1m2, actually it is 3.5, but we *2 for directly round()
         margin = 0
         sf = ScalingMeta.compute_scaling_factor(amax, scale, fp_max, margin)
         
