@@ -147,22 +147,21 @@ def fsdp_main(rank, world_size, args):
 
     model = Net().to(rank)
 
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+
     if args.msamp:
-        from msamp.fsdp import FsdpReplacer
+        import msamp
         from msamp.fsdp import FP8FullyShardedDataParallel
-        model = FsdpReplacer.replace(model)
+        from msamp.optim import FSDPAdamW
+        from msamp.common.dtype import Dtypes
+        model, optimizer = msamp.initialize(model, optimizer, use_fsdp=True, weight_qtype=Dtypes.kfloat8_e4m3)
         model = FP8FullyShardedDataParallel(model, use_orig_params=True, auto_wrap_policy=my_auto_wrap_policy)
+        optimizer = FSDPAdamW(optimizer)
     else:
         model = FSDP(model, use_orig_params=True, auto_wrap_policy=my_auto_wrap_policy)
 
     if rank == 0:
         print(f'FSDP model: {model}')
-
-    if args.msamp:
-        from msamp.optim import FSDPAdam
-        optimizer = FSDPAdam(model.parameters(), lr=args.lr)
-    else:
-        optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     init_start_event.record()
