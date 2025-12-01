@@ -4,6 +4,7 @@
 """MS-AMP ScalingMeta."""
 
 import copy
+from typing import Optional
 import torch
 
 from msamp.common.dtype import Floating, Dtypes
@@ -13,7 +14,7 @@ class ScalingMeta:
     """The meta data for scaling tensor."""
     in_time_scaling: bool = True
 
-    def __init__(self, qtype, scale=None, scale_inv=None, amax=None, window_size=1, group=None):
+    def __init__(self, qtype, scale=None, scale_inv=None, amax=None, window_size=1, pre_scale=None, group=None):
         """Constructor.
 
         Args:
@@ -22,11 +23,13 @@ class ScalingMeta:
             scale_inv (torch.Tensor, optional): The reciprocal of scaling tensor, defaults to None.
             amax (torch.Tensor, optional): Absolute maximum tensor, defaults to None.
             window_size (int, optional): Window size, defaults to 1.
+            pre_scale (torch.Tensor, optional): A pre-scale factor
             group (torch.distributed.ProcessGroup, optional): Distributed group, defaults to None.
         """
         self.qtype = qtype
         self.scale = scale if scale is not None else torch.ones((), device='cuda')
         self.scale_inv = scale_inv if scale_inv is not None else torch.ones((), device='cuda')
+        self.pre_scale = pre_scale if pre_scale is not None else torch.ones((), device='cuda')
         self.amax = amax if amax is not None else torch.zeros((window_size, ), device='cuda')
         self.amax_counter = torch.zeros((), dtype=torch.int32)
         self.window_size = window_size
@@ -36,7 +39,7 @@ class ScalingMeta:
 
     @staticmethod
     @torch.jit.script
-    def compute_scaling_factor(amax, scale, fp_max: float, margin: int):
+    def compute_scaling_factor(amax, scale, fp_max: float, margin: int, pre_scale: Optional[torch.Tensor] = None):
         """A function to compute scaling factor.
 
         Args:
@@ -44,12 +47,15 @@ class ScalingMeta:
             scale (torch.Tensor): Scale tensor.
             fp_max (float): The maximum value of float point.
             margin (int): Margin value.
+            pre_scale (torch.Tensor, optional): A pre-scale factor
 
         Returns:
             return new scaling tensor.
         """
         exp = torch.floor(torch.log2(fp_max / amax)) - margin
         sf = torch.round(torch.pow(2, torch.abs(exp)))
+        if pre_scale is not None:
+            sf.mul_(pre_scale)
         sf = torch.where(amax > 0.0, sf, scale)
         sf = torch.where(torch.isfinite(amax), sf, scale)
         sf = torch.where(exp < 0, 1 / sf, sf)
@@ -108,7 +114,7 @@ class ScalingMeta:
             self.scale.fill_(1)
         else:
             fp_max = Floating.qfp_max[qtype]
-            sf = ScalingMeta.compute_scaling_factor(self.amax[0], self.scale, fp_max, 0)
+            sf = ScalingMeta.compute_scaling_factor(self.amax[0], self.scale, fp_max, 0, pre_scale=self.pre_scale)
             self.scale.copy_(sf)
 
     def copy_(self, src):
@@ -122,6 +128,7 @@ class ScalingMeta:
         self.scale_inv.copy_(src.scale_inv)
         self.amax.copy_(src.amax)
         self.amax_counter.copy_(src.amax_counter)
+        self.pre_scale.copy_(src.pre_scale)
         self.window_size = src.window_size
 
     def clone(self):
@@ -156,4 +163,5 @@ class ScalingMeta:
         """
         return f'ScalingMeta(qtype={self.qtype}, '\
                f'scale={self.scale.data:g}, scale_inv={self.scale_inv.data:g}, '\
+               f'pre_scale={self.pre_scale.data:g}, '\
                f'amax={self.amax.max():g}, window_size={self.window_size})'
