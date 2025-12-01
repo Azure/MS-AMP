@@ -13,6 +13,19 @@ from msamp.common.dtype import Dtypes
 from msamp.common.tensor import ScalingTensor
 from msamp.operators.gemm import Gemm
 
+import os
+
+""" Below are the environment variables to control the FP4 quantization behavior, based on https://arxiv.org/abs/2501.17116 
+Using 'MSAMP_USE_WEIGHT_SIMULATE_FP4' to control if weight quantization is used.
+Using 'MSAMP_USE_WEIGHT_DIFFERENTIABLE_GRADIENT_ESTIMATOR' to control if DGE (Differentiable Gradient Estimator) is used.
+Using 'MSAMP_USE_ACTIVATION_SIMULATE_FP4' to control if activation quantization is used.
+"""
+MSAMP_USE_WEIGHT_SIMULATE_FP4 = bool(int(os.getenv('MSAMP_USE_WEIGHT_SIMULATE_FP4', 0)))
+MSAMP_USE_WEIGHT_DIFFERENTIABLE_GRADIENT_ESTIMATOR = bool(int(os.getenv('MSAMP_USE_WEIGHT_DIFFERENTIABLE_GRADIENT_ESTIMATOR', 0)))
+MSAMP_USE_ACTIVATION_SIMULATE_FP4 = bool(int(os.getenv('MSAMP_USE_ACTIVATION_SIMULATE_FP4', 0)))
+
+from msamp.operators.fp4_quantize import FP4_QUANTIZER
+
 
 class FP8LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
     """A linear function with FP8 support, grad accumulation and async communication."""
@@ -50,19 +63,32 @@ class FP8LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function
 
         old_meta_group = input_meta.group
         input_meta.group = tp_group
-        input_fp8 = input.cast(Dtypes.kfloat8_e4m3, meta=input_meta, sync=sequence_parallel)
+        if MSAMP_USE_ACTIVATION_SIMULATE_FP4:
+            fp4_input_in_float = FP4_QUANTIZER.quantize_simulate_fp4_in_bf16(input.bfloat16(), format='e2m1', nan_existed=False, token_wise=True, outlier_clip=True, clip_threshold=0.99)
+            input_fp8 = fp4_input_in_float.cast(Dtypes.kfloat8_e4m3, meta=input_meta, sync=sequence_parallel)
+        else:
+            input_fp8 = input.cast(Dtypes.kfloat8_e4m3, meta=input_meta, sync=sequence_parallel)
         input_meta.group = old_meta_group
 
         input_fp8.requires_grad = input.requires_grad
         input = input_fp8.value
 
-        weight_fp8 = weight.cast(Dtypes.kfloat8_e4m3)
+        if MSAMP_USE_WEIGHT_SIMULATE_FP4:
+            if MSAMP_USE_WEIGHT_DIFFERENTIABLE_GRADIENT_ESTIMATOR:
+                fp4_weight_in_float, scaled_w = FP4_QUANTIZER.quantize_simulate_fp4_in_bf16(weight.bfloat16(), format='e2m1', nan_existed=False, channel_wise=True, return_scaled_input_for_bwd=True)
+            else:
+                fp4_weight_in_float = FP4_QUANTIZER.quantize_simulate_fp4_in_bf16(weight.bfloat16(), format='e2m1', nan_existed=False, channel_wise=True)
+            weight_fp8 = fp4_weight_in_float.cast(Dtypes.kfloat8_e4m3)
+        else:
+            weight_fp8 = weight.cast(Dtypes.kfloat8_e4m3)
         weight_fp8.requires_grad = weight.requires_grad
 
         # save tensors
         ctx.input_fp8 = input_fp8
         ctx.weight_fp8 = weight_fp8
         ctx.weight = weight
+        if MSAMP_USE_WEIGHT_DIFFERENTIABLE_GRADIENT_ESTIMATOR:
+            ctx.save_for_backward(scaled_w)
 
         dim_size = list(input.size())
         if sequence_parallel:
@@ -175,6 +201,9 @@ class FP8LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function
             wgrad_qtype,
             use_split_accumulator=True,
         )
+        if MSAMP_USE_WEIGHT_DIFFERENTIABLE_GRADIENT_ESTIMATOR:
+            scaled_w = ctx.saved_tensors[0]
+            grad_weight.mul_(FP4_QUANTIZER.apply_DGE_item(scaled_w))
 
         grad_bias = grad_output.sum(dim=0) if use_bias else None
 
