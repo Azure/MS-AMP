@@ -109,6 +109,7 @@ class _FP8GemmFunction(torch.autograd.Function):
                     use_split_accumulator=True,
                 )
                 del old_wgrad
+
             if hasattr(ctx, 'return_wgrad') and ctx.return_wgrad:
                 wgrad = wgrad.cast(Dtypes.kfloat8_e4m3, meta=wgrad_meta, sync=True)
                 wgrad = wgrad.value.view(-1).view(dtype=torch.float32)
